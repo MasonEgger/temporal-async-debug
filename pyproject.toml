@@ -1,0 +1,30 @@
+[project]
+name = "temporal-async-debug"
+version = "0.1.0"
+requires-python = ">=3.14"
+dependencies = [
+    "temporalio",
+    "httpx",
+]
+
+[dependency-groups]
+dev = [
+    "ruff",
+    "mypy",
+    "pytest",
+    "pytest-cov",
+    "pytest-asyncio",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "N", "UP", "B", "SIM", "C4", "TC"]
+
+[tool.mypy]
+strict = true
