@@ -44,12 +44,20 @@ async def test_victim_workflow_happy_path_includes_label_and_result() -> None:
 
 
 async def test_victim_workflows_run_concurrently_with_distinct_labels() -> None:
-    """Several victims run concurrently, each completing with its own label reflected in the output."""
+    """Several victims run concurrently, each completing with its own label reflected in the output.
+
+    This runs under a real-time (start_local) environment, not the time-skipping one. VictimWorkflow
+    deliberately sets a 10s schedule_to_start_timeout (the Step 6 antipattern). Under time skipping
+    the test server auto-advances its clock while these five activity tasks queue, so a task can
+    cross the 10s schedule_to_start deadline before it starts and fail the workflow. Against a real
+    wall clock the five fast quick_task activities finish in milliseconds, nowhere near the deadline,
+    so the test is deterministic without softening the concurrency assertion below.
+    """
     labels = [f"check-{run_index}" for run_index in range(5)]
     """Distinct labels, one per concurrent victim run, checked back out of the results."""
 
     async with (
-        await WorkflowEnvironment.start_time_skipping() as env,
+        await WorkflowEnvironment.start_local() as env,
         Worker(
             env.client,
             task_queue=TASK_QUEUE,
