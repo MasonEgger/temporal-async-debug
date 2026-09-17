@@ -41,14 +41,14 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` compl
 
 ### Step 4: Event-Loop Starvation Probe Test
 
-- [ ] 1. RED: tests/test_starvation_probe.py (block mode misses ticks, slow mode keeps ticks)
-- [ ] 2. Document: module docstring explaining the deterministic proof
-- [ ] 3. GREEN: call _apply_mode directly or extract a pure inner function
-- [ ] 4. RED: comparative assertion (fewer ticks in block than slow)
-- [ ] 5. GREEN: tune thresholds to be reliable, not flaky
-- [ ] 6. REFACTOR: factor shared probe setup
-- [ ] 7. Docs: none
-- [ ] 8. Verify: test has teeth (fails if block branch becomes cooperative), run `just check`
+- [x] 1. RED: tests/test_starvation_probe.py (block mode misses ticks, slow mode keeps ticks)
+- [x] 2. Document: module docstring explaining the deterministic proof
+- [x] 3. GREEN: call _apply_mode directly or extract a pure inner function
+- [x] 4. RED: comparative assertion (fewer ticks in block than slow)
+- [x] 5. GREEN: tune thresholds to be reliable, not flaky
+- [x] 6. REFACTOR: factor shared probe setup
+- [x] 7. Docs: none
+- [x] 8. Verify: test has teeth (fails if block branch becomes cooperative), run `just check`
 
 ## Section 3: Workflows
 
