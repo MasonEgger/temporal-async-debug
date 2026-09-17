@@ -2,6 +2,7 @@
 
 ## Recent
 
+- An error-path test that asserts only the exception type does not prove a retry policy is disabled; record `activity.info().attempt` per invocation and assert the attempt count (`== [1]` for `maximum_attempts=1`) so the test fails if retries come back (2026-09-17)
 - For timing-based probe tests, pick gap thresholds with wide slack in one pass (block 0.5 s against a 0.4 s floor, not 0.45 s); do not re-run the suite to tune thresholds to the edge, which invites flakiness and a hung tuning loop (2026-09-17)
 - Test an activity's heartbeat ordering by assigning `ActivityEnvironment.on_heartbeat`; it receives the same `*details` the activity passed to `activity.heartbeat`, so no worker needs to run (2026-09-17)
 - pytest exits 5 when it collects no tests, which fails a `just check` gate; give a freshly scaffolded package a single import smoke test rather than loosening the gate (2026-09-17)
@@ -14,6 +15,7 @@
 
 ## Testing
 
+- An error-path test that asserts only the exception type does not prove a retry policy is disabled; record `activity.info().attempt` per invocation and assert the attempt count (`== [1]` for `maximum_attempts=1`) so the test fails if retries come back (2026-09-17)
 - For timing-based probe tests, pick gap thresholds with wide slack in one pass (block 0.5 s against a 0.4 s floor, not 0.45 s); do not re-run the suite to tune thresholds to the edge, which invites flakiness and a hung tuning loop (2026-09-17)
 - pytest exits 5 when it collects no tests, which fails a `just check` gate; give a freshly scaffolded package a single import smoke test rather than loosening the gate (2026-09-17)
 

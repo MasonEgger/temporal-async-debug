@@ -54,14 +54,14 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` compl
 
 ### Step 5: Misbehaving Greeting Workflow
 
-- [ ] 1. RED: tests/test_workflow.py happy path (start_time_skipping, stubbed activities, output shape, ordering)
-- [ ] 2. Document: GreetingWorkflow class docstring
-- [ ] 3. GREEN: workflow.py GreetingWorkflow with timeouts and antipattern marker on maximum_attempts=1
-- [ ] 4. RED: error-path test (get_ip raises, workflow fails, no silent retry)
-- [ ] 5. GREEN: wire failure to surface
-- [ ] 6. REFACTOR: clean activity-execution calls for excerpting
-- [ ] 7. Docs: none
-- [ ] 8. Verify: coverage of orchestration and no-retry behavior, run `just check`
+- [x] 1. RED: tests/test_workflow.py happy path (start_time_skipping, stubbed activities, output shape, ordering)
+- [x] 2. Document: GreetingWorkflow class docstring
+- [x] 3. GREEN: workflow.py GreetingWorkflow with timeouts and antipattern marker on maximum_attempts=1
+- [x] 4. RED: error-path test (get_ip raises, workflow fails, no silent retry)
+- [x] 5. GREEN: wire failure to surface
+- [x] 6. REFACTOR: clean activity-execution calls for excerpting
+- [x] 7. Docs: none
+- [x] 8. Verify: coverage of orchestration and no-retry behavior, run `just check`
 
 ### Step 6: Innocent Victim Workflow
 
