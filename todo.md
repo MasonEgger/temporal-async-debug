@@ -104,19 +104,19 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` compl
 
 ### Step 9: README And License (task)
 
-- [ ] 1. Scope defined (README.md, LICENSE)
-- [ ] 2. Tooling: tutorial-writing before drafting, review-content after, temporal skill + MCP to verify metric names and behavior claims
-- [ ] 3. Do: LICENSE (MIT, Mason Egger, 2026)
-- [ ] 3. Do: README what-it-demonstrates + deliberately-broken warning
-- [ ] 3. Do: README three-terminal quickstart
-- [ ] 3. Do: README Lesson 1 frozen loop (healthy vs broken asyncio ps and metrics shapes)
-- [ ] 3. Do: README Lesson 2 exhausted slots (slots-available 0, latency, poller vanishing)
-- [ ] 3. Do: README distinguishing summary
-- [ ] 3. Do: README platform gotchas (3.14+, Yama ptrace_scope, macOS sudo, transient asyncio ps)
-- [ ] 3. Do: README antipattern marker grep note
-- [ ] 3. Do: README tutorial link placeholder (masonegger.com TODO)
-- [ ] 4. Verify: review-content pass on README.md, then human-check writing rules, commands/URL match worker.py, warning present, MIT valid
-- [ ] 5. Document: this step is the documentation
+- [x] 1. Scope defined (README.md, LICENSE)
+- [x] 2. Tooling: tutorial-writing before drafting, review-content after, temporal skill (MCP unavailable this dispatch; verified claims against temporal skill + code)
+- [x] 3. Do: LICENSE (MIT, Mason Egger, 2026)
+- [x] 3. Do: README what-it-demonstrates + deliberately-broken warning
+- [x] 3. Do: README three-terminal quickstart
+- [x] 3. Do: README Lesson 1 frozen loop (healthy vs broken asyncio ps and metrics shapes)
+- [x] 3. Do: README Lesson 2 exhausted slots (slots-available 0, latency, poller vanishing)
+- [x] 3. Do: README distinguishing summary
+- [x] 3. Do: README platform gotchas (3.14+, Yama ptrace_scope, macOS sudo, transient asyncio ps)
+- [x] 3. Do: README antipattern marker grep note
+- [x] 3. Do: README tutorial link placeholder (masonegger.com TODO)
+- [x] 4. Verify: review-content pass on README.md (Vale clean of errors), human-checked writing rules, commands/URL match worker.py, warning present, MIT valid
+- [x] 5. Document: this step is the documentation
 
 ### Step 10: CI Workflow, pip-audit, Dependabot (task)
 
