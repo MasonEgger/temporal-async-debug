@@ -78,16 +78,16 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` compl
 
 ### Step 7: Mistuned Worker With Metrics And Banner (task)
 
-- [ ] 1. Scope defined (worker.py, import-and-smoke verification)
-- [ ] 2. Tooling: python + temporal skill, temporal-docs MCP for API confirmation
-- [ ] 3. Do: async main and __main__ guard
-- [ ] 3. Do: Runtime with Prometheus telemetry on 127.0.0.1:9464 (API confirmed via MCP)
-- [ ] 3. Do: Client.connect localhost:7233 with runtime
-- [ ] 3. Do: Worker on TASK_QUEUE, both workflows, all activities, max_concurrent_activities=2, no activity_executor
-- [ ] 3. Do: antipattern marker on max_concurrent_activities line
-- [ ] 3. Do: startup banner with PID, introspection commands, metrics URL
-- [ ] 4. Verify: import succeeds, `just check` exits 0
-- [ ] 5. Document: none (banner/URL documented in README)
+- [x] 1. Scope defined (worker.py, import-and-smoke verification)
+- [x] 2. Tooling: python + temporal skill, temporal-docs MCP for API confirmation
+- [x] 3. Do: async main and __main__ guard
+- [x] 3. Do: Runtime with Prometheus telemetry on 127.0.0.1:9464 (API confirmed via MCP)
+- [x] 3. Do: Client.connect localhost:7233 with runtime
+- [x] 3. Do: Worker on TASK_QUEUE, both workflows, all activities, max_concurrent_activities=2, no activity_executor
+- [x] 3. Do: antipattern marker on max_concurrent_activities line
+- [x] 3. Do: startup banner with PID, introspection commands, metrics URL
+- [x] 4. Verify: import succeeds, `just check` exits 0
+- [x] 5. Document: none (banner/URL documented in README)
 
 ### Step 8: Starter CLI With Argument Parsing
 
