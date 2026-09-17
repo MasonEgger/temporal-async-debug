@@ -6,14 +6,14 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` compl
 
 ### Step 1: Package And Test Scaffolding (task)
 
-- [ ] 1. Scope defined (src package, py.typed, tests dir, conftest, pyproject edits)
-- [ ] 2. Tooling ready (uv, ruff, mypy, pytest)
-- [ ] 3. Do: create src/temporal_async_debug/__init__.py and py.typed
-- [ ] 3. Do: create tests/__init__.py and tests/conftest.py
-- [ ] 3. Do: add hatchling wheel target to pyproject.toml
-- [ ] 3. Do: add pytest asyncio/pythonpath/testpaths config to pyproject.toml
-- [ ] 4. Verify: `just check` exits 0 with zero tests collected
-- [ ] 5. Document: none
+- [x] 1. Scope defined (src package, py.typed, tests dir, conftest, pyproject edits)
+- [x] 2. Tooling ready (uv, ruff, mypy, pytest)
+- [x] 3. Do: create src/temporal_async_debug/__init__.py and py.typed
+- [x] 3. Do: create tests/__init__.py and tests/conftest.py
+- [x] 3. Do: add hatchling wheel target to pyproject.toml
+- [x] 3. Do: add pytest asyncio/pythonpath/testpaths config to pyproject.toml
+- [x] 4. Verify: `just check` exits 0 (one import smoke test collected; see deviation note)
+- [x] 5. Document: none
 
 ### Step 2: Shared Dataclasses And Task Queue Constant
 

@@ -1,6 +1,7 @@
 # BPE working artifacts (never commit)
 commit-msg.md
 goal.md
+.ai-sessions/implementation-notes.md
 
 # Python
 __pycache__/
