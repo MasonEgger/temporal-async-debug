@@ -17,14 +17,14 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` compl
 
 ### Step 2: Shared Dataclasses And Task Queue Constant
 
-- [ ] 1. RED: tests/test_shared.py (block_seconds default 0.0, mode default, frozen, TASK_QUEUE value)
-- [ ] 2. Document: module and class docstrings in shared.py
-- [ ] 3. GREEN: shared.py with TASK_QUEUE and four frozen dataclasses
-- [ ] 4. RED: round-trip test for GreetingInput values
-- [ ] 5. GREEN: satisfy round-trip test
-- [ ] 6. REFACTOR: field ordering and docstrings for excerpting
-- [ ] 7. Docs: none beyond docstrings
-- [ ] 8. Verify: coverage of the data contract, run `just check`
+- [x] 1. RED: tests/test_shared.py (block_seconds default 0.0, mode default, frozen, TASK_QUEUE value)
+- [x] 2. Document: module and class docstrings in shared.py
+- [x] 3. GREEN: shared.py with TASK_QUEUE and four frozen dataclasses
+- [x] 4. RED: round-trip test for GreetingInput values
+- [x] 5. GREEN: satisfy round-trip test
+- [x] 6. REFACTOR: field ordering and docstrings for excerpting
+- [x] 7. Docs: none beyond docstrings
+- [x] 8. Verify: coverage of the data contract, run `just check`
 
 ## Section 2: Activities And The Starvation Probe
 
