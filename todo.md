@@ -65,14 +65,14 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` compl
 
 ### Step 6: Innocent Victim Workflow
 
-- [ ] 1. RED: tests/test_victim.py happy path (start_time_skipping, output includes label, no network)
-- [ ] 2. Document: VictimWorkflow and quick_task docstrings
-- [ ] 3. GREEN: victim.py with quick_task and VictimWorkflow, antipattern marker on schedule_to_start_timeout
-- [ ] 4. RED: concurrent victim executions all succeed with distinct labels
-- [ ] 5. GREEN: wire concurrent test
-- [ ] 6. REFACTOR: keep victim.py minimal and obviously correct
-- [ ] 7. Docs: none
-- [ ] 8. Verify: coverage of victim orchestration, run `just check`
+- [x] 1. RED: tests/test_victim.py happy path (start_time_skipping, output includes label, no network)
+- [x] 2. Document: VictimWorkflow and quick_task docstrings
+- [x] 3. GREEN: victim.py with quick_task and VictimWorkflow, antipattern marker on schedule_to_start_timeout
+- [x] 4. RED: concurrent victim executions all succeed with distinct labels
+- [x] 5. GREEN: wire concurrent test
+- [x] 6. REFACTOR: keep victim.py minimal and obviously correct
+- [x] 7. Docs: none
+- [x] 8. Verify: coverage of victim orchestration, run `just check`
 
 ## Section 4: Worker And Starter CLI
 
