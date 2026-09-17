@@ -2,6 +2,7 @@
 
 ## Recent
 
+- Test an activity's heartbeat ordering by assigning `ActivityEnvironment.on_heartbeat`; it receives the same `*details` the activity passed to `activity.heartbeat`, so no worker needs to run (2026-09-17)
 - pytest exits 5 when it collects no tests, which fails a `just check` gate; give a freshly scaffolded package a single import smoke test rather than loosening the gate (2026-09-17)
 - Commit a plan or spec immediately after a `/bpe:review` outcome that needs no `/bpe:apply-review` changes; letting it ride uncommitted into `/bpe:goal` trips the pre-flight dirty-tree refusal (2026-09-17)
 - When a BPE slash command's arguments don't parse as one of its documented mode keywords, check whether the text is actually a different valid request (a config change, a clarification) before defaulting to the command's default mode (2026-09-17)
@@ -16,6 +17,7 @@
 
 ## Temporal
 
+- Test an activity's heartbeat ordering by assigning `ActivityEnvironment.on_heartbeat`; it receives the same `*details` the activity passed to `activity.heartbeat`, so no worker needs to run (2026-09-17)
 - `schedule_to_start_timeout` is non-retryable and normally an antipattern; it is useful in demos precisely because it converts slot exhaustion into a fast, visible failure (2026-09-16)
 
 ## Workflow

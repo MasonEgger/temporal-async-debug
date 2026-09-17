@@ -30,14 +30,14 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` compl
 
 ### Step 3: Misbehaving Activities With Mode Logic
 
-- [ ] 1. RED: tests/test_activities.py (heartbeat ordering, block calls time.sleep, slow awaits asyncio.sleep, healthy no-delay, mocked returns)
-- [ ] 2. Document: module docstring, HEALTHY_EQUIVALENTS constant, function docstrings
-- [ ] 3. GREEN: activities.py with get_ip, get_location, _apply_mode, antipattern marker on time.sleep
-- [ ] 4. RED: end-to-end ActivityEnvironment test (slow mode, both heartbeats, ordered results)
-- [ ] 5. GREEN: wire integration
-- [ ] 6. REFACTOR: keep mode branch a plain obvious if
-- [ ] 7. Docs: confirm HEALTHY_EQUIVALENTS and docstrings
-- [ ] 8. Verify: coverage of mode branching and heartbeat ordering, run `just check`
+- [x] 1. RED: tests/test_activities.py (heartbeat ordering, block calls time.sleep, slow awaits asyncio.sleep, healthy no-delay, mocked returns)
+- [x] 2. Document: module docstring, HEALTHY_EQUIVALENTS constant, function docstrings
+- [x] 3. GREEN: activities.py with get_ip, get_location, _apply_mode, antipattern marker on time.sleep
+- [x] 4. RED: end-to-end ActivityEnvironment test (slow mode, both heartbeats, ordered results)
+- [x] 5. GREEN: wire integration
+- [x] 6. REFACTOR: keep mode branch a plain obvious if
+- [x] 7. Docs: confirm HEALTHY_EQUIVALENTS and docstrings
+- [x] 8. Verify: coverage of mode branching and heartbeat ordering, run `just check`
 
 ### Step 4: Event-Loop Starvation Probe Test
 
