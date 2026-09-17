@@ -91,14 +91,14 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` compl
 
 ### Step 8: Starter CLI With Argument Parsing
 
-- [ ] 1. RED: tests/test_starter.py (defaults, mode choices, type parsing, full-flag parse)
-- [ ] 2. Document: starter.py module docstring describing flags
-- [ ] 3. GREEN: build_parser and async main with concurrent submissions
-- [ ] 4. RED: input-construction test (count -> N GreetingInput, victims -> N VictimInput distinct labels)
-- [ ] 5. GREEN: wire main to shared construction helpers
-- [ ] 6. REFACTOR: separate parsing, construction, submission
-- [ ] 7. Docs: none
-- [ ] 8. Verify: coverage of parsing and input construction, run `just check`
+- [x] 1. RED: tests/test_starter.py (defaults, mode choices, type parsing, full-flag parse)
+- [x] 2. Document: starter.py module docstring describing flags
+- [x] 3. GREEN: build_parser and async main with concurrent submissions
+- [x] 4. RED: input-construction test (count -> N GreetingInput, victims -> N VictimInput distinct labels)
+- [x] 5. GREEN: wire main to shared construction helpers
+- [x] 6. REFACTOR: separate parsing, construction, submission
+- [x] 7. Docs: none
+- [x] 8. Verify: coverage of parsing and input construction, run `just check`
 
 ## Section 5: Documentation And CI
 
