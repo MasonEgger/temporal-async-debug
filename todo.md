@@ -120,10 +120,10 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` compl
 
 ### Step 10: CI Workflow, pip-audit, Dependabot (task)
 
-- [ ] 1. Scope defined (.github/workflows/ci.yml, .github/dependabot.yml)
-- [ ] 2. Tooling: none
-- [ ] 3. Do: ci.yml on push and pull_request, single pinned Python 3.14, uv sync, just check, pip-audit
-- [ ] 3. Do: add pip-audit to dev group if missing
-- [ ] 3. Do: dependabot.yml for pip and github-actions, weekly
-- [ ] 4. Verify: `just check` exits 0, YAML parses
-- [ ] 5. Document: optional one-line CI note in README, else none
+- [x] 1. Scope defined (.github/workflows/ci.yml, .github/dependabot.yml)
+- [x] 2. Tooling: none
+- [x] 3. Do: ci.yml on push and pull_request, single pinned Python 3.14, uv sync, just check, pip-audit
+- [x] 3. Do: add pip-audit to dev group if missing
+- [x] 3. Do: dependabot.yml for pip and github-actions, weekly
+- [x] 4. Verify: `just check` exits 0, YAML parses
+- [x] 5. Document: none (chose the optional-skip path; CI stays minimal per non-goals)

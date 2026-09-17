@@ -15,6 +15,7 @@ dev = [
     "pytest-cov",
     "pytest-asyncio",
     "respx>=0.23.1",
+    "pip-audit",
 ]
 
 [build-system]
