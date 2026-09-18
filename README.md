@@ -130,9 +130,12 @@ just slow
 ```
 
 This runs the starter with `--mode slow --block-seconds 30 --count 2 --victims 3`.
-Slow mode awaits `asyncio.sleep(30)` instead of calling `time.sleep`, so the event loop keeps running.
+Slow mode awaits `asyncio.sleep` in short steps and heartbeats between them, so the event loop keeps running and the Activity holds its slot for the full 30 seconds.
 The problem here is capacity, not blocking.
-The Worker is mistuned with `max_concurrent_activities=2`, so the two slow Activities take both slots at once and leave nothing for the victims.
+The Worker is mistuned with `max_concurrent_activities=2`, so the two slow Activities take both slots and leave nothing for the victims.
+
+The starter sequences this run on purpose, so the failure is never a race.
+It starts the two greetings first, watches this slot gauge until it reads `0`, and only then submits the three victims, so each victim arrives with no slot to run in.
 
 Inspect the loop the same way you did in Step 2:
 
@@ -164,13 +167,14 @@ temporal_worker_task_slots_available{namespace="default",service_name="temporal-
 ```
 
 A value of `0` means the Worker has no free Activity slots, so it stops polling the Task Queue for new Activity tasks.
+The gauge holds at `0` for the whole 30 seconds, because each slow Activity keeps heartbeating and so keeps its slot the entire time.
 Schedule-to-start latency then climbs for every other Workflow on the queue, including the innocent victims, which you can watch on the `temporal_activity_schedule_to_start_latency` histogram.
 In the Temporal Web UI at `http://localhost:8233`, the Worker disappears from the Task Queue's poller list even though the process is alive and healthy, because it is no longer polling.
 
-One timing detail matters for what you will actually observe.
-The slow Activity heartbeats once and then awaits for 30 seconds, but `GreetingWorkflow` sets a 10 second `heartbeat_timeout` with `maximum_attempts=1`.
-Because slow mode is cooperative, the server cancels each slow Activity about 10 seconds in, when its heartbeat times out, and both slots free up then rather than at the full 30 seconds.
-So the exhaustion window you can catch with `curl` is roughly the first 10 to 14 seconds after `just slow`, not the whole block duration.
+The victims fail every run, not just sometimes.
+Each victim's `quick_task` sits in the queue with no slot to run in, so it hits `VictimWorkflow`'s 10 second `schedule_to_start_timeout` and the victim fails with an activity timeout while the slots are still held.
+The starter prints each one, for example `victim victim-0 FAILED: Activity task timed out`.
+That is the whole lesson: an undersized Worker starves innocent work, and the innocent work is what fails.
 
 Now that you have both failures on record, you can compare their signatures side by side.
 

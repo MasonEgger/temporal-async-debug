@@ -155,13 +155,32 @@ async def test_slow_mode_awaits_asyncio_sleep_and_never_blocks(
     mocked_network: respx.MockRouter,
     recorder: ActivityCallRecorder,
 ) -> None:
-    """Slow mode takes the same delay cooperatively, leaving the loop free to run other tasks."""
+    """Slow mode takes the same total delay cooperatively, leaving the loop free to run other tasks."""
     _route_ip_lookup(mocked_network, recorder)
 
     await activity_environment.run(get_ip, 30.0, "slow")
 
-    assert recorder.cooperative_sleeps == [30.0]
+    assert sum(recorder.cooperative_sleeps) == pytest.approx(30.0)
     assert recorder.blocking_sleeps == []
+
+
+async def test_slow_mode_heartbeats_between_steps_to_hold_its_slot(
+    activity_environment: ActivityEnvironment,
+    mocked_network: respx.MockRouter,
+    recorder: ActivityCallRecorder,
+) -> None:
+    """Slow mode heartbeats on every sleep step, so a long wait keeps reporting progress.
+
+    Without repeated heartbeats the workflow's 10 second heartbeat_timeout would cancel the slow
+    activity partway through and free its slot early, which would let the slot-exhaustion lesson race.
+    """
+    _route_ip_lookup(mocked_network, recorder)
+
+    await activity_environment.run(get_ip, 30.0, "slow")
+
+    slot_heartbeats = [event for event in recorder.events if event == "heartbeat:slow mode holding the activity slot"]
+    assert len(slot_heartbeats) == len(recorder.cooperative_sleeps)
+    assert len(slot_heartbeats) > 1
 
 
 @pytest.mark.parametrize("mode", ["block", "slow"])
@@ -218,8 +237,10 @@ async def test_slow_mode_runs_both_activities_in_order(
     assert location == EXPECTED_LOCATION
     assert recorder.events == [
         "heartbeat:fetching ip",
+        "heartbeat:slow mode holding the activity slot",
         "get:ip",
         "heartbeat:fetching location",
+        "heartbeat:slow mode holding the activity slot",
         "get:location",
     ]
     assert recorder.cooperative_sleeps == [0.01, 0.01]

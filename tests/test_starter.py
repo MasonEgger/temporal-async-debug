@@ -13,8 +13,27 @@ from temporal_async_debug.shared import GreetingInput, VictimInput
 from temporal_async_debug.starter import (
     build_parser,
     greeting_inputs_from_args,
+    parse_activity_slots_available,
     victim_inputs_from_args,
 )
+
+_LABELS = 'namespace="default",service_name="temporal-core-sdk",task_queue="async-debug-task-queue"'
+"""The label set the real worker emits, shared by the metrics-parsing fixtures below."""
+
+
+def _metrics_page(activity_free: int) -> str:
+    """Build a metrics page with the given ActivityWorker free-slot count.
+
+    The LocalActivityWorker line is included on purpose: its label contains "ActivityWorker" as a
+    substring, so parsing must not pick it up by mistake.
+    """
+    return (
+        "# HELP temporal_worker_task_slots_available Current number of available slots per task type\n"
+        "# TYPE temporal_worker_task_slots_available gauge\n"
+        f'temporal_worker_task_slots_available{{{_LABELS},worker_type="ActivityWorker"}} {activity_free}\n'
+        f'temporal_worker_task_slots_available{{{_LABELS},worker_type="LocalActivityWorker"}} 100\n'
+        f'temporal_worker_task_slots_available{{{_LABELS},worker_type="WorkflowWorker"}} 100\n'
+    )
 
 
 def test_flag_defaults() -> None:
@@ -99,3 +118,14 @@ def test_count_and_victims_default_to_single_and_none() -> None:
 
     assert len(greeting_inputs_from_args(args)) == 1
     assert victim_inputs_from_args(args) == []
+
+
+@pytest.mark.parametrize("activity_free", [0, 1, 2])
+def test_parse_activity_slots_reads_the_activity_worker_gauge(activity_free: int) -> None:
+    """The parser returns the ActivityWorker free-slot value, not the LocalActivityWorker one."""
+    assert parse_activity_slots_available(_metrics_page(activity_free)) == activity_free
+
+
+def test_parse_activity_slots_returns_none_when_absent() -> None:
+    """A metrics page without the activity slot gauge yields None, not a crash or a wrong reading."""
+    assert parse_activity_slots_available("# nothing relevant here\n") is None

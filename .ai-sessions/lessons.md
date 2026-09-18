@@ -2,6 +2,10 @@
 
 ## Recent
 
+- To hold an activity slot for a long cooperative wait, heartbeat every few seconds inside the wait (interval a few times shorter than heartbeat_timeout); otherwise the server cancels the activity at heartbeat_timeout and frees the slot early (2026-09-18)
+- To demo slot exhaustion without a race, fill the slots first and confirm it: submit the slot-holders, poll temporal_worker_task_slots_available until the ActivityWorker gauge reads 0, then submit the work that should starve, so it fails on schedule_to_start every run (2026-09-18)
+- When a shared helper is called both inside and outside an activity (e.g. reused by a Temporal-free test), guard activity.heartbeat with activity.in_activity() so the bare call does not raise (2026-09-18)
+
 - A cooperative slow-mode Activity that awaits `asyncio.sleep` without heartbeating gets cancelled at its `heartbeat_timeout` (10s here), not at the full sleep duration, so a slot-exhaustion window built on `--block-seconds 30` is really only ~10-14s wide; to hold slots for the full duration, heartbeat periodically during the wait or lengthen the heartbeat timeout (2026-09-18)
 - Capture real tool output for a tutorial before writing the prose; the live run produced the genuine `temporal_worker_task_slots_available` 0 line AND exposed the heartbeat-timeout timing that the spec and the first README draft both got wrong (2026-09-18)
 
