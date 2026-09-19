@@ -26,7 +26,9 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import os
 import re
+import sys
 import uuid
 
 import httpx
@@ -286,3 +288,15 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
+    # WORKAROUND: temporalio's default Core runtime owns a process-wide Tokio thread pool
+    # that Python only tears down during interpreter finalization, since neither Client
+    # nor the default Runtime exposes a public close/shutdown call
+    # (temporalio/sdk-python#300, still open on temporalio 1.33). That teardown
+    # intermittently races a Tokio worker thread reacquiring the GIL while CPython is
+    # finalizing: the worker thread parks forever and the process hangs on exit even
+    # though every result already printed above. Once main() has returned, the run's
+    # work is done, so skip Python's normal finalization, where the race lives, and exit
+    # immediately instead of waiting for it.
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(0)
