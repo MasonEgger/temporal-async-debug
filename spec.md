@@ -31,6 +31,19 @@ Live testing (September 2026) established the exact timeout mechanics the catalo
 - The metrics endpoint is served by the Rust core off the event loop, so it stays reachable during a freeze and is not the frozen-loop signal (verified: 10 of 10 scrapes sub-millisecond during a 30-second block).
 - The SDK's default Core runtime has no public shutdown (temporalio/sdk-python#300); a short-lived starter flushes and `os._exit(0)` to avoid an intermittent teardown hang.
 
+## Invariants
+
+Rules that hold across every phase of this repo.
+
+- paths: src/temporal_async_debug/**, tests/**, justfile, README.md, CLAUDE.md
+- Python 3.14+ only; toolchain is uv + ruff + mypy (strict) + pytest, run through `just`; src layout with the hatchling build backend.
+- Temporal Python SDK (temporalio) is the only workflow engine; no second orchestration framework.
+- Python: per the python:python skill (strict typing, Google docstrings, no single-letter names, canonical ruff/mypy/pytest config verbatim).
+- Prose (README, CLAUDE.md, comments, commit messages): per the writing hard rules (no em-dash or en-dash, no banned AI-tell vocabulary, straight quotes, one sentence per line in committed Markdown).
+- Every deliberate bug, mistuning, or antipattern carries the fixed greppable marker on or immediately above the offending line: `# ANTIPATTERN (deliberate, for teaching): <why it is wrong>. Correct: <the right approach>. Do not copy.` Do not "fix" a marked antipattern; it is the demo.
+- No workflow, activity, or module is named with a role label (victim, villain, culprit). The fleet must read as ordinary so the reader diagnoses from the tooling.
+- Tests never require a running Temporal server except through the SDK's own facilities (`temporalio.testing.ActivityEnvironment`, `WorkflowEnvironment.start_time_skipping()`); all network calls are mocked.
+
 ## Available tooling
 
 Tooling available to the validator and executor during autonomous runs.
@@ -66,6 +79,23 @@ These are candidates only, not tools declared in the session pool; fold one into
 - python-code-quality :: Multi-tool ruff, mypy, and code-quality coverage for the linting and type-checking stack :: https://mcpmarket.com/tools/skills/python-code-quality-linting-2
 - Doc-Driven Development :: Documentation-first pattern, then generate implementation to match; relevant to a tutorial/README-first approach :: https://github.com/cbrake/claude-plugins/blob/main/doc-driven-development/README.md
 - python-dev (L3DigitalNet) :: General Python development with async patterns, type safety, testing, resilience :: https://agentskill.sh/plugins/l3digitalnet/python-dev
+
+## Roadmap / phase log
+
+**Shipped:**
+
+- two-workflow-foundation: the neutrally-named GeoEnrichmentWorkflow and OrderReceiptWorkflow foundation on one worker, with round-robin providers, block/slow modes, and the os._exit teardown workaround (commits 04dec90, 29d68b8; not yet archived under .ai-sessions/).
+
+**Upcoming:**
+
+- The failure-mode catalog: adds the cpu, slow_heartbeat, and stuck_no_heartbeat modes, a short-work bystander shape, a schedule-to-start sample, every activity timeout shown firing, retuned timeouts, and the comprehensive README plus CLAUDE.md refresh. This is the current arc (see Architecture, Behavior requirements, and Documentation requirements below).
+
+**Deferred:** (a lab mode turning the demo into a whodunit; decisions recorded September 2026, build deferred until after the tutorial publishes)
+
+- Fleet generator (`just generate N`): writes real per-workflow source files so every generated activity has its own file and line and stack traces stay genuine clues at any scale. Trigger: scaling past the hand-written workflow types.
+- Seeded culprit selection: a `--seed` picks which generated activity misbehaves and how without announcing it; a `reveal` command checks the learner's answer. Trigger: the lab build.
+- FastAPI game-master app (async, fully typed): starts and stops scenarios, shows a live fleet status board and symptom feed, and accepts the learner's guess for the reveal flow. Trigger: the lab build; the tutorial-facing v1 stays CLI plus Temporal UI plus metrics.
+- Intermittent and load-dependent variants (a mode that only misbehaves under concurrency, or every Nth call): candidates for the lab, not this arc.
 
 ## Design principles
 
@@ -148,19 +178,10 @@ Tests must not require a running Temporal server unless using the SDK's own test
 - Update CLAUDE.md's architecture section to the catalog's module and mode layout.
 - MIT license (already present).
 
-## Future work (v2, not in scope for this arc)
-
-A lab mode turning the demo into a whodunit learning environment; decisions recorded September 2026, build deferred until after the tutorial publishes:
-
-- A fleet generator (`just generate N`) that writes real per-workflow source files so every generated activity has its own file and line and stack traces stay genuine clues at any scale. v1 ships hand-written, neutrally-named workflow types; the generator scales that up.
-- Seeded culprit selection: a `--seed` picks which generated activity misbehaves and how, without announcing it; a `reveal` command checks the learner's answer.
-- A FastAPI game-master app (async, fully typed): starts and stops scenarios, shows a live fleet status board and symptom feed, and accepts the learner's guess for the reveal flow. The tutorial-facing v1 remains CLI plus Temporal UI plus metrics.
-- Intermittent and load-dependent variants (a mode that only misbehaves under concurrency, or every Nth call) are candidates for the lab, not this arc.
-
 ## Non-goals
 
 - No detection library, watchdog, linter, or any maintained tooling; native Python tooling only.
 - No Flask or web front end; the Temporal Web UI and the metrics endpoint are the visual layer.
 - No CI beyond the canonical application CI workflow (single pinned Python 3.14, `just check`, pip-audit, dependabot); no Docker (the metrics endpoint is served in-process by the SDK).
 - No support for Python older than 3.14.
-- No lab mode in this arc (see Future work).
+- No lab mode in this arc (see the Deferred list under Roadmap / phase log).
