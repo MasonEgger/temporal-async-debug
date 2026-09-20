@@ -1,20 +1,22 @@
-"""ABOUTME: CLI-contract tests for the starter's argument parser and input-construction helpers.
+"""ABOUTME: CLI-contract tests for the starter's argument parser, input helpers, and metrics parser.
 ABOUTME: No test touches a Temporal server; main()'s live submission is exercised manually.
 
-These tests pin the flag names, defaults, types, and choices, and prove that count and victims
-fan out into the right number of workflow inputs. They cover our CLI surface, not argparse itself.
+These tests pin the flag names, defaults, and choices, prove that the count flags fan out into the
+right workflow inputs, and check that the metrics parser reads the ActivityWorker slot gauge rather
+than the LocalActivityWorker line.
 """
 
 from __future__ import annotations
 
 import pytest
 
-from temporal_async_debug.shared import GreetingInput, VictimInput
+from temporal_async_debug.shared import GeoEnrichmentInput, OrderReceiptInput
 from temporal_async_debug.starter import (
+    bad_geo_inputs_from_args,
     build_parser,
-    greeting_inputs_from_args,
+    healthy_geo_inputs_from_args,
     parse_activity_slots_available,
-    victim_inputs_from_args,
+    receipt_inputs_from_args,
 )
 
 _LABELS = 'namespace="default",service_name="temporal-core-sdk",task_queue="async-debug-task-queue"'
@@ -40,12 +42,11 @@ def test_flag_defaults() -> None:
     """With no flags, the parser applies the documented healthy defaults."""
     args = build_parser().parse_args([])
 
-    assert isinstance(args.name, str)
-    assert args.name != ""
-    assert args.block_seconds == 0.0
     assert args.mode == "block"
-    assert args.count == 1
-    assert args.victims == 0
+    assert args.block_seconds == 0.0
+    assert args.bad == 0
+    assert args.geo == 0
+    assert args.receipts == 0
 
 
 def test_mode_rejects_invalid_value() -> None:
@@ -57,67 +58,61 @@ def test_mode_rejects_invalid_value() -> None:
 @pytest.mark.parametrize("mode", ["block", "slow"])
 def test_mode_accepts_known_values(mode: str) -> None:
     """Both documented modes parse without error."""
-    args = build_parser().parse_args(["--mode", mode])
-
-    assert args.mode == mode
+    assert build_parser().parse_args(["--mode", mode]).mode == mode
 
 
 def test_numeric_flags_parse_to_their_types() -> None:
-    """--block-seconds parses as float; --count and --victims parse as int."""
-    args = build_parser().parse_args(["--block-seconds", "1.5", "--count", "4", "--victims", "7"])
+    """--block-seconds parses as float; --bad, --geo, and --receipts parse as int."""
+    args = build_parser().parse_args(["--block-seconds", "1.5", "--bad", "2", "--geo", "4", "--receipts", "7"])
 
     assert isinstance(args.block_seconds, float)
     assert args.block_seconds == 1.5
-    assert isinstance(args.count, int)
-    assert args.count == 4
-    assert isinstance(args.victims, int)
-    assert args.victims == 7
+    assert args.bad == 2
+    assert args.geo == 4
+    assert args.receipts == 7
 
 
-def test_full_flag_round_trip() -> None:
-    """A full flag set parses to exactly the typed values, with correct types."""
-    args = build_parser().parse_args(
-        ["--name", "ada", "--mode", "slow", "--block-seconds", "30", "--count", "2", "--victims", "3"]
-    )
+def test_bad_geo_inputs_carry_mode_and_block_seconds() -> None:
+    """--bad 2 yields two GeoEnrichmentInput values, each carrying the parsed mode and block_seconds."""
+    args = build_parser().parse_args(["--mode", "slow", "--block-seconds", "30", "--bad", "2"])
 
-    assert args.name == "ada"
-    assert args.mode == "slow"
-    assert args.block_seconds == 30.0
-    assert args.count == 2
-    assert args.victims == 3
+    bad_inputs = bad_geo_inputs_from_args(args)
 
-
-def test_greeting_inputs_carry_mode_and_block_seconds() -> None:
-    """--count 2 yields two GreetingInput values, each carrying the parsed mode and block_seconds."""
-    args = build_parser().parse_args(["--name", "ada", "--mode", "slow", "--block-seconds", "30", "--count", "2"])
-
-    greeting_inputs = greeting_inputs_from_args(args)
-
-    assert len(greeting_inputs) == 2
-    assert all(isinstance(greeting_input, GreetingInput) for greeting_input in greeting_inputs)
-    assert all(greeting_input.name == "ada" for greeting_input in greeting_inputs)
-    assert all(greeting_input.mode == "slow" for greeting_input in greeting_inputs)
-    assert all(greeting_input.block_seconds == 30.0 for greeting_input in greeting_inputs)
+    assert len(bad_inputs) == 2
+    assert all(isinstance(bad_input, GeoEnrichmentInput) for bad_input in bad_inputs)
+    assert all(bad_input.mode == "slow" for bad_input in bad_inputs)
+    assert all(bad_input.block_seconds == 30.0 for bad_input in bad_inputs)
 
 
-def test_victim_inputs_have_distinct_labels() -> None:
-    """--victims 3 yields three VictimInput values with distinct labels."""
-    args = build_parser().parse_args(["--victims", "3"])
+def test_healthy_geo_inputs_have_no_delay() -> None:
+    """--geo 3 yields three healthy GeoEnrichmentInput values with no delay."""
+    args = build_parser().parse_args(["--geo", "3"])
 
-    victim_inputs = victim_inputs_from_args(args)
+    healthy_inputs = healthy_geo_inputs_from_args(args)
 
-    assert len(victim_inputs) == 3
-    assert all(isinstance(victim_input, VictimInput) for victim_input in victim_inputs)
-    labels = [victim_input.label for victim_input in victim_inputs]
-    assert len(set(labels)) == 3
+    assert len(healthy_inputs) == 3
+    assert all(healthy_input.block_seconds == 0.0 for healthy_input in healthy_inputs)
 
 
-def test_count_and_victims_default_to_single_and_none() -> None:
-    """The defaults produce one greeting input and zero victim inputs."""
+def test_receipt_inputs_have_distinct_order_ids() -> None:
+    """--receipts 3 yields three OrderReceiptInput values with distinct order ids."""
+    args = build_parser().parse_args(["--receipts", "3"])
+
+    receipt_inputs = receipt_inputs_from_args(args)
+
+    assert len(receipt_inputs) == 3
+    assert all(isinstance(receipt_input, OrderReceiptInput) for receipt_input in receipt_inputs)
+    order_ids = [receipt_input.order_id for receipt_input in receipt_inputs]
+    assert len(set(order_ids)) == 3
+
+
+def test_counts_default_to_empty_fleets() -> None:
+    """The defaults produce no workflows of any kind."""
     args = build_parser().parse_args([])
 
-    assert len(greeting_inputs_from_args(args)) == 1
-    assert victim_inputs_from_args(args) == []
+    assert bad_geo_inputs_from_args(args) == []
+    assert healthy_geo_inputs_from_args(args) == []
+    assert receipt_inputs_from_args(args) == []
 
 
 @pytest.mark.parametrize("activity_free", [0, 1, 2])

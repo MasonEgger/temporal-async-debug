@@ -1,7 +1,7 @@
-"""ABOUTME: Workflow tests for GreetingWorkflow under a time-skipping WorkflowEnvironment.
+"""ABOUTME: Workflow tests for GeoEnrichmentWorkflow under a time-skipping WorkflowEnvironment.
 ABOUTME: Activities are stubbed to return fixed strings, so no test touches the network.
 
-The happy path proves the two-activity sequence and the greeting shape; the stubbed get_location
+The happy path proves the two-activity sequence and the output shape; the stubbed get_location
 asserts it received the ip that get_ip produced, which pins the ordering. The error path proves
 maximum_attempts=1 surfaces the first failure as a WorkflowFailureError instead of retrying it away.
 """
@@ -17,8 +17,8 @@ from temporalio.exceptions import ActivityError, ApplicationError
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
 
-from temporal_async_debug.shared import TASK_QUEUE, GreetingInput, GreetingOutput
-from temporal_async_debug.workflow import GreetingWorkflow
+from temporal_async_debug.shared import TASK_QUEUE, GeoEnrichmentInput, GeoEnrichmentOutput
+from temporal_async_debug.workflow import GeoEnrichmentWorkflow
 
 STUB_IP: str = "203.0.113.7"
 """Address the stubbed get_ip returns, from the RFC 5737 documentation range."""
@@ -43,31 +43,30 @@ async def get_location_stub(ip: str, block_seconds: float, mode: str) -> str:
     return STUB_LOCATION
 
 
-async def test_greeting_workflow_happy_path_returns_greeting_with_name() -> None:
-    """The workflow runs get_ip then get_location and greets the caller by name."""
+async def test_geo_workflow_happy_path_returns_ip_and_location() -> None:
+    """The workflow runs get_ip then get_location and returns both results."""
     async with (
         await WorkflowEnvironment.start_time_skipping() as env,
         Worker(
             env.client,
             task_queue=TASK_QUEUE,
-            workflows=[GreetingWorkflow],
+            workflows=[GeoEnrichmentWorkflow],
             activities=[get_ip_stub, get_location_stub],
         ),
     ):
         result = await env.client.execute_workflow(
-            GreetingWorkflow.run,
-            GreetingInput(name="friend", block_seconds=0.0, mode="block"),
+            GeoEnrichmentWorkflow.run,
+            GeoEnrichmentInput(block_seconds=0.0, mode="block"),
             id=str(uuid.uuid4()),
             task_queue=TASK_QUEUE,
         )
 
-    assert isinstance(result, GreetingOutput)
+    assert isinstance(result, GeoEnrichmentOutput)
     assert result.ip == STUB_IP
     assert result.location == STUB_LOCATION
-    assert "friend" in result.greeting
 
 
-async def test_greeting_workflow_surfaces_first_failure_without_retrying() -> None:
+async def test_geo_workflow_surfaces_first_failure_without_retrying() -> None:
     """maximum_attempts=1 fails the workflow on the first get_ip error instead of retrying."""
     attempts: list[int] = []
     """Attempt numbers the failing stub saw, one entry per invocation; proves no retry."""
@@ -83,14 +82,14 @@ async def test_greeting_workflow_surfaces_first_failure_without_retrying() -> No
         Worker(
             env.client,
             task_queue=TASK_QUEUE,
-            workflows=[GreetingWorkflow],
+            workflows=[GeoEnrichmentWorkflow],
             activities=[get_ip_failing, get_location_stub],
         ),
     ):
         with pytest.raises(WorkflowFailureError) as failure:
             await env.client.execute_workflow(
-                GreetingWorkflow.run,
-                GreetingInput(name="friend"),
+                GeoEnrichmentWorkflow.run,
+                GeoEnrichmentInput(),
                 id=str(uuid.uuid4()),
                 task_queue=TASK_QUEUE,
             )
@@ -99,7 +98,7 @@ async def test_greeting_workflow_surfaces_first_failure_without_retrying() -> No
     # Bumping the workflow's RetryPolicy to maximum_attempts=2 makes this list [1, 2] and fails here.
     assert attempts == [1]
 
-    # The failure is the stubbed error surfaced through the activity, not a start_to_close timeout.
+    # The failure is the stubbed error surfaced through the activity, not a timeout.
     activity_error = failure.value.cause
     assert isinstance(activity_error, ActivityError)
     application_error = activity_error.cause

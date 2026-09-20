@@ -25,14 +25,14 @@ server:
 worker:
     uv run python -m temporal_async_debug.worker
 
-# Trigger a healthy (non-blocking) workflow run
-trigger name="friend":
-    uv run python -m temporal_async_debug.starter --name {{name}}
+# Trigger a healthy fleet: geo-enrichment and order-receipt runs, all completing
+trigger:
+    uv run python -m temporal_async_debug.starter --geo 2 --receipts 3
 
-# Trigger a run whose activity blocks the event loop (frozen-loop lesson)
-block seconds="30" name="friend":
-    uv run python -m temporal_async_debug.starter --name {{name}} --mode block --block-seconds {{seconds}} --victims 3
+# Trigger a fleet where one geo run blocks the event loop, freezing the whole worker (frozen-loop lesson)
+block seconds="30":
+    uv run python -m temporal_async_debug.starter --mode block --block-seconds {{seconds}} --bad 1 --geo 2 --receipts 3
 
-# Trigger slow cooperative runs that exhaust the worker's two slots (slot-exhaustion lesson)
-slow seconds="30" name="friend":
-    uv run python -m temporal_async_debug.starter --name {{name}} --mode slow --block-seconds {{seconds}} --count 2 --victims 3
+# Trigger a fleet where two slow geo runs hold both slots, starving the rest (slot-exhaustion lesson)
+slow seconds="30":
+    uv run python -m temporal_async_debug.starter --mode slow --block-seconds {{seconds}} --bad 2 --geo 2 --receipts 3

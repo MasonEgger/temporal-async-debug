@@ -1,12 +1,13 @@
-"""ABOUTME: The deliberately mistuned worker that hosts both demo workflows and every activity.
+"""ABOUTME: The deliberately mistuned worker that hosts both demo workflow types and every activity.
 ABOUTME: max_concurrent_activities=2 with no executor lets two blocking activities stall the queue.
 
 This worker is the process the tutorial attaches to and inspects. It runs its poller, its heartbeat
-sender, and every async activity on a single asyncio event loop, so the blocking bug in activities.py
-freezes the whole worker. Two deliberate choices make the failure legible:
+sender, and every async activity from both workflow types on a single asyncio event loop, so the
+blocking bug in activities.py freezes the whole worker, unrelated workflows included. Two deliberate
+choices make the failure legible:
 
 - ``max_concurrent_activities=2`` undersizes the slot pool so a pair of slow or blocked activities
-  exhausts every slot and the innocent VictimWorkflow starves.
+  exhausts every slot and the other work on the worker starves.
 - No ``activity_executor`` means the activities run on the event loop itself rather than in a thread
   or process pool, which is exactly what lets ``time.sleep`` freeze the loop.
 
@@ -25,8 +26,13 @@ from temporalio.worker import Worker
 
 from temporal_async_debug import shared
 from temporal_async_debug.activities import get_ip, get_location
-from temporal_async_debug.victim import VictimWorkflow, quick_task
-from temporal_async_debug.workflow import GreetingWorkflow
+from temporal_async_debug.receipt import (
+    OrderReceiptWorkflow,
+    compute_total,
+    format_receipt,
+    validate_order,
+)
+from temporal_async_debug.workflow import GeoEnrichmentWorkflow
 
 TEMPORAL_TARGET: str = "localhost:7233"
 """Address of the local Temporal dev server the worker connects to."""
@@ -58,8 +64,8 @@ def print_startup_banner() -> None:
 async def main() -> None:
     """Connect to the local Temporal server and run the deliberately mistuned worker.
 
-    Builds a Runtime with the Prometheus metrics endpoint enabled, connects a Client to
-    the local dev server, constructs the Worker for both workflows and all three activities,
+    Builds a Runtime with the Prometheus metrics endpoint enabled, connects a Client to the
+    local dev server, constructs the Worker for both workflow types and all their activities,
     prints the startup banner, and then serves until interrupted.
     """
     runtime = Runtime(
@@ -71,8 +77,8 @@ async def main() -> None:
     worker = Worker(
         client,
         task_queue=shared.TASK_QUEUE,
-        workflows=[GreetingWorkflow, VictimWorkflow],
-        activities=[get_ip, get_location, quick_task],
+        workflows=[GeoEnrichmentWorkflow, OrderReceiptWorkflow],
+        activities=[get_ip, get_location, validate_order, compute_total, format_receipt],
         # ANTIPATTERN (deliberate, for teaching): max_concurrent_activities=2 undersizes the
         # worker so two slow activities exhaust every slot and stall the queue. Correct: size
         # slots to expected concurrency and load. Do not copy.

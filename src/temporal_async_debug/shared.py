@@ -1,9 +1,11 @@
 """ABOUTME: Frozen payload dataclasses and the task queue name shared across the demo.
-ABOUTME: Both workflows, their activities, the worker, and the starter import from here.
+ABOUTME: Both workflow types, their activities, the worker, and the starter import from here.
 
 Every payload here crosses the Temporal workflow boundary, so each one stays small,
-frozen, and JSON-serializable. ``GreetingInput`` also carries the two knobs that drive
-the demo's failure modes: how long an activity delays, and which kind of delay it uses.
+frozen, and JSON-serializable. Two unrelated workflow types share this module and the
+worker behind it: a geo-enrichment lookup and an order-receipt build. ``GeoEnrichmentInput``
+carries the two knobs that drive the demo's failure modes: how long an activity delays, and
+which kind of delay it uses.
 """
 
 from __future__ import annotations
@@ -15,11 +17,10 @@ TASK_QUEUE: str = "async-debug-task-queue"
 
 
 @dataclass(frozen=True)
-class GreetingInput:
-    """Input to GreetingWorkflow, the deliberately misbehaving workflow.
+class GeoEnrichmentInput:
+    """Input to GeoEnrichmentWorkflow, which looks up the caller's IP and location.
 
     Attributes:
-        name: Name to greet.
         block_seconds: Seconds of delay each activity applies before its HTTP call.
             Defaults to 0.0, the healthy value, meaning no delay at all.
         mode: Which delay to apply when block_seconds is above zero. "block" calls
@@ -28,43 +29,44 @@ class GreetingInput:
             but still holds an activity slot for the duration.
     """
 
-    name: str
     block_seconds: float = 0.0
     mode: str = "block"
 
 
 @dataclass(frozen=True)
-class GreetingOutput:
-    """Result of GreetingWorkflow, assembled from both activity results.
+class GeoEnrichmentOutput:
+    """Result of GeoEnrichmentWorkflow, assembled from both activity results.
 
     Attributes:
         ip: Public IP address returned by the get_ip activity.
         location: Human-readable location returned by the get_location activity.
-        greeting: Final greeting built from the name, the IP, and the location.
     """
 
     ip: str
     location: str
-    greeting: str
 
 
 @dataclass(frozen=True)
-class VictimInput:
-    """Input to VictimWorkflow, the innocent workflow sharing the worker.
+class OrderReceiptInput:
+    """Input to OrderReceiptWorkflow, an ordinary fast workflow with no network calls.
 
     Attributes:
-        label: Identifier that distinguishes one concurrent victim run from another.
+        order_id: Identifier for the order this receipt is built for.
+        item_count: Number of items ordered.
+        unit_price_cents: Price per item, in cents.
     """
 
-    label: str
+    order_id: str
+    item_count: int
+    unit_price_cents: int
 
 
 @dataclass(frozen=True)
-class VictimOutput:
-    """Result of VictimWorkflow.
+class OrderReceiptOutput:
+    """Result of OrderReceiptWorkflow.
 
     Attributes:
-        message: Confirmation that the victim's quick task ran to completion.
+        receipt: Human-readable receipt line for the order.
     """
 
-    message: str
+    receipt: str
