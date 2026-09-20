@@ -2,18 +2,16 @@
 
 ## Project overview
 
-A deliberately misbehaving Temporal Python demo application for a tutorial on diagnosing blocking calls in `async def` activities.
-The app runs two unrelated workflow types on one worker.
-One of them can be driven into a blocking or a slow mode through its input; the other is ordinary, fast, unrelated work.
+A deliberately misbehaving Temporal Python demo application for a tutorial on diagnosing blocking and saturation failures in `async def` activities.
+The app runs several unrelated workflow types on one worker and can drive activities into a range of misbehavior modes.
+It is a comprehensive catalog of the ways a single asyncio event loop, shared by a Temporal worker's poller, heartbeat sender, workflow-task processing, and every async activity, gets wedged, and of how each failure looks from outside the process.
+
 Nothing in the code is named "victim" or "villain", because the whole point is that the fleet looks normal and then goes sideways, and the reader has to find the cause from the tooling rather than from a label.
-
 The headline lesson is the cross-type blast radius: a problem in one workflow type takes down a completely unrelated workflow type, purely because they share a worker.
-A Temporal Python worker runs its poller, its heartbeat sender, and every `async def` activity from every workflow type on one asyncio event loop in one thread, so one blocking call freezes all of them, and a full slot pool stalls all of them.
-This is the failure mode that surprises people: the workflow that breaks is not the one with the bug.
 
-Readers reproduce two failure modes and diagnose them from outside the process with Python 3.14+ native tooling (`python -m asyncio ps` / `pstree`) with zero instrumentation.
-The two modes teach the core distinction: a frozen event loop (a blocking call) versus an undersized busy worker (slot exhaustion).
-They look the same to the workflows that suffer them but have different signatures in the tooling and different fixes.
+Readers reproduce each failure and diagnose it from outside the process with Python 3.14+ native tooling (`python -m asyncio ps` / `pstree`) with zero instrumentation, plus the SDK's Prometheus metrics.
+The two root diagnostic families are a frozen event loop (a blocking or CPU-bound call) versus an undersized or saturated worker (slot exhaustion, heartbeat loss, queue timeouts).
+They can look the same to the workflows that suffer them but have different signatures in the tooling and different fixes.
 The repo is the companion to a tutorial and a deep-dive blog post on masonegger.com; it is a teaching artifact, not a maintained tool, and will never be published to PyPI.
 
 ## Starting context
@@ -24,6 +22,14 @@ The Python 3.14 introspection commands read the target process memory without ex
 The diagnostic signature: a healthy suspended task's coroutine stack ends on an asyncio suspension point (for example `Task.sleep` or `Semaphore.acquire`), while the blocking task's stack ends in user code at the exact file and line of the blocking call.
 Worker-tuning research (September 2026) added the second mechanism: when `max_concurrent_activities` slots fill, the worker stops polling for activity tasks entirely, schedule-to-start latency climbs for every other workflow on the queue, and the Temporal UI stops listing the worker as a poller even though the process is healthy.
 Known tooling gotchas the README must cover: inspector and target must both be Python 3.14+, Linux defaults to Yama `ptrace_scope=1` (failure presents as "Failed to find the PyRuntime section", fixed with sudo or `ptrace_scope=0`), macOS requires sudo, and 3.14's `asyncio ps` can fail transiently and should just be re-run.
+
+Live testing (September 2026) established the exact timeout mechanics the catalog must respect:
+
+- `time.sleep` and a CPU-bound loop are uncancellable, so they freeze the loop and hold their slot for the full duration; `time.sleep` releases the GIL while a CPU-bound loop pins it (a top or py-spy distinguisher, sub-millisecond CPU versus 100 percent).
+- An async activity that awaits (for example `asyncio.sleep`) is cancelled by the SDK at `start_to_close`, so it does not hold its slot past that unless the timeout is generous or it heartbeats.
+- A frozen loop also freezes workflow-task processing, so work submitted during a freeze never schedules its activity and only stalls; only activities already scheduled or in-flight when the freeze lands trip `start_to_close` (in-flight) or `schedule_to_close` (queued). Instant activities are not caught by a freeze; activities that do a little work are.
+- The metrics endpoint is served by the Rust core off the event loop, so it stays reachable during a freeze and is not the frozen-loop signal (verified: 10 of 10 scrapes sub-millisecond during a 30-second block).
+- The SDK's default Core runtime has no public shutdown (temporalio/sdk-python#300); a short-lived starter flushes and `os._exit(0)` to avoid an intermittent teardown hang.
 
 ## Available tooling
 
@@ -63,92 +69,93 @@ These are candidates only, not tools declared in the session pool; fold one into
 
 ## Design principles
 
-- No labeled roles. The workflow types have realistic, neutral names. Nothing calls one the culprit and the other the victim, because that would hand the reader the answer. The reader diagnoses from `asyncio ps` and the metrics, not from the source.
-- The mode is data, not a type. The same activity code runs for healthy and misbehaving instances; a bad run is bad because of its input, not because it is a differently-named "misbehaving" activity.
-- Realistic timeouts only. Every activity sets `start_to_close_timeout` (required and universally set) and a `schedule_to_close_timeout` (a plausible SLA). There are no heartbeats and no `schedule_to_start_timeout`, because a quick activity would not set either, and leaning on them to surface the failure is unrealistic. Slot exhaustion is read from the `temporal_activity_schedule_to_start_latency` metric, which climbs on its own, not from a timeout the demo had to set.
-- The deliberately broken lines still carry the greppable antipattern marker (see below). That marker is a source-hygiene device for the "do not copy" purpose; it does not spoon-feed the runtime diagnosis, which the reader still does from the tooling.
+- No labeled roles. Workflow types have realistic, neutral names. Nothing calls one the culprit and another the victim; the reader diagnoses from `asyncio ps` and the metrics, not from the source.
+- The mode is data, not a type. The same activity code runs for healthy and misbehaving instances; a bad run is bad because of its input.
+- Realistic timeouts. Activities set `start_to_close` (universal) and, where an SLA fits, `schedule_to_close`. `schedule_to_start` appears only in the one sample that exists to show it, since setting it is rare. Heartbeats appear only in the long-running-activity modes, since a quick activity would not heartbeat.
+- Exhaustive but grounded. The catalog covers the realistic failure modes of this one mechanism (a shared asyncio event loop under blocking and saturation), each shown firing its real timeout and diagnosed from the tooling. It is not a catalog of every Temporal failure.
+- Deliberately broken lines carry the greppable antipattern marker, a source-hygiene device that does not spoon-feed the runtime diagnosis.
 
-## Architecture
+## Foundation already in place
 
-Package layout under `src/temporal_async_debug/` (src layout, hatchling, empty `__init__.py`):
+The two-workflow foundation is built and committed; the catalog extends it. In place:
 
-- `shared.py`: frozen dataclasses for both workflow types' inputs and outputs, plus the task queue name constant.
-  The geo-enrichment input carries `block_seconds: float` (default 0.0, the healthy value) and `mode: str` ("block" or "slow").
-- `activities.py`: the geo-enrichment workflow's two async activities using httpx, `get_ip` and `get_location`.
-  Each fetches from a short round-robin list of providers (several plain-text IP echo services for `get_ip`, several no-key geo services for `get_location`, each with a tiny parser), starting at a rotating provider and falling back to the others on failure, so a single provider's rate limit or outage does not break the demo.
-  There are no heartbeats.
-  Each activity applies its mode when `block_seconds > 0`: mode "block" calls `time.sleep(block_seconds)` (the deliberate bug, which freezes the one event loop), mode "slow" awaits `asyncio.sleep(block_seconds)` (cooperative, and because a running activity holds its slot until it returns, it keeps its slot for the full delay), then performs its httpx call.
-  A module constant lists the healthy equivalents (`asyncio.sleep`, httpx) so the tutorial can point at the contrast in one place.
-- `receipt.py`: an ordinary, unrelated workflow, `OrderReceiptWorkflow`, with three fast async activities that touch no network (`validate_order`, `compute_total`, `format_receipt`).
-  It is correct code in every respect and normally completes in milliseconds.
-  It exists to be the workflow that breaks when the geo workflow misbehaves, even though the two share nothing but a worker, which is the surprise the tutorial drives home.
-- `workflow.py`: the geo-enrichment workflow, `GeoEnrichmentWorkflow`, executing `get_ip` then `get_location`.
-  Each activity call sets a `start_to_close_timeout` (a realistic per-attempt bound) and a `schedule_to_close_timeout` (a plausible SLA that backed-up work breaches when the worker is jammed), with a retry policy of `maximum_attempts=1` so failures surface instead of retrying silently.
-  No `heartbeat_timeout` and no `schedule_to_start_timeout`.
-- `worker.py`: connects to localhost:7233, registers both workflow types and all activities on one task queue, and prints a startup banner with the process PID and copy-paste `python -m asyncio ps <PID>` / `pstree` commands.
-  The worker is deliberately mistuned: `max_concurrent_activities=2`, so two slow-mode activities exhaust the slots.
-  No `activity_executor` is configured; the activities are async on purpose.
-  The SDK's Prometheus metrics endpoint is enabled (via `Runtime` telemetry config) on localhost:9464 so the tutorial can `curl` `temporal_worker_task_slots_available` and `temporal_activity_schedule_to_start_latency` live.
-- `starter.py`: CLI (argparse) that submits a fleet of mixed workflows and prints results with neutral labels.
-  Flags: `--mode block|slow` (the bad mode), `--block-seconds`, `--bad N` (geo-enrichment workflows submitted in the bad mode), `--geo N` (healthy geo-enrichment workflows), and `--receipts N` (order-receipt workflows).
-  When a run has bad geo workflows and any bystanders, the starter sequences submission so the failure is deterministic, not a race: it submits the bad geo workflows first, polls the metrics endpoint until `temporal_worker_task_slots_available` for the ActivityWorker shows the slots are taken, then submits the bystanders, which therefore hit the frozen loop or the full slot pool every run.
-  After `main()` returns, the starter flushes stdout and stderr and calls `os._exit(0)` to sidestep an intermittent teardown hang in the SDK's default Core runtime (temporalio/sdk-python#300), which otherwise parks the process on exit.
+- `shared.py`: frozen dataclasses (`GeoEnrichmentInput` with `block_seconds` and `mode`, `GeoEnrichmentOutput`, `OrderReceiptInput`, `OrderReceiptOutput`) and `TASK_QUEUE`.
+- `activities.py`: `get_ip` and `get_location` over async httpx with round-robin plus failover across five IP providers and three geo providers; `_apply_mode` handling `block` (time.sleep) and `slow` (asyncio.sleep); `HEALTHY_EQUIVALENTS`; no heartbeats.
+- `receipt.py`: `OrderReceiptWorkflow` and `validate_order` / `compute_total` / `format_receipt`, fast and no network.
+- `workflow.py`: `GeoEnrichmentWorkflow` running get_ip then get_location, `start_to_close` plus `schedule_to_close`, `maximum_attempts=1` (marked).
+- `worker.py`: both workflow types and all activities on one queue; `max_concurrent_activities=2` (marked); Prometheus metrics on 127.0.0.1:9464; PID banner.
+- `starter.py`: fleet CLI (`--mode block|slow`, `--block-seconds`, `--bad`, `--geo`, `--receipts`) that sequences slot exhaustion; `os._exit(0)` teardown workaround.
+- Tests for all of the above; `just check` green.
 
-No web UI; the CLI starter plus the Temporal Web UI (localhost:8233, which shows pending activities, timeouts, and the vanishing poller) cover the interaction surface, and the earlier draft's Flask front end is explicitly dropped.
+## Architecture (target for the catalog)
 
-## Behavior requirements
+The catalog adds misbehavior modes, bystander shapes, a schedule-to-start sample, and one scenario per failure, retuning timeouts against live behavior. Package layout under `src/temporal_async_debug/`:
 
-- With everything healthy (no bad geo workflows, `block_seconds=0`), a fleet of geo-enrichment and order-receipt workflows all complete, with overlapping activity execution.
-- With `--mode block --block-seconds 30 --bad 1` plus healthy geo and receipt bystanders, the worker's one event loop is frozen for the block: the poller, and every other async activity from both workflow types, stop running.
-  Other geo-enrichment workflows stall, and the unrelated order-receipt workflows stall too, even though they share nothing with the geo workflow but the worker.
-  The blocking activity exceeds its `start_to_close_timeout` and fails with a StartToClose timeout, and the stalled bystanders breach their timeouts.
-  `asyncio ps` during the freeze shows the blocked task's stack ending at the `time.sleep` call site in `activities.py`.
-- With `--mode slow --block-seconds 30 --bad 2` plus healthy geo and receipt bystanders, the event loop stays healthy but both activity slots are held for the full duration (a running activity holds its slot until it returns).
-  `temporal_worker_task_slots_available` reads 0 for the run, `temporal_activity_schedule_to_start_latency` climbs, and the worker drops off the Task Queue's poller list in the Web UI.
-  The bystander activities (geo and receipt alike) queue with no slot and breach their `schedule_to_close_timeout`.
-  `asyncio ps` shows all tasks parked on asyncio suspension points; nothing is blocked.
-- The two modes must be distinguishable purely from tool output: frozen loop (`asyncio ps` shows a task stack ending in user code at the `time.sleep` call site in `activities.py`) versus busy worker (all stacks parked on asyncio suspension points, `temporal_worker_task_slots_available` at 0, `temporal_activity_schedule_to_start_latency` climbing).
-  The metrics endpoint stays reachable in both modes, so it is not the frozen-loop signal: the SDK serves Prometheus from the Temporal core (Rust) runtime on its own threads, off the Python event loop, so freezing the loop does not take the endpoint down.
-  Verified live on 2026-09-17: during a 30-second block, 10 of 10 scrapes of `http://127.0.0.1:9464/metrics` returned in under a millisecond, at the same latency as the healthy baseline.
-- The blocking mechanism is `time.sleep`, which blocks the single event loop. It is worth stating precisely in the tutorial that this is event-loop blocking, not a GIL effect: `time.sleep` actually releases the GIL, and the damage comes from parking the one loop thread. A CPU-bound block that holds the GIL is a separate case, deferred to v2.
-- The worker banner and README both state the PID, the introspection commands, the metrics URL, and the platform gotchas (Yama ptrace_scope on Linux, sudo on macOS, both processes 3.14+).
-- The blocking path is a plain `if` on the mode in the activity body, kept obvious; the tutorial's whole point is that this line looks innocent.
-- Antipattern marker convention: every deliberate bug, mistuning, or antipattern is labeled at the offending line with a comment of the form `# ANTIPATTERN (deliberate, for teaching): <why it is wrong>. Correct: <the right approach>. Do not copy.`
-  This applies to the `time.sleep` call, the `max_concurrent_activities=2` mistuning, and the `maximum_attempts=1` retry policy, and to any other intentionally bad choice.
-  The marker string `ANTIPATTERN (deliberate, for teaching)` is fixed and greppable; the tutorial references it, and it labels the bad pattern for any human or automated system (code-completion tools, model training pipelines, snippet scrapers) that ingests the file without the surrounding README context.
+- `shared.py`: extend the mode set to `block`, `cpu`, `slow`, `slow_heartbeat`, `stuck_no_heartbeat`. Add any inputs the new bystander shapes and the schedule-to-start sample need.
+- `activities.py`: `_apply_mode` gains:
+  - `cpu`: a CPU-bound loop that spins for `block_seconds`, pinning the GIL and freezing the loop (uncancellable). Marked antipattern.
+  - `slow_heartbeat`: awaits `asyncio.sleep` in short steps and heartbeats between them, the correct way to hold a slot for legit long work (not an antipattern).
+  - `stuck_no_heartbeat`: awaits a long `asyncio.sleep` while the workflow sets a `heartbeat_timeout` it never satisfies, so it trips the heartbeat timeout. Marked antipattern (claims long-running work without heartbeating).
+  - `block` and `slow` carry over.
+- Bystander (unrelated) workflows sharing the worker, both correct and neither labeled:
+  - `OrderReceiptWorkflow` (exists): instant, no network. Stalls during a freeze, starves during exhaustion.
+  - A short-work, no-network bystander (a couple of seconds of cooperative `asyncio.sleep` simulating in-memory work): caught in-flight by a freeze (trips `start_to_close`) and starved during exhaustion (trips `schedule_to_close`). This is what makes a freeze produce cross-type activity-timeout failures rather than only stalls.
+- A schedule-to-start sample: one workflow or scenario whose activity sets a short `schedule_to_start_timeout` (marked antipattern, the rare routing use case) so that specific timeout fires and the `temporal_activity_schedule_to_start_latency` metric is shown climbing.
+- `workflow.py`: the geo workflow drives every mode; where a mode needs a `heartbeat_timeout` (slow_heartbeat, stuck_no_heartbeat), the workflow sets it per that mode. Geo activity `start_to_close` is tuned generous enough that the `slow` and `slow_heartbeat` hoggers hold their slots for the full duration (live-verified), while the freeze modes still trip the bystanders' timeouts.
+- `worker.py`: register all workflow types and activities; the `max_concurrent_activities=2` mistuning and the metrics endpoint stay.
+- `starter.py`: extend `--mode` to the full set; ensure the fleet mix (bad geo plus instant and short-work bystanders) and submission ordering make each scenario's timeouts fire deterministically. Keep the `os._exit(0)` workaround.
+- `justfile`: one recipe per scenario (below).
+
+No web UI; the CLI starter plus the Temporal Web UI (localhost:8233) and the metrics endpoint cover the interaction surface.
+
+## Behavior requirements (scenario catalog)
+
+Each scenario is a `just` recipe, a README lesson, and a distinct tool signature. Exact durations and timeout values are tuned against live runs; the required behavior is what follows.
+
+- Healthy baseline: a fleet of geo and both bystander shapes all complete, with overlapping activity execution.
+- Frozen loop, blocking call (`block`, `time.sleep`): the one event loop freezes for the duration. In-flight short-work bystanders (geo and the short-work type) trip `start_to_close`; bystanders whose activities were queued trip `schedule_to_close`; instant bystanders stall and complete late. Cross-type damage is visible. `asyncio ps` shows a task stack ending at the `time.sleep` call site in `activities.py`; CPU stays near zero; the metrics endpoint stays reachable.
+- Frozen loop, CPU-bound (`cpu`): same freeze and same collateral as `block`, but CPU pins at 100 percent and `asyncio ps` shows the stack in the compute loop. This is the literal shared-GIL case; the contrast with `block` (near-zero CPU) is a diagnostic.
+- Slot exhaustion (`slow`): the event loop stays healthy but both activity slots are held for the full duration. `temporal_worker_task_slots_available` reads 0, `temporal_activity_schedule_to_start_latency` climbs, the worker drops off the poller list, and starved bystanders (geo and both shapes) trip `schedule_to_close`. `asyncio ps` shows healthy suspension-point stacks.
+- Correct long-running activity (`slow_heartbeat`): the activity heartbeats and holds its slot legitimately for the full duration, showing the right way to do long work. If the worker is undersized, this still exhausts slots and starves bystanders, so the fix is worker sizing, not the activity.
+- Heartbeat timeout (`stuck_no_heartbeat`): a long activity with a `heartbeat_timeout` it never satisfies fails with a heartbeat timeout, the failure that a proper heartbeat interval would have surfaced fast.
+- Schedule-to-start sample: an activity with a short `schedule_to_start_timeout`, run against a busy worker, fails with a schedule-to-start timeout, and the run shows the `temporal_activity_schedule_to_start_latency` metric climbing.
+- Every activity timeout is shown firing across the catalog: `start_to_close`, `schedule_to_close`, `schedule_to_start`, and `heartbeat`.
+- The two diagnostic families must be distinguishable purely from tool output: frozen loop (`asyncio ps` stack in user code; `block` near-zero CPU, `cpu` at 100 percent; metrics reachable) versus saturated worker (healthy suspension-point stacks, slots at 0, schedule-to-start latency climbing, poller gone).
+- The blocking and CPU paths are a plain `if` on the mode in the activity body, kept obvious; the tutorial's whole point is that the offending line looks innocent.
+- Antipattern marker convention: every deliberate bug, mistuning, or antipattern is labeled at the offending line with `# ANTIPATTERN (deliberate, for teaching): <why it is wrong>. Correct: <the right approach>. Do not copy.`
+  This applies to the `time.sleep` call, the CPU-bound loop, the `stuck_no_heartbeat` missing heartbeat, the sample's `schedule_to_start_timeout`, the `max_concurrent_activities=2` mistuning, and the `maximum_attempts=1` retry policy. `slow_heartbeat` is correct code and carries no marker.
+  The marker string is fixed and greppable; the tutorial references it, and it labels the bad pattern for any human or automated system that ingests the file without the README.
   The README and the GitHub repo description both state that the repo contains deliberately broken code for educational purposes.
 
 ## Test requirements
 
 Tests must not require a running Temporal server unless using the SDK's own test facilities.
 
-- Unit tests for `shared.py` dataclasses and starter argument parsing and input construction.
-- Unit test for the starter's metrics parser (reads the ActivityWorker slot gauge, not the LocalActivityWorker line).
-- Activity tests via `temporalio.testing.ActivityEnvironment` with httpx calls mocked (all providers mocked so provider rotation stays deterministic): verify block mode calls `time.sleep` (monkeypatched to record, not sleep), slow mode awaits `asyncio.sleep` instead, the healthy path applies no delay, and provider failover moves to the next provider when one errors.
-- Tests for the order-receipt activities and workflow (fast, no network): verify the receipt output and that the activities perform no network call.
-- An event-loop starvation probe test that proves the contrast deterministically without Temporal: run the activity delay on an event loop next to a probe task that ticks every 50 ms with a patched short sleep of 0.5 s; assert the probe misses ticks in block mode and does not in slow mode.
-- Workflow tests via `temporalio.testing.WorkflowEnvironment.start_time_skipping()` exercising the happy path of both workflow types with mocked-network activities, and confirming `maximum_attempts=1` surfaces a failure rather than retrying.
-- Slot exhaustion and the cross-type blast radius are demonstrated live in the tutorial rather than asserted in CI; no integration test attempts to reproduce real schedule-to-start timing.
-- The full gate is `just check` (ruff check, ruff format --check, mypy strict, pytest); pytest alone is the autonomous-run verification command via pyproject autodetection.
+- Unit tests for `shared.py` dataclasses, starter argument parsing and input construction, and the starter's metrics parser (ActivityWorker gauge, not LocalActivityWorker).
+- Activity tests via `temporalio.testing.ActivityEnvironment` with httpx mocked (all providers mocked so rotation is deterministic): each mode does what it claims (`block` calls `time.sleep`; `cpu` spins without awaiting or calling `time.sleep`; `slow` awaits `asyncio.sleep`; `slow_heartbeat` awaits and heartbeats more than once; `stuck_no_heartbeat` awaits and never heartbeats); healthy applies no delay; provider failover moves to the next provider on error and raises when all fail.
+- The event-loop starvation probe test proves the contrast deterministically without Temporal: a probe ticks every 50 ms beside the mode under test; `block` and `cpu` starve the probe, `slow` and `slow_heartbeat` do not.
+- Tests for the bystander workflows and activities (fast and short-work), verifying output and no network.
+- Workflow tests via `WorkflowEnvironment.start_time_skipping()` for the happy path of each workflow type with mocked-network activities, and confirming `maximum_attempts=1` surfaces a failure.
+- The live failure signatures (cross-type blast radius, slot timing, CPU pinning, heartbeat and schedule-to-start timeouts) are demonstrated live in the tutorial and verified during the build, not asserted in CI.
+- The full gate is `just check` (ruff check, ruff format --check, mypy strict, pytest); pytest alone is the autonomous-run verification command.
 
 ## Documentation requirements
 
-- README: what the repo demonstrates, quickstart (three terminals: `just server`, `just worker`, then `just block` or `just slow`), and the two-lesson diagnostic walkthrough (frozen loop vs exhausted slots).
-  Each lesson shows the cross-type blast radius (an unrelated order-receipt workflow failing because of the geo workflow) and the expected healthy vs broken output shapes for `asyncio ps` and the metrics.
-  The README also covers the platform gotchas, the `start_to_close` and `schedule_to_close` timeouts as the realistic signals, the `temporal_activity_schedule_to_start_latency` metric as the slot-exhaustion tell, and a link placeholder for the tutorial.
+- README: what the repo demonstrates, quickstart (three terminals: `just server`, `just worker`, then a scenario recipe), and one lesson per scenario in the catalog (frozen loop blocking, frozen loop CPU, slot exhaustion, correct long activity, heartbeat timeout, schedule-to-start), each with the expected healthy-versus-broken shapes for `asyncio ps`, CPU, and the metrics, and the cross-type blast radius called out.
+- A summary table or section mapping each mode to the timeout it trips and the tool signature that identifies it.
+- Platform gotchas, the realistic-timeouts framing (`start_to_close` / `schedule_to_close` as the SLA, `temporal_activity_schedule_to_start_latency` as the saturation tell), and a tutorial link placeholder.
 - README prose follows the repo owner's writing rules: no em-dashes, one sentence per line in committed Markdown.
-- MIT license.
+- Update CLAUDE.md's architecture section to the catalog's module and mode layout.
+- MIT license (already present).
 
 ## Future work (v2, not in scope for this arc)
 
 A lab mode turning the demo into a whodunit learning environment; decisions recorded September 2026, build deferred until after the tutorial publishes:
 
-- A fleet generator (a script invoked via `just generate N`) that writes real per-workflow source files (for example `fleet/workflow_c.py` through `fleet/workflow_z.py` by default, with no upper limit on count or naming) so every generated activity has its own file and line and stack traces remain genuine clues at any scale.
-  v1 already ships two hand-written, neutrally-named workflow types; the generator scales that idea up so the culprit's file and line are a genuine clue among many.
+- A fleet generator (`just generate N`) that writes real per-workflow source files so every generated activity has its own file and line and stack traces stay genuine clues at any scale. v1 ships hand-written, neutrally-named workflow types; the generator scales that up.
 - Seeded culprit selection: a `--seed` picks which generated activity misbehaves and how, without announcing it; a `reveal` command checks the learner's answer.
-- A FastAPI "game master" app (async, fully typed, matching project standards): starts and stops scenarios, shows a live fleet status board and symptom feed, and accepts the learner's culprit guess for the reveal flow.
-  This serves the game loop the Temporal Web UI cannot; it does not duplicate the Temporal UI's workflow views, and the tutorial-facing v1 remains CLI plus Temporal UI plus metrics.
-- v1 misbehavior modes (block, slow) carry over; a cpu-bound block that holds the GIL, and intermittent variants, are candidates for the lab, not v1.
+- A FastAPI game-master app (async, fully typed): starts and stops scenarios, shows a live fleet status board and symptom feed, and accepts the learner's guess for the reveal flow. The tutorial-facing v1 remains CLI plus Temporal UI plus metrics.
+- Intermittent and load-dependent variants (a mode that only misbehaves under concurrency, or every Nth call) are candidates for the lab, not this arc.
 
 ## Non-goals
 
