@@ -2,6 +2,7 @@
 
 ## Recent
 
+- In a justfile, the FIRST recipe is what bare `just` runs; when a plan step adds recipes, instruct the executor to keep the `default: @just --list` recipe first and verify bare `just` prints the help, or an insertion above it silently changes the CLI's front door (2026-09-21)
 - On a BPE plugin upgrade, do not reflexively run `/bpe:retrofit`; read the new plan skill first. 0.7.0's `/bpe:plan` states its new spec sections (`## Invariants`, `## Roadmap / phase log`) are optional for older specs, so a legacy spec plans fine. `--replace` discards a hand-written spec and `--resync` corrects drift, so neither fits a spec that is intentionally ahead of the code; a targeted in-place edit adding the fence sections is the right move (2026-09-20)
 - BPE 0.7.0 `/bpe:plan` honors three scope fences: `## Invariants`, `## Non-goals`, and `**Deferred:**` under `## Roadmap / phase log`; keep out-of-scope work under one of those exact headings (not a custom "Future work" section) or the plan writer will not treat it as a mechanical fence (2026-09-20)
 - To hold an activity slot for a long cooperative wait, heartbeat every few seconds inside the wait (interval a few times shorter than heartbeat_timeout); otherwise the server cancels the activity at heartbeat_timeout and frees the slot early (2026-09-18)
@@ -11,7 +12,6 @@
 - Capture real tool output for a tutorial before writing the prose; the live run produced the genuine `temporal_worker_task_slots_available` 0 line AND exposed the heartbeat-timeout timing that the spec and the first README draft both got wrong (2026-09-18)
 - The Temporal Python SDK serves its Prometheus metrics endpoint from the Rust core runtime on its own threads, not the Python event loop, so `curl :9464/metrics` stays reachable while a blocking call freezes the loop (verified live: 10 of 10 scrapes returned sub-millisecond during a 30-second block); use the `asyncio ps` stack shape (user-code frame at the tail) as the definitive frozen-loop signal, not endpoint reachability (2026-09-17)
 - `schedule_to_start_timeout` combined with `WorkflowEnvironment.start_time_skipping` is flaky because the skipped clock can cross the deadline while tasks queue; test such workflows under a real-time (`start_local`) environment (2026-09-17)
-- An error-path test that asserts only the exception type does not prove a retry policy is disabled; record `activity.info().attempt` per invocation and assert the attempt count (`== [1]` for `maximum_attempts=1`) so the test fails if retries come back (2026-09-17)
 
 ## Testing
 

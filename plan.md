@@ -1,422 +1,416 @@
-# temporal-async-debug Implementation Plan
+# temporal-async-debug Implementation Plan (Failure-Mode Catalog)
 
-This plan turns `spec.md` into an executable, test-driven build sequence.
+This plan turns the catalog target in `spec.md` into an executable, test-driven build sequence on top of the committed two-workflow foundation.
 Each step is a literal prompt for a code-generation LLM.
 Feature steps follow RED/GREEN/REFACTOR; Task steps follow Scope/Tooling/Do/Verify/Document.
 Steps build strictly on their predecessors with no orphaned code.
 
+Read `spec.md` in full before starting; the `## Starting context` live-verified mechanics and the `## Architecture (target for the catalog)` and `## Behavior requirements (scenario catalog)` sections are the source of truth. Honor the `## Invariants`, `## Non-goals`, and `**Deferred:**` fences: no new dependencies, no role-labeled names, no lab mode / generator / game master, changes only under src/, tests/, justfile, README.md, CLAUDE.md.
+
 ## Current Status
 
-- [ ] Section 1: Scaffolding And Shared Types
-  - [ ] Step 1: Package And Test Scaffolding (task)
-  - [ ] Step 2: Shared Dataclasses And Task Queue Constant
-- [ ] Section 2: Activities And The Starvation Probe
-  - [ ] Step 3: Misbehaving Activities With Mode Logic
-  - [ ] Step 4: Event-Loop Starvation Probe Test
-- [ ] Section 3: Workflows
-  - [ ] Step 5: Misbehaving Greeting Workflow
-  - [ ] Step 6: Innocent Victim Workflow
-- [ ] Section 4: Worker And Starter CLI
-  - [ ] Step 7: Mistuned Worker With Metrics And Banner (task)
-  - [ ] Step 8: Starter CLI With Argument Parsing
-- [ ] Section 5: Documentation And CI
-  - [ ] Step 9: README And License (task)
-  - [ ] Step 10: CI Workflow, pip-audit, Dependabot (task)
+- [ ] Section 1: Misbehavior Modes And The Starvation Probe
+  - [ ] Step 1: Extend The Mode Set (cpu, slow_heartbeat, stuck_no_heartbeat)
+  - [ ] Step 2: Extend The Starvation Probe To cpu And slow_heartbeat
+- [ ] Section 2: Bystander Workflows
+  - [ ] Step 3: Short-Work Bystander (SalesRollupWorkflow)
+  - [ ] Step 4: Schedule-To-Start Sample (PriceQuoteWorkflow)
+- [ ] Section 3: Workflow Timeout Selection Per Mode
+  - [ ] Step 5: Per-Mode Activity Options In The Geo Workflow
+- [ ] Section 4: Worker, Starter, And Recipes
+  - [ ] Step 6: Register The Full Fleet On The Worker (task)
+  - [ ] Step 7: Extend The Starter To The Full Scenario Set
+  - [ ] Step 8: One Just Recipe Per Scenario (task)
+- [ ] Section 5: Documentation
+  - [ ] Step 9: Comprehensive README Catalog (task)
+  - [ ] Step 10: Refresh CLAUDE.md Architecture (task)
 
-## Architecture Recap
+## Architecture Recap (target)
 
-Package `src/temporal_async_debug/` (src layout, hatchling, empty `__init__.py`).
+Package `src/temporal_async_debug/` (src layout, hatchling, Python 3.14+). The foundation (GeoEnrichmentWorkflow, OrderReceiptWorkflow, block/slow modes, mistuned worker, fleet starter) is committed; this plan adds the delta.
 
-- `shared.py`: frozen dataclasses for workflow inputs and outputs (misbehaving input carries `block_seconds: float` and `mode: str`), plus the task queue name constant.
-- `activities.py`: two async activities (`get_ip`, `get_location`) using httpx; each heartbeats, then applies its mode when `block_seconds > 0` (mode "block" calls `time.sleep`, the deliberate bug; mode "slow" awaits `asyncio.sleep`), then makes its httpx call.
-- `victim.py`: `VictimWorkflow` and its correct `quick_task` activity; a short `schedule_to_start_timeout` makes slot exhaustion legible.
-- `workflow.py`: `GreetingWorkflow` runs `get_ip` then `get_location`, each with a short `heartbeat_timeout` and a `maximum_attempts=1` retry policy.
-- `worker.py`: connects to localhost:7233, registers both workflows and all activities, mistuned with `max_concurrent_activities=2`, no `activity_executor`, Prometheus metrics on localhost:9464, and a startup banner printing the PID and the copy-paste introspection commands.
-- `starter.py`: argparse CLI with `--name`, `--block-seconds`, `--mode`, `--count`, `--victims`.
+- `shared.py`: add `VALID_MODES` (block, cpu, slow, slow_heartbeat, stuck_no_heartbeat) and the input/output dataclasses for the two new bystander workflow types.
+- `activities.py`: `_apply_mode` gains cpu (GIL-pinning busy loop, marked), slow_heartbeat (awaits in steps and heartbeats, correct, unmarked), stuck_no_heartbeat (awaits long, never heartbeats, marked). block and slow carry over.
+- `rollup.py` (new): `SalesRollupWorkflow` and `roll_up_sales`, a short (~2s) cooperative in-memory activity, correct and no network. The short-work bystander that a freeze catches in-flight.
+- `quote.py` (new): `PriceQuoteWorkflow` and `compute_quote`, a near-instant in-memory activity whose options set a short `schedule_to_start_timeout` (marked). The sample that shows schedule_to_start firing under saturation.
+- `receipt.py` (exists): `OrderReceiptWorkflow`, the instant bystander. Unchanged except worker registration.
+- `workflow.py`: `GeoEnrichmentWorkflow` selects per-mode activity options via a pure `geo_activity_options(mode)` helper: generous `start_to_close` so slow / slow_heartbeat hold their slots the full duration, `heartbeat_timeout` for slow_heartbeat and stuck_no_heartbeat, `maximum_attempts=1` (marked) throughout.
+- `worker.py`: register all four workflow types and every activity; keep `max_concurrent_activities=2` (marked) and the metrics endpoint.
+- `starter.py`: extend `--mode` to the full set, add flags for the new bystanders, and sequence submissions so each scenario's timeouts fire deterministically live.
+- `justfile`: one recipe per scenario.
 
-Antipattern marker convention (fixed, greppable), applied at every deliberate bug, mistuning, or antipattern line:
+Antipattern marker convention (fixed, greppable), on or immediately above each offending line:
 
 ```
 # ANTIPATTERN (deliberate, for teaching): <why it is wrong>. Correct: <the right approach>. Do not copy.
 ```
 
-Marked lines: the `time.sleep` call (Step 3), the `maximum_attempts=1` retry policy (Step 5), the victim's `schedule_to_start_timeout` (Step 6), and the `max_concurrent_activities=2` mistuning (Step 7).
+New marked lines this arc: the cpu busy loop (Step 1), the stuck_no_heartbeat missing-heartbeat branch (Step 1), and the PriceQuote `schedule_to_start_timeout` (Step 4). Carried over from the foundation: the `time.sleep` block call, the `maximum_attempts=1` retry policy, and `max_concurrent_activities=2`. `slow_heartbeat` is correct code and carries no marker.
 
-## Section 1: Scaffolding And Shared Types
+Proposed new workflow names (neutral, adjustable at review): `SalesRollupWorkflow` (short-work bystander) and `PriceQuoteWorkflow` (schedule-to-start sample). Both are realistic and carry no role label.
 
-**Tools:**
-- Skills: python:python, temporal:temporal-developer
-- MCPs: mcp__temporal-docs__search_temporal_knowledge_sources
-- Linters: uv run ruff check --output-format=json ., uv run mypy .
-
-### Step 1: Package And Test Scaffolding (task)
-
-**Tools:** none
-
-**NOTE**: `pyproject.toml`, `justfile`, and `.gitignore` already exist. Do not recreate them from scratch; extend `pyproject.toml` only where noted. The `src/` tree and `tests/` tree do not yet exist.
-
-```text
-1. Scope:
-   - Artifact(s):
-     - src/temporal_async_debug/__init__.py (new, empty)
-     - src/temporal_async_debug/py.typed (new, empty marker file)
-     - tests/__init__.py (new, empty)
-     - tests/conftest.py (new)
-     - pyproject.toml (edit only: add hatchling wheel target and pytest config)
-   - Desired end state: `uv run pytest` collects zero tests and exits 0; `uv run mypy .` passes on the empty package; the package imports as `temporal_async_debug`.
-
-2. Tooling:
-   - Skills: python:python
-   - MCPs: none
-   - External: uv, ruff, mypy, pytest
-
-3. Do the work:
-   - Create the directory src/temporal_async_debug/ with an empty __init__.py and an empty py.typed.
-   - Create tests/__init__.py (empty) and tests/conftest.py containing only a module docstring for now (a placeholder for shared fixtures added in later steps).
-   - Edit pyproject.toml: add the hatchling src-layout wheel target so the package is discoverable:
-       [tool.hatch.build.targets.wheel]
-       packages = ["src/temporal_async_debug"]
-   - Edit pyproject.toml: add pytest configuration enabling asyncio auto mode and the src path:
-       [tool.pytest.ini_options]
-       asyncio_mode = "auto"
-       pythonpath = ["src"]
-       testpaths = ["tests"]
-   - Do not add or remove dependencies; the required ones (temporalio, httpx, ruff, mypy, pytest, pytest-cov, pytest-asyncio) already exist in pyproject.toml.
-
-4. Verify:
-   - Run `just check` and confirm exit 0 (ruff, ruff format --check, mypy strict, pytest with zero collected tests all pass).
-
-5. Document:
-   - none (README is authored in Step 9).
-```
-
-### Step 2: Shared Dataclasses And Task Queue Constant
-
-**NOTE**: These dataclasses are excerpted line-by-line in the tutorial, so keep them small and readable. `block_seconds` defaulting to 0.0 and `mode` defaulting to a healthy value are load-bearing contract choices: a wrong default turns every run into a misbehaving run.
-
-```text
-1. RED: Write dataclass-contract tests first:
-   - Create tests/test_shared.py:
-     - Test that GreetingInput defaults to block_seconds == 0.0 (the healthy default, meaning "apply no mode delay").
-     - Test that GreetingInput defaults to mode == "block" (so an explicit --mode is only needed to switch to slow).
-     - Test that GreetingInput, GreetingOutput, VictimInput, and VictimOutput are frozen: attempting to set an attribute raises dataclasses.FrozenInstanceError.
-     - Test that TASK_QUEUE is the exact string "async-debug-task-queue".
-   - These test our data contract and default choices, not dataclass machinery in general.
-
-2. Document component:
-   - Add Google-style module and class docstrings in src/temporal_async_debug/shared.py describing each field, especially that block_seconds is seconds of delay and mode selects "block" (freezes the loop) or "slow" (cooperative await).
-
-3. GREEN: Write MINIMAL code to make tests pass:
-   - Create src/temporal_async_debug/shared.py with:
-     - from __future__ import annotations, then `from dataclasses import dataclass`.
-     - TASK_QUEUE: str = "async-debug-task-queue" as a module constant.
-     - @dataclass(frozen=True) GreetingInput with fields: name: str, block_seconds: float = 0.0, mode: str = "block".
-     - @dataclass(frozen=True) GreetingOutput with fields: ip: str, location: str, greeting: str.
-     - @dataclass(frozen=True) VictimInput with field: label: str.
-     - @dataclass(frozen=True) VictimOutput with field: message: str.
-   - Full type hints on every field; no single-letter names.
-
-4. RED: Add contract-integration test:
-   - In tests/test_shared.py, test that GreetingInput(name="x", block_seconds=30, mode="slow") round-trips its values unchanged (documents that callers pass these three fields positionally or by keyword).
-
-5. GREEN: Confirm the dataclasses already satisfy the round-trip test; add nothing beyond Step 3 unless a test fails.
-
-6. REFACTOR: Ensure field ordering and docstrings read cleanly for tutorial excerpting; no behavior change.
-
-7. Update documentation:
-   - none (README is authored in Step 9; module docstrings were added in sub-step 2).
-
-8. Verify meaningful coverage of the data contract and run `just check`.
-```
-
-## Section 2: Activities And The Starvation Probe
+## Section 1: Misbehavior Modes And The Starvation Probe
 
 **Tools:**
 - Skills: python:python, temporal:temporal-developer
 - MCPs: mcp__temporal-docs__search_temporal_knowledge_sources
 - Linters: uv run ruff check --output-format=json ., uv run mypy .
 
-### Step 3: Misbehaving Activities With Mode Logic
+### Step 1: Extend The Mode Set (cpu, slow_heartbeat, stuck_no_heartbeat)
 
-**NOTE**: This is the heart of the demo. The `time.sleep` line must look innocent and carry the antipattern marker. Both activities heartbeat before applying their mode. The httpx calls hit https://icanhazip.com (get_ip) and a geo lookup for that IP (get_location); tests mock httpx so no network is required.
+**NOTE**: The foundation's `activities.py` has `_apply_mode(mode, block_seconds)` handling `block` (time.sleep, marked) and `slow` (asyncio.sleep). This step adds three modes. `slow_heartbeat` must call `activity.heartbeat` but `_apply_mode` is also called from the Temporal-free starvation probe test, so guard every heartbeat with `activity.in_activity()` (a captured lesson). cpu must NOT await and must NOT call time.sleep; it busy-loops on `time.monotonic()`. Keep the mode branch a plain, obvious `if`/`elif` chain as the spec requires.
 
 ```text
-1. RED: Write activity-behavior tests first (via temporalio.testing.ActivityEnvironment, httpx mocked):
-   - Create tests/test_activities.py:
-     - Test that get_ip calls activity.heartbeat exactly once before performing its httpx GET (capture heartbeats by setting ActivityEnvironment.on_heartbeat).
-     - Test that get_location calls activity.heartbeat exactly once before its httpx GET.
-     - Test that in mode "block" with block_seconds > 0, the activity calls time.sleep with block_seconds (monkeypatch time.sleep to record the argument and NOT actually sleep; assert it received block_seconds).
-     - Test that in mode "slow" with block_seconds > 0, the activity awaits asyncio.sleep with block_seconds and does NOT call time.sleep (monkeypatch both: record asyncio.sleep arg, assert time.sleep never called).
-     - Test that with block_seconds == 0.0, neither time.sleep nor asyncio.sleep is invoked with a positive delay (the healthy path applies no mode delay).
-     - Test that get_ip returns the mocked IP string and get_location returns the mocked location string (mock httpx.AsyncClient.get to return a controlled response).
-   - These test our mode branching, heartbeat ordering, and return handling, not httpx or Temporal internals.
+1. RED: Extend the activity-behavior tests (via temporalio.testing.ActivityEnvironment, httpx mocked with the existing respx fixtures and deterministic_rotation autouse):
+   - Modify tests/test_activities.py:
+     - Test that mode "cpu" with block_seconds > 0 busy-loops: monkeypatch time.sleep and asyncio.sleep to record calls, run get_ip with a tiny block_seconds (for example 0.05), and assert neither time.sleep nor asyncio.sleep was called with a positive delay (cpu neither sleeps nor awaits its delay) while wall-clock elapsed is at least block_seconds.
+     - Test that mode "slow_heartbeat" awaits asyncio.sleep and heartbeats more than once: set ActivityEnvironment.on_heartbeat to count calls, run get_ip with block_seconds = 0.09 (or a value that yields at least 2 steps given the step size chosen in GREEN), and assert the heartbeat count is >= 2 and asyncio.sleep was awaited.
+     - Test that mode "stuck_no_heartbeat" awaits asyncio.sleep once and never heartbeats: on_heartbeat counter stays 0, asyncio.sleep recorded with block_seconds, time.sleep never called.
+     - Test that VALID_MODES in shared.py equals the exact set {"block", "cpu", "slow", "slow_heartbeat", "stuck_no_heartbeat"}.
+   - These test our mode branching and heartbeat behavior, not asyncio or Temporal internals.
 
 2. Document component:
-   - Add a Google-style module docstring to src/temporal_async_debug/activities.py naming the healthy equivalents in one place: a module constant HEALTHY_EQUIVALENTS listing "asyncio.sleep" and "httpx" so the tutorial can point at the contrast.
-   - Document each activity function with its parameters and return type.
+   - In src/temporal_async_debug/shared.py add a module-level VALID_MODES: tuple[str, ...] (or frozenset) constant with all five mode strings and a one-line Google-style comment naming what each mode demonstrates.
+   - In src/temporal_async_debug/activities.py extend the _apply_mode docstring to describe cpu, slow_heartbeat, and stuck_no_heartbeat alongside block and slow.
 
 3. GREEN: Write MINIMAL code to make tests pass:
-   - Create src/temporal_async_debug/activities.py:
-     - Imports: import asyncio, import time, import httpx; from temporalio import activity; from temporal_async_debug.shared import GreetingInput (activities take the fields they need; pass block_seconds and mode as parameters or accept GreetingInput, choose one shape and keep it consistent with how workflow.py will call them in Step 5).
-     - Define an internal helper `_apply_mode(mode: str, block_seconds: float) -> None` used by both activities: if block_seconds > 0 and mode == "block", call time.sleep(block_seconds) with the antipattern marker on that exact line; elif block_seconds > 0 and mode == "slow", await asyncio.sleep(block_seconds). Because it awaits, this helper is async.
-     - @activity.defn async def get_ip(...) -> str: call activity.heartbeat("fetching ip"), then await _apply_mode(...), then GET https://icanhazip.com via httpx.AsyncClient and return the stripped body.
-     - @activity.defn async def get_location(ip: str, ...) -> str: call activity.heartbeat("fetching location"), then await _apply_mode(...), then GET a geo lookup URL for that IP via httpx and return a location string.
-     - Antipattern marker on the time.sleep line, exactly:
-       # ANTIPATTERN (deliberate, for teaching): time.sleep blocks the single worker event loop, starving the poller, heartbeat sender, and every other async activity. Correct: await asyncio.sleep for cooperative delay, or run truly blocking work in an executor. Do not copy.
+   - Add VALID_MODES to shared.py.
+   - Extend _apply_mode in activities.py with three new branches (keep block and slow unchanged):
+     - cpu: compute deadline = time.monotonic() + block_seconds, then `while time.monotonic() < deadline: pass`. No await, no time.sleep. Marker on the loop line:
+       # ANTIPATTERN (deliberate, for teaching): a CPU-bound loop pins the GIL and freezes the single worker event loop; it is uncancellable so the SDK cannot reclaim the slot. Correct: run CPU-bound work in a ProcessPoolExecutor off the event loop. Do not copy.
+     - slow_heartbeat: loop the total block_seconds in fixed steps (step = 3.0 seconds, or the remaining time if smaller), awaiting asyncio.sleep(step) each iteration and, guarded by `if activity.in_activity():`, calling activity.heartbeat("slow_heartbeat progress") after each step. This is correct code; no marker.
+     - stuck_no_heartbeat: await asyncio.sleep(block_seconds) once and never heartbeat. Marker immediately above the await:
+       # ANTIPATTERN (deliberate, for teaching): this awaits long-running work but never heartbeats, so a workflow that sets heartbeat_timeout has the server cancel it mid-flight. Correct: heartbeat periodically during long work, as slow_heartbeat does. Do not copy.
+   - Ensure _apply_mode stays async and the block/slow branches are untouched.
 
-4. RED: Add integration tests:
-   - In tests/test_activities.py, add a test that runs get_ip then get_location end to end under ActivityEnvironment in mode "slow" with a small block_seconds (for example 0.01), asserting both heartbeats fired and both mocked network results are returned in order.
+4. RED: Add an integration test:
+   - In tests/test_activities.py, run get_ip end to end under ActivityEnvironment in mode "slow_heartbeat" with a small block_seconds and assert both the mocked IP result returns AND heartbeats fired, confirming the mode composes with the real activity body.
 
-5. GREEN: Wire up integration minimally so the end-to-end ActivityEnvironment test passes; adjust helper signatures only as needed.
+5. GREEN: Wire the branch so the integration test passes; adjust the step size only if needed to yield the asserted heartbeat count.
 
-6. REFACTOR: Keep the mode branch a plain, obvious `if` as the spec requires; ensure the blocking path reads as innocent. No behavior change.
+6. REFACTOR: Keep the five-way branch flat and readable for tutorial excerpting; no behavior change to block or slow.
 
 7. Update documentation:
-   - none (README in Step 9); confirm HEALTHY_EQUIVALENTS and docstrings are present.
+   - none (README is Step 9); confirm VALID_MODES and the extended docstrings are present.
 
-8. Verify meaningful coverage of the mode branching and heartbeat ordering, then run `just check`.
+8. Verify meaningful coverage of the three new mode branches, then run `just check`.
 ```
 
-### Step 4: Event-Loop Starvation Probe Test
+### Step 2: Extend The Starvation Probe To cpu And slow_heartbeat
 
-**NOTE**: This test proves the block-vs-slow contrast deterministically without Temporal. It runs the activity's mode application next to a probe task that ticks on a timer; a blocking sleep makes the probe miss ticks, a cooperative sleep does not. Reuse the `_apply_mode` helper from Step 3 so the test exercises real product code.
+**NOTE**: The foundation's tests/test_starvation_probe.py proves block starves a 50 ms probe and slow does not. This step adds cpu (starves, like block) and slow_heartbeat (does not starve, like slow). Reuse the same probe helper. Pick thresholds with wide slack in one pass (a captured lesson): block/cpu against a floor well above 0.05 s, slow/slow_heartbeat well below.
 
 ```text
-1. RED: Write the starvation probe test first:
-   - Create tests/test_starvation_probe.py:
-     - Build an async probe coroutine that records a monotonic timestamp, awaits asyncio.sleep(0.05) (50 ms), and appends a tick, looping for a fixed number of ticks or until a stop event.
-     - Test block mode: monkeypatch time.sleep to a real short blocking sleep of 0.5 s (so the test stays fast), run _apply_mode(mode="block", block_seconds=0.5) as a task concurrently with the probe, and assert the probe misses ticks during the block (the gap between two consecutive probe timestamps exceeds a threshold clearly larger than 0.05 s, for example > 0.4 s).
-     - Test slow mode: run _apply_mode(mode="slow", block_seconds=0.5) concurrently with the probe and assert the probe does NOT miss ticks (every consecutive gap stays near 0.05 s, for example < 0.2 s), proving the loop kept scheduling the probe.
+1. RED: Extend the probe test:
+   - Modify tests/test_starvation_probe.py:
+     - Add a cpu-mode case: run _apply_mode(mode="cpu", block_seconds=0.5) concurrently with the 50 ms probe and assert the probe misses ticks during the spin (a consecutive gap > 0.4 s).
+     - Add a slow_heartbeat case: run _apply_mode(mode="slow_heartbeat", block_seconds=0.5) concurrently with the probe and assert the probe does NOT miss ticks (every consecutive gap < 0.2 s), proving cooperative awaits keep the loop scheduling even while heartbeating.
+     - Parametrize the starving cases over ["block", "cpu"] and the non-starving cases over ["slow", "slow_heartbeat"] if it reads cleanly; otherwise keep them explicit.
    - These assert our starvation behavior, the exact teaching claim, not asyncio scheduling in the abstract.
 
 2. Document component:
-   - Add a module docstring to tests/test_starvation_probe.py explaining that this is the deterministic, Temporal-free proof of the frozen-loop-vs-cooperative distinction.
+   - Update the module docstring in tests/test_starvation_probe.py to note the two families it now proves: uncancellable freezes (block, cpu) versus cooperative waits (slow, slow_heartbeat).
 
-3. GREEN: Write MINIMAL code to make tests pass:
-   - If _apply_mode from Step 3 is directly callable with mode and block_seconds, call it directly. If its signature couples it to activity context, extract a pure inner function in activities.py that _apply_mode delegates to, and call that from the test. Keep any extraction behavior-preserving and re-run Step 3 tests.
+3. GREEN: Make the cases pass by calling the real _apply_mode from Step 1; add no new product code (slow_heartbeat's heartbeat is skipped outside an activity via the in_activity guard, so the probe test needs no worker).
 
-4. RED: Add an edge-case assertion:
-   - Assert that in block mode the total number of recorded probe ticks is strictly fewer than in slow mode over the same wall-clock window, making the contrast a single comparative assertion.
+4. RED: Add a comparative assertion:
+   - Assert that cpu records strictly fewer probe ticks than slow_heartbeat over the same wall-clock window, making the freeze-vs-cooperative contrast a single comparison for the new pair.
 
-5. GREEN: Adjust thresholds or tick counts minimally so both mode assertions hold reliably on a normal machine; avoid flaky tight bounds.
+5. GREEN: Adjust tick counts or thresholds minimally so both new assertions hold reliably; avoid tight bounds.
 
-6. REFACTOR: Factor shared probe setup into a local helper within the test module; no product behavior change.
+6. REFACTOR: Fold the four modes into the shared probe helper so block/cpu/slow/slow_heartbeat run through one code path; no product behavior change.
 
 7. Update documentation:
-   - none (README in Step 9).
+   - none (README is Step 9).
 
-8. Verify the test fails if _apply_mode's block branch is switched to asyncio.sleep (sanity-check the assertion has teeth), revert, then run `just check`.
+8. Verify the cpu case fails if the cpu branch is switched to asyncio.sleep (sanity-check the assertion has teeth), revert, then run `just check`.
 ```
 
-## Section 3: Workflows
+## Section 2: Bystander Workflows
 
 **Tools:**
 - Skills: python:python, temporal:temporal-developer
 - MCPs: mcp__temporal-docs__search_temporal_knowledge_sources
 - Linters: uv run ruff check --output-format=json ., uv run mypy .
 
-### Step 5: Misbehaving Greeting Workflow
+### Step 3: Short-Work Bystander (SalesRollupWorkflow)
 
-**NOTE**: `GreetingWorkflow` executes `get_ip` then `get_location`. Each activity uses a short `heartbeat_timeout` (10 seconds) so a 30-second block demonstrably misses heartbeats, and a retry policy with `maximum_attempts=1` so failures surface instead of retrying silently (this retry choice carries the antipattern marker). The happy-path test runs under WorkflowEnvironment.start_time_skipping with mocked-network activities.
-
-```text
-1. RED: Write the workflow happy-path test first (via temporalio.testing.WorkflowEnvironment.start_time_skipping):
-   - Create tests/test_workflow.py:
-     - Start a time-skipping WorkflowEnvironment, register GreetingWorkflow and stubbed versions of get_ip and get_location (activities that return fixed strings without network), run a Worker on TASK_QUEUE, and execute GreetingWorkflow with GreetingInput(name="friend", block_seconds=0.0, mode="block").
-     - Assert the returned GreetingOutput has ip, location, and a greeting string that includes the name "friend".
-     - Assert the workflow calls get_ip before get_location (for example, have the stubbed get_location assert it received the ip produced by get_ip).
-   - This tests our workflow orchestration and output shaping, not the Temporal runtime.
-
-2. Document component:
-   - Add a Google-style class docstring to GreetingWorkflow in src/temporal_async_debug/workflow.py describing the two-activity sequence and why the timeouts are set the way they are for the demo.
-
-3. GREEN: Write MINIMAL code to make tests pass:
-   - Create src/temporal_async_debug/workflow.py:
-     - Imports inside a `with workflow.unsafe.imports_passed_through():` block for shared, and the datetime timedelta import; from temporalio import workflow; from temporalio.common import RetryPolicy.
-     - @workflow.defn class GreetingWorkflow with @workflow.run async def run(self, args: GreetingInput) -> GreetingOutput.
-     - Execute get_ip with start_to_close_timeout=timedelta(seconds=60), heartbeat_timeout=timedelta(seconds=10), retry_policy=RetryPolicy(maximum_attempts=1), passing block_seconds and mode through.
-     - Execute get_location with the same timeouts and retry policy, passing the ip from get_ip plus block_seconds and mode.
-     - Build and return GreetingOutput(ip=..., location=..., greeting=f"Hello {args.name}, you appear to be in {location}").
-     - Antipattern marker on the retry policy (both activity calls or on a shared RetryPolicy variable), exactly:
-       # ANTIPATTERN (deliberate, for teaching): maximum_attempts=1 disables retries so the demo surfaces the first failure instead of masking it. Correct: allow retries with sensible backoff in production. Do not copy.
-
-4. RED: Add an error-path integration test:
-   - In tests/test_workflow.py, register a stubbed get_ip that raises ApplicationError and assert the workflow fails (WorkflowFailureError) rather than silently retrying, confirming maximum_attempts=1 takes effect.
-
-5. GREEN: Wire the workflow so the error-path test passes; adjust nothing beyond making the failure surface.
-
-6. REFACTOR: Ensure the activity-execution calls read clearly for tutorial excerpting; no behavior change.
-
-7. Update documentation:
-   - none (README in Step 9).
-
-8. Verify meaningful coverage of the orchestration and the no-retry behavior, then run `just check`.
-```
-
-### Step 6: Innocent Victim Workflow
-
-**NOTE**: `VictimWorkflow` is correct code in every respect; its one small async activity `quick_task` does no network and returns fast. Its activity options set a short `schedule_to_start_timeout` (10 seconds) so slot exhaustion produces a visible non-retryable timeout quickly. That timeout carries the antipattern marker with the note that it is normally an antipattern and exists here only to make the failure legible.
+**NOTE**: This is the bystander a freeze catches in-flight. Its one activity does a couple of seconds of cooperative in-memory work (no network) so that, when a freeze lands while it is running, it trips start_to_close, producing cross-type activity-timeout damage rather than only a stall. It is correct code and carries no marker. Name is neutral and adjustable; `roll_up_sales` sums an in-memory list with a short cooperative pause. Keep it obviously correct so the tutorial can contrast it with the geo misbehaver. Mirror the shape of the existing receipt.py.
 
 ```text
-1. RED: Write the victim happy-path test first (via WorkflowEnvironment.start_time_skipping):
-   - Create tests/test_victim.py:
-     - Start a time-skipping WorkflowEnvironment, register VictimWorkflow and quick_task, run a Worker on TASK_QUEUE, and execute VictimWorkflow with VictimInput(label="check-1").
-     - Assert the returned VictimOutput.message includes the label "check-1" and indicates success.
-     - Assert quick_task performs no network (it is a pure function returning a fast result); verify by asserting its returned value flows into the output.
-   - This tests our victim orchestration and output, not Temporal.
+1. RED: Write the happy-path workflow test first (via temporalio.testing.WorkflowEnvironment.start_time_skipping):
+   - Create tests/test_rollup.py:
+     - Start a time-skipping WorkflowEnvironment, register SalesRollupWorkflow and roll_up_sales, run a Worker on shared.TASK_QUEUE, and execute SalesRollupWorkflow with SalesRollupInput(period="2026-09").
+     - Assert the returned SalesRollupOutput.summary is a non-empty string that includes the period "2026-09".
+     - Assert roll_up_sales performs no network: add an autouse forbid_network fixture (mirror tests/test_receipt.py) that monkeypatches httpx.AsyncClient.request to raise, so any accidental network call fails the test.
+   - Add a unit test that roll_up_sales, run under ActivityEnvironment with a block/pause parameter of 0.0, returns the expected computed summary for a known input, so the aggregation logic is tested directly.
+   - These test our rollup orchestration and computation, not Temporal or asyncio.
 
 2. Document component:
-   - Add Google-style docstrings to VictimWorkflow and quick_task in src/temporal_async_debug/victim.py, noting quick_task is deliberately correct and fast.
+   - Add a Google-style module docstring to src/temporal_async_debug/rollup.py naming this as a correct, unrelated bystander that shares the worker; docstrings on SalesRollupWorkflow and roll_up_sales.
 
 3. GREEN: Write MINIMAL code to make tests pass:
-   - Create src/temporal_async_debug/victim.py:
-     - @activity.defn async def quick_task(label: str) -> str: return a fast computed string such as f"processed {label}" with no sleep and no network.
-     - @workflow.defn class VictimWorkflow with @workflow.run async def run(self, args: VictimInput) -> VictimOutput.
-     - Execute quick_task with start_to_close_timeout=timedelta(seconds=10) and schedule_to_start_timeout=timedelta(seconds=10).
-     - Return VictimOutput(message=f"victim {args.label}: {result}").
-     - Antipattern marker on the schedule_to_start_timeout, exactly:
-       # ANTIPATTERN (deliberate, for teaching): a short schedule_to_start_timeout is normally an antipattern; it is set here only to make slot exhaustion fail fast and visibly. Correct: usually leave schedule_to_start unset and size the worker to demand. Do not copy.
+   - Add SalesRollupInput(period: str) and SalesRollupOutput(summary: str) frozen dataclasses to src/temporal_async_debug/shared.py.
+   - Create src/temporal_async_debug/rollup.py:
+     - @activity.defn async def roll_up_sales(period: str, work_seconds: float = 2.0) -> str: compute a summary from an in-memory list of figures (a small module-level constant), awaiting asyncio.sleep(work_seconds) once to simulate the short cooperative work, then return a summary string mentioning the period and the computed total. No network, no time.sleep, no marker.
+     - @workflow.defn class SalesRollupWorkflow with @workflow.run async def run(self, args: SalesRollupInput) -> SalesRollupOutput, executing roll_up_sales with start_to_close_timeout=timedelta(seconds=10) and schedule_to_close_timeout=timedelta(seconds=20) and the default retry policy, returning SalesRollupOutput(summary=...).
+     - Use `with workflow.unsafe.imports_passed_through():` for the shared import, matching the foundation's workflow modules.
 
-4. RED: Add an integration assertion:
-   - In tests/test_victim.py, run several VictimWorkflow executions concurrently under the same time-skipping environment and assert all complete successfully with distinct labels reflected in their outputs, confirming the victim path is independent and correct.
+4. RED: Add a concurrent integration test:
+   - In tests/test_rollup.py, run several SalesRollupWorkflow executions concurrently under one time-skipping environment and assert all complete with their distinct periods reflected, confirming the bystander path is independent and correct.
 
 5. GREEN: Wire the workflow so the concurrent test passes; change nothing else.
 
-6. REFACTOR: Keep victim.py minimal and obviously correct so the tutorial can contrast it with the misbehaving code; no behavior change.
+6. REFACTOR: Keep rollup.py minimal and obviously correct; no behavior change.
 
 7. Update documentation:
-   - none (README in Step 9).
+   - none (README is Step 9).
 
-8. Verify meaningful coverage of the victim orchestration, then run `just check`.
+8. Verify meaningful coverage of the rollup computation and orchestration, then run `just check`.
 ```
 
-## Section 4: Worker And Starter CLI
+### Step 4: Schedule-To-Start Sample (PriceQuoteWorkflow)
+
+**NOTE**: This is the one place schedule_to_start_timeout appears, since setting it is rare. The workflow models a task that is worthless if it does not start promptly (a price quote goes stale), which is the legitimate routing/staleness use case, so the short schedule_to_start_timeout is realistic here yet still carries the marker because it is normally an antipattern. The activity is near-instant in-memory; the timeout fires only because the worker is saturated when it is submitted. Name is neutral and adjustable.
+
+```text
+1. RED: Write the happy-path workflow test first (via WorkflowEnvironment.start_time_skipping):
+   - Create tests/test_quote.py:
+     - Start a time-skipping WorkflowEnvironment, register PriceQuoteWorkflow and compute_quote, run a Worker on shared.TASK_QUEUE, and execute PriceQuoteWorkflow with PriceQuoteInput(sku="WIDGET-1", quantity=3).
+     - Assert the returned PriceQuoteOutput.quote is a non-empty string including the sku "WIDGET-1".
+     - Assert compute_quote performs no network (autouse forbid_network fixture as in Step 3).
+   - Add a unit test asserting the workflow configures a schedule_to_start_timeout: expose the activity options via a small pure helper quote_activity_options() -> a mapping/params object in quote.py and assert it includes schedule_to_start_timeout == timedelta(seconds=5) and start_to_close_timeout set. This tests our timeout configuration, the teaching point, directly rather than trying to trip the timeout under time-skipping (which is flaky, a captured lesson).
+   - These test our quote computation and its deliberate schedule_to_start configuration, not the Temporal runtime.
+
+2. Document component:
+   - Add a Google-style module docstring to src/temporal_async_debug/quote.py explaining the staleness rationale and that the short schedule_to_start_timeout is deliberately set to make saturation fail fast and visibly; docstrings on PriceQuoteWorkflow and compute_quote.
+
+3. GREEN: Write MINIMAL code to make tests pass:
+   - Add PriceQuoteInput(sku: str, quantity: int = 1) and PriceQuoteOutput(quote: str) frozen dataclasses to src/temporal_async_debug/shared.py.
+   - Create src/temporal_async_debug/quote.py:
+     - @activity.defn async def compute_quote(sku: str, quantity: int) -> str: compute a price from an in-memory price table (module constant) and return a quote string; near-instant, no sleep, no network.
+     - A pure helper quote_activity_options() returning the activity options (start_to_close_timeout=timedelta(seconds=5), schedule_to_start_timeout=timedelta(seconds=5)) so the value is unit-testable and the workflow and the test share one source.
+     - @workflow.defn class PriceQuoteWorkflow executing compute_quote with those options, returning PriceQuoteOutput(quote=...). Marker on the schedule_to_start_timeout in quote_activity_options:
+       # ANTIPATTERN (deliberate, for teaching): a short schedule_to_start_timeout is normally an antipattern; it is set here only because a stale quote is worthless, and to make worker saturation fail fast and visibly. Correct: usually leave schedule_to_start unset and size the worker to demand. Do not copy.
+
+4. RED: Add an integration assertion:
+   - In tests/test_quote.py, run PriceQuoteWorkflow for several skus concurrently under time-skipping and assert each quote reflects its sku and quantity, confirming the sample path is correct when the worker is not saturated.
+
+5. GREEN: Wire the workflow so the concurrent test passes; change nothing else.
+
+6. REFACTOR: Keep quote.py minimal; no behavior change.
+
+7. Update documentation:
+   - none (README is Step 9).
+
+8. Verify meaningful coverage of the quote computation and the options helper, then run `just check`.
+```
+
+## Section 3: Workflow Timeout Selection Per Mode
 
 **Tools:**
 - Skills: python:python, temporal:temporal-developer
 - MCPs: mcp__temporal-docs__search_temporal_knowledge_sources
 - Linters: uv run ruff check --output-format=json ., uv run mypy .
 
-### Step 7: Mistuned Worker With Metrics And Banner (task)
+### Step 5: Per-Mode Activity Options In The Geo Workflow
 
-**NOTE**: This step is wiring and configuration, not new branching logic, so it uses the Task template. The worker is deliberately mistuned (`max_concurrent_activities=2`) and runs its activities async on purpose (no `activity_executor`). It enables the SDK Prometheus metrics endpoint on localhost:9464 and prints a startup banner with the PID and copy-paste introspection commands. It is verified by import and a smoke run, not by a unit test, because it is a long-running process against a real server.
+**NOTE**: The foundation's workflow.py runs get_ip then get_location with fixed start_to_close (10s) plus schedule_to_close (15s) and maximum_attempts=1. The catalog needs the geo activity options to depend on the mode: generous start_to_close so slow and slow_heartbeat hold their slots the full block duration (live-verified: an awaiting activity is cancelled at start_to_close), and a heartbeat_timeout for slow_heartbeat (which it satisfies) and stuck_no_heartbeat (which it does not, so it fails). block and cpu keep a generous start_to_close and no heartbeat_timeout; they are detected from the frozen-loop stack, not from a timeout. Extract the selection into a pure helper so it is unit-testable without a server. Keep maximum_attempts=1 (marked) for every mode.
+
+```text
+1. RED: Write per-mode options tests first:
+   - Create tests/test_geo_options.py (or extend tests/test_workflow.py):
+     - Test a pure helper geo_activity_options(mode: str) -> an options object/params covering all five modes:
+       - For "block" and "cpu": start_to_close_timeout is generous (== timedelta(seconds=120)), no heartbeat_timeout (None), maximum_attempts == 1.
+       - For "slow" and "slow_heartbeat": start_to_close_timeout is generous (== timedelta(seconds=120)) so the awaiting activity holds its slot the full duration; for "slow_heartbeat" heartbeat_timeout == timedelta(seconds=10); for "slow" heartbeat_timeout is None.
+       - For "stuck_no_heartbeat": heartbeat_timeout == timedelta(seconds=10) and start_to_close_timeout generous, so the missing heartbeat (not start_to_close) is what fails it.
+       - Every mode: schedule_to_close_timeout set (== timedelta(seconds=150)) and retry_policy has maximum_attempts == 1.
+     - Test that geo_activity_options rejects an unknown mode (raises ValueError) so a typo cannot silently produce default options.
+   - This tests our timeout-selection logic, the catalog's teaching contract, not Temporal timeout enforcement.
+
+2. Document component:
+   - Add a Google-style docstring to geo_activity_options in src/temporal_async_debug/workflow.py mapping each mode to why its timeouts are set that way, referencing the live-verified mechanics in spec.md's Starting context.
+
+3. GREEN: Write MINIMAL code to make tests pass:
+   - In src/temporal_async_debug/workflow.py, add geo_activity_options(mode) returning the per-mode options (start_to_close_timeout, schedule_to_close_timeout, heartbeat_timeout or None, retry_policy=RetryPolicy(maximum_attempts=1)). Keep the maximum_attempts=1 antipattern marker on the retry policy line:
+     # ANTIPATTERN (deliberate, for teaching): maximum_attempts=1 disables retries so the demo surfaces the first failure instead of masking it. Correct: allow retries with sensible backoff in production. Do not copy.
+   - Rewrite GreetingWorkflow/GeoEnrichmentWorkflow's activity executions to build their kwargs from geo_activity_options(args.mode), passing heartbeat_timeout only when it is not None. Keep get_ip then get_location ordering and the returned output shape unchanged.
+
+4. RED: Confirm the existing happy-path and error-path workflow tests still pass and, if needed, add one test that GeoEnrichmentWorkflow with mode "slow_heartbeat" runs to completion under start_time_skipping with stubbed activities (options applied without error).
+
+5. GREEN: Adjust the execution wiring so all workflow tests pass; do not change get_ip/get_location signatures beyond passing block_seconds and mode through as before.
+
+6. REFACTOR: Keep the activity-execution calls readable for excerpting; the per-mode branching lives only in geo_activity_options, not scattered in run().
+
+7. Update documentation:
+   - none (README is Step 9).
+
+8. Verify meaningful coverage of every mode's options and the unknown-mode guard, then run `just check`.
+```
+
+## Section 4: Worker, Starter, And Recipes
+
+### Step 6: Register The Full Fleet On The Worker (task)
+
+**Tools:**
+- Skills: python:python, temporal:temporal-developer
+- MCPs: mcp__temporal-docs__search_temporal_knowledge_sources
+- Linters: uv run ruff check --output-format=json ., uv run mypy .
+
+**NOTE**: Wiring, so Task template. The worker already registers GeoEnrichmentWorkflow and OrderReceiptWorkflow with max_concurrent_activities=2 (marked) and metrics on 127.0.0.1:9464. This step adds the two new workflow types and their activities. Keep the mistuning and the metrics endpoint; verified by import, not a unit test.
 
 ```text
 1. Scope:
-   - Artifact(s): src/temporal_async_debug/worker.py (new)
-   - Desired end state: `uv run python -c "import temporal_async_debug.worker"` succeeds; `uv run mypy .` passes; running the module prints a banner with the PID, the metrics URL, and the two introspection commands, then connects to localhost:7233 and serves. The metrics endpoint binds localhost:9464.
+   - Artifact(s): src/temporal_async_debug/worker.py (edit)
+   - Desired end state: `uv run python -c "import temporal_async_debug.worker"` succeeds; `uv run mypy .` passes; the Worker registers workflows=[GeoEnrichmentWorkflow, OrderReceiptWorkflow, SalesRollupWorkflow, PriceQuoteWorkflow] and activities=[get_ip, get_location, and the receipt, rollup, and quote activities], keeping max_concurrent_activities=2 (marker intact) and the Prometheus endpoint on 127.0.0.1:9464.
 
 2. Tooling:
    - Skills: python:python, temporal:temporal-developer
-   - MCPs: mcp__temporal-docs__search_temporal_knowledge_sources (confirm the current Runtime/TelemetryConfig/PrometheusConfig API and Worker keyword arguments)
+   - MCPs: mcp__temporal-docs__search_temporal_knowledge_sources (only if a Worker keyword argument needs confirming)
    - External: uv, mypy, ruff
 
 3. Do the work:
-   - Create src/temporal_async_debug/worker.py with an async main() and a __main__ guard that runs it via asyncio.run.
-   - Build a Runtime with Prometheus telemetry: from temporalio.runtime import Runtime, TelemetryConfig, PrometheusConfig; Runtime(telemetry=TelemetryConfig(metrics=PrometheusConfig(bind_address="127.0.0.1:9464"))). Confirm exact names via the temporal-docs MCP before finalizing.
-   - Connect: await Client.connect("localhost:7233", runtime=runtime).
-   - Construct the Worker on shared.TASK_QUEUE, registering workflows=[GreetingWorkflow, VictimWorkflow] and activities=[get_ip, get_location, quick_task], with max_concurrent_activities=2 and no activity_executor.
-   - Antipattern marker on the max_concurrent_activities line, exactly:
-       # ANTIPATTERN (deliberate, for teaching): max_concurrent_activities=2 undersizes the worker so two slow activities exhaust every slot and stall the queue. Correct: size slots to expected concurrency and load. Do not copy.
-   - Before await worker.run(), print a banner (plain print statements) that includes: os.getpid(), the line "python -m asyncio ps <PID>" and "python -m asyncio pstree <PID>" with the real PID substituted, and the metrics URL http://127.0.0.1:9464/metrics.
+   - Import SalesRollupWorkflow and roll_up_sales from temporal_async_debug.rollup, and PriceQuoteWorkflow and compute_quote from temporal_async_debug.quote.
+   - Add both workflows to the workflows= list and both activities to the activities= list on the existing Worker construction.
+   - Leave max_concurrent_activities=2 and its antipattern marker unchanged; leave the Runtime/Prometheus config and the PID banner unchanged.
 
 4. Verify:
-   - Run `uv run python -c "import temporal_async_debug.worker"` and confirm exit 0, then run `just check` and confirm exit 0. (A full live run against temporal server start-dev is a manual smoke test documented in the README, not part of this step's automated verification.)
+   - Run `uv run python -c "import temporal_async_debug.worker"` and confirm exit 0, then run `just check` and confirm exit 0. (A live run against `temporal server start-dev` is a manual smoke test in the README, not part of this step.)
 
 5. Document:
-   - none here; the banner text and metrics URL are documented in the README in Step 9.
+   - none here; the fleet is documented in the README in Step 9.
 ```
 
-### Step 8: Starter CLI With Argument Parsing
+### Step 7: Extend The Starter To The Full Scenario Set
 
-**NOTE**: The starter parses CLI flags and starts workflows. Argument parsing and the concurrent-submission fan-out are our logic and are unit-testable without a server by factoring parsing into a pure function. The actual client submission is thin and exercised manually against the dev server.
+**Tools:**
+- Skills: python:python, temporal:temporal-developer
+- MCPs: mcp__temporal-docs__search_temporal_knowledge_sources
+- Linters: uv run ruff check --output-format=json ., uv run mypy .
+
+**NOTE**: The foundation's starter.py has a fleet CLI (--mode block|slow, --block-seconds, --bad, --geo, --receipts), a metrics parser (parse_activity_slots_available matching worker_type="ActivityWorker"), wait_for_free_activity_slots, and the os._exit(0) teardown workaround. This step widens --mode to all five, adds flags for the two new bystanders, and sequences submissions so each scenario's timeouts fire deterministically live. Argument parsing and input construction are our logic and are unit-testable without a server; the live submission ordering is thin and exercised manually. Respect the live-verified mechanic (spec Starting context): to make a freeze trip a bystander's activity timeout, that bystander's activity must already be in-flight or scheduled BEFORE the freeze lands, because a frozen loop stops scheduling new activity tasks.
 
 ```text
-1. RED: Write argument-parsing tests first:
-   - Create tests/test_starter.py:
-     - Test that a build_parser()/parse_args helper defaults --name to a non-empty string, --block-seconds to 0.0, --mode to "block", --count to 1, and --victims to 0.
-     - Test that --mode accepts only "block" or "slow" (argparse choices) and that an invalid value causes a SystemExit.
-     - Test that --block-seconds parses as float and --count and --victims parse as int.
-     - Test that parsing ["--name", "ada", "--mode", "slow", "--block-seconds", "30", "--count", "2", "--victims", "3"] yields exactly those typed values.
-   - These test our CLI contract, not argparse itself in the abstract.
+1. RED: Extend argument-parsing and input-construction tests first:
+   - Modify tests/test_starter.py:
+     - Test that --mode accepts exactly the five VALID_MODES values (argparse choices sourced from shared.VALID_MODES) and rejects an invalid value with SystemExit.
+     - Test that new flags --rollups (type int, default 0) and --quotes (type int, default 0) parse as ints and default to 0.
+     - Test input-construction helpers: rollup_inputs_from_args(args) -> list[SalesRollupInput] produces --rollups items with distinct periods; quote_inputs_from_args(args) -> list[PriceQuoteInput] produces --quotes items with distinct skus.
+     - Test that parsing a full flag set (--mode stuck_no_heartbeat --block-seconds 30 --bad 1 --geo 1 --rollups 2 --receipts 2 --quotes 1) yields exactly those typed values.
+   - These test our CLI contract and input construction, not argparse itself.
 
 2. Document component:
-   - Add a Google-style module docstring to src/temporal_async_debug/starter.py describing each flag and what submitting count misbehaving workflows plus victims demonstrates.
+   - Update the src/temporal_async_debug/starter.py module docstring to describe the full --mode set, the new --rollups and --quotes flags, and, per scenario, what the fleet mix and ordering demonstrate.
 
 3. GREEN: Write MINIMAL code to make tests pass:
-   - Create src/temporal_async_debug/starter.py:
-     - A build_parser() -> argparse.ArgumentParser function defining --name (default "friend"), --block-seconds (type float, default 0.0), --mode (choices ["block", "slow"], default "block"), --count (type int, default 1), --victims (type int, default 0).
-     - An async main() that: parses args, connects Client.connect("localhost:7233"), submits --count GreetingWorkflow executions concurrently (asyncio.gather) with GreetingInput built from the flags, submits --victims VictimWorkflow executions concurrently, awaits all, and prints each result.
-     - A __main__ guard calling asyncio.run(main()).
+   - Source the --mode choices from shared.VALID_MODES.
+   - Add --rollups and --quotes flags (type int, default 0).
+   - Add rollup_inputs_from_args and quote_inputs_from_args mirroring the existing bad_geo/healthy_geo/receipt helpers, with distinct labels (period, sku).
+   - In main(), submit the fleet with ordering that makes the scenario deterministic:
+     - For the freeze modes (block, cpu): submit the short-work bystanders (rollups) and any healthy geo first and wait until at least one activity slot is occupied (reuse the existing slot-polling helper), THEN submit the --bad geo run in the freeze mode, so the bystander is in-flight when the freeze lands and trips start_to_close.
+     - For the saturation modes (slow, slow_heartbeat, stuck_no_heartbeat): submit the --bad geo runs to fill the slots, wait until parse_activity_slots_available reads 0, THEN submit the bystanders (receipts, rollups, quotes) so they starve and trip schedule_to_close (and, for quotes, schedule_to_start).
+     - Keep the os._exit(0) teardown workaround.
+   - Report each result (or failure) as the foundation's _report_results does; extend it to the new workflow types via its existing generic typing.
 
-4. RED: Add an input-construction test:
-   - In tests/test_starter.py, add a helper in starter.py such as greeting_inputs_from_args(args) -> list[GreetingInput] and victim_inputs_from_args(args) -> list[VictimInput], then test that --count 2 produces two GreetingInput values carrying the parsed mode and block_seconds, and --victims 3 produces three VictimInput values with distinct labels.
+4. RED: Add an input-construction edge test:
+   - In tests/test_starter.py, assert --rollups 3 yields three SalesRollupInput with three distinct periods and --quotes 2 yields two PriceQuoteInput with two distinct skus, so the fan-out is exercised without a server.
 
-5. GREEN: Wire main() to call those helpers so submission and tests share the same construction logic.
+5. GREEN: Wire main() to use the helpers so submission and tests share one construction path.
 
-6. REFACTOR: Keep parsing, input construction, and submission as separate small functions so the tutorial can show the CLI surface cleanly; no behavior change.
+6. REFACTOR: Keep parsing, input construction, and the per-scenario submission ordering as separate small functions so the tutorial can show the CLI surface cleanly; no behavior change.
 
 7. Update documentation:
-   - none (README in Step 9).
+   - none (README is Step 9).
 
 8. Verify meaningful coverage of parsing and input construction, then run `just check`.
 ```
 
-## Section 5: Documentation And CI
+### Step 8: One Just Recipe Per Scenario (task)
 
 **Tools:** none
 
-### Step 9: README And License (task)
+**NOTE**: Wiring, so Task template. The justfile already has server, worker, trigger, and block/slow recipes for the fleet CLI. This step adds a recipe per catalog scenario so a reader runs one command per lesson. Recipes only compose the starter CLI; no new logic.
+
+```text
+1. Scope:
+   - Artifact(s): justfile (edit)
+   - Desired end state: `just --list` shows one recipe per scenario, each invoking `uv run python -m temporal_async_debug.starter` with the right flags; existing recipes still work.
+
+2. Tooling:
+   - Skills: none
+   - MCPs: none
+   - External: just
+
+3. Do the work:
+   - Keep the existing `default` recipe (`@just --list`) as the FIRST recipe in the justfile, so bare `just` prints the help; in just, the first recipe is the default, so new recipes must be added below it, never above it.
+   - Add or update recipes (default seconds="30" where a duration applies), each a thin wrapper over the starter with a fleet mix that makes the scenario legible:
+     - healthy: a fleet of geo + rollups + receipts + quotes, all healthy (block-seconds 0).
+     - block seconds="30": --mode block --block-seconds {{seconds}} --bad 1 --geo 1 --rollups 1 --receipts 2 (freeze; rollup caught in-flight).
+     - cpu seconds="30": --mode cpu --block-seconds {{seconds}} --bad 1 --geo 1 --rollups 1 --receipts 2 (freeze, GIL pinned).
+     - slow seconds="30": --mode slow --block-seconds {{seconds}} --bad 2 --geo 1 --rollups 1 --receipts 2 --quotes 1 (saturation; quote trips schedule_to_start).
+     - slow-heartbeat seconds="30": --mode slow_heartbeat --block-seconds {{seconds}} --bad 2 --receipts 2 --rollups 1 (correct long activity still saturates an undersized worker).
+     - stuck seconds="30": --mode stuck_no_heartbeat --block-seconds {{seconds}} --bad 1 --geo 1 (heartbeat timeout fires).
+   - Keep the recipe names matching the README lesson headings in Step 9.
+
+4. Verify:
+   - Run bare `just` and confirm it prints the recipe list (the default recipe survived as first). Run `just --list` and confirm every scenario recipe appears and parses (exit 0). Run `just check` and confirm exit 0. (Live behavior is verified manually while writing the README.)
+
+5. Document:
+   - none here; the recipes are documented in the README in Step 9.
+```
+
+## Section 5: Documentation
+
+### Step 9: Comprehensive README Catalog (task)
 
 **Tools:**
 - Skills: python:python, temporal:temporal-developer, content-design:tutorial-writing, content-design:review-content
 - MCPs: mcp__temporal-docs__search_temporal_knowledge_sources
 - Linters: none
 
-**NOTE**: README prose follows the repo owner's writing rules: no em-dashes or en-dashes, one sentence per line in committed Markdown, straight quotes only, Title Case headings. The README and the GitHub repo description both must state that the repo contains deliberately broken code for educational purposes.
+**NOTE**: The current README is stale (it describes the old Greeting/Victim design). Rewrite it against the final catalog behavior. Prose follows the writing hard rules: no em-dashes or en-dashes, one sentence per line in committed Markdown, straight quotes, sentence-case headings (this is a Temporal education doc). Capture real tool output before writing the prose (a captured lesson): run the scenarios live against `temporal server start-dev` and the worker, and paste the genuine `asyncio ps` / `pstree`, CPU, and metrics output rather than inventing it. The README and the GitHub repo description both state the repo contains deliberately broken code for educational purposes. Invoke content-design:tutorial-writing before drafting and content-design:review-content after.
 
 ```text
 1. Scope:
-   - Artifact(s):
-     - README.md (new)
-     - LICENSE (new, MIT, copyright Mason Egger, 2026)
-   - Desired end state: README covers what the repo demonstrates, the three-terminal quickstart, the two-lesson diagnostic walkthrough with expected healthy-vs-broken output shapes, the platform gotchas, and a tutorial link placeholder; LICENSE is a standard MIT text.
+   - Artifact(s): README.md (rewrite)
+   - Desired end state: the README is the in-repo tutorial home covering the full catalog: what the repo demonstrates, the three-terminal quickstart, one lesson per scenario, the mode-to-timeout-to-signature table, the two diagnostic families, platform gotchas, the realistic-timeouts framing, and a tutorial link placeholder.
 
 2. Tooling:
-   - Skills: content-design:tutorial-writing (invoke before drafting; the quickstart and lessons are procedural docs), content-design:review-content (invoke after drafting; Vale plus copy-editor pass), python:python, temporal:temporal-developer
-   - MCPs: mcp__temporal-docs__search_temporal_knowledge_sources (verify the exact metric name temporal_worker_task_slots_available and the poller-vanishing and schedule-to-start behavior claims before writing them into prose)
-   - External: Vale, if configured, via the review-content skill
+   - Skills: content-design:tutorial-writing (invoke before drafting), content-design:review-content (invoke after drafting: Vale plus copy-editor), temporal:temporal-developer, python:python
+   - MCPs: mcp__temporal-docs__search_temporal_knowledge_sources (verify the exact metric names temporal_worker_task_slots_available and temporal_activity_schedule_to_start_latency and the poller-vanishing behavior before writing them into prose)
+   - External: a running `temporal server start-dev` and worker for capturing real output; Vale via review-content
 
 3. Do the work:
-   - Write LICENSE as the standard MIT License text with holder "Mason Egger" and year 2026.
-   - Write README.md with these sections (sentence-per-line prose, no em-dashes):
+   - Capture real output first: start the server and worker, run each `just` scenario recipe, and save the genuine asyncio ps / pstree stacks, top CPU readings, and curl of http://127.0.0.1:9464/metrics for both healthy and broken states.
+   - Rewrite README.md (sentence-per-line prose, no em-dashes, sentence-case headings) with:
      - A one-paragraph statement of what the repo demonstrates and a bold warning that it contains deliberately broken code for educational purposes only.
-     - Quickstart: three terminals, `just server`, `just worker`, then `just block` or `just slow`.
-     - Lesson 1 (frozen loop): what `just block` does, and the expected shapes of healthy vs broken `python -m asyncio ps <PID>` output (broken: the blocked task stack ends in user code at the time.sleep call site in activities.py) and the metrics endpoint (unreachable or stalled during the freeze).
-     - Lesson 2 (exhausted slots): what `just slow` does, and the expected shapes of healthy stacks (all tasks parked on asyncio suspension points), temporal_worker_task_slots_available at 0 via curl of http://127.0.0.1:9464/metrics, climbing schedule-to-start latency, and the worker vanishing from the Temporal UI poller list.
-     - The distinguishing summary: frozen loop (stack in user code, metrics endpoint unreachable or stalled) versus busy worker (healthy stacks, slots at 0, schedule-to-start latency climbing).
-     - Platform gotchas: inspector and target both Python 3.14+, Linux Yama ptrace_scope=1 presents as "Failed to find the PyRuntime section" and is fixed with sudo or ptrace_scope=0, macOS requires sudo, and 3.14 asyncio ps can fail transiently so just re-run it.
-     - The antipattern marker convention and how to grep for "ANTIPATTERN (deliberate, for teaching)".
-     - A tutorial link placeholder pointing at masonegger.com (mark it TODO).
+     - The headline: the cross-type blast radius (one workflow type takes down an unrelated one because they share a worker).
+     - Quickstart: three terminals, `just server`, `just worker`, then a scenario recipe.
+     - One lesson per scenario: healthy baseline, frozen loop blocking (block), frozen loop CPU (cpu), slot exhaustion (slow), correct long-running activity (slow_heartbeat), heartbeat timeout (stuck_no_heartbeat), and the schedule-to-start sample. Each lesson shows the expected healthy-versus-broken shapes for asyncio ps, CPU, and the metrics, and names which timeout fires.
+     - A summary table mapping each mode to the timeout it trips (start_to_close, schedule_to_close, schedule_to_start, heartbeat) and the tool signature that identifies it, with the frozen-loop versus saturated-worker split called out (block near-zero CPU, cpu at 100 percent, metrics reachable in both; saturation shows healthy stacks, slots at 0, schedule-to-start latency climbing, poller gone).
+     - Platform gotchas: inspector and target both Python 3.14+, Linux Yama ptrace_scope=1 presents as "Failed to find the PyRuntime section" (fixed with sudo or ptrace_scope=0), macOS requires sudo, and 3.14 asyncio ps can fail transiently so re-run it.
+     - The realistic-timeouts framing: start_to_close and schedule_to_close as the SLA, schedule_to_start as the rare routing case, temporal_activity_schedule_to_start_latency as the saturation tell; and why workflow timeouts are not used (business logic depends on correctness, not time).
+     - The antipattern marker convention and the grep for "ANTIPATTERN (deliberate, for teaching)".
+     - A tutorial link placeholder pointing at masonegger.com (marked TODO).
 
 4. Verify:
    - Invoke content-design:review-content on README.md and address every finding (Vale mechanical checks plus the copy-editor prose pass).
-   - Then human-check: read README.md top to bottom and confirm no em-dashes or en-dashes, one sentence per line in prose, both the PID/introspection commands and the metrics URL match worker.py, and the deliberately-broken-code warning is present. Confirm LICENSE is valid MIT text.
+   - Human-check: read README.md top to bottom and confirm no em-dashes or en-dashes, one sentence per line in prose, sentence-case headings, that every command and metric name matches the code, that the captured output is real (not invented), and that the deliberately-broken-code warning is present.
 
 5. Document:
    - This step is the documentation.
 ```
 
-### Step 10: CI Workflow, pip-audit, Dependabot (task)
+### Step 10: Refresh CLAUDE.md Architecture (task)
 
-**NOTE**: Non-goals cap CI at the canonical application workflow: a single pinned Python 3.14, `just check`, pip-audit, and dependabot. No Docker. Keep it minimal.
+**Tools:** none
+
+**NOTE**: The current CLAUDE.md architecture section still describes the old Greeting/Victim design, heartbeats, and the old flags. Refresh it to the catalog's module and mode layout. Same writing rules apply. This is a straight documentation update with no code change.
 
 ```text
 1. Scope:
-   - Artifact(s):
-     - .github/workflows/ci.yml (new)
-     - .github/dependabot.yml (new)
-   - Desired end state: CI runs on push and pull_request against a single pinned Python 3.14, installs via uv, runs `just check`, and runs pip-audit; dependabot is configured for the pip ecosystem and GitHub Actions.
+   - Artifact(s): CLAUDE.md (edit the Architecture section and the Commands section)
+   - Desired end state: CLAUDE.md's Architecture section names the real modules (shared.py, activities.py with the five modes, workflow.py with GeoEnrichmentWorkflow and geo_activity_options, receipt.py, rollup.py, quote.py, worker.py, starter.py) and the real demo recipes; no reference to victim.py, GreetingWorkflow, or the old flags remains.
 
 2. Tooling:
    - Skills: none
@@ -424,41 +418,41 @@ Marked lines: the `time.sleep` call (Step 3), the `maximum_attempts=1` retry pol
    - External: none
 
 3. Do the work:
-   - Create .github/workflows/ci.yml:
-     - Trigger on push and pull_request.
-     - One job on ubuntu-latest with a single Python 3.14 (pinned, for example "3.14").
-     - Steps: checkout, install uv (astral-sh/setup-uv), `uv sync`, install just (or run the check commands directly if just is not available on the runner), run `just check`, then run `uv run pip-audit` (add pip-audit to the dev dependency group in pyproject.toml if not already present).
-   - Create .github/dependabot.yml:
-     - version: 2 with two update entries: package-ecosystem "pip" (or "uv" if supported) at the repo root, and package-ecosystem "github-actions" at "/", each on a weekly schedule.
-   - If pip-audit is added to pyproject.toml dev group, run `uv lock` if a lockfile is in use.
+   - Update the Architecture section to the module list above, describing the shared single event loop, the five misbehavior modes, the cross-type blast radius across the four workflow types, and the frozen-loop-versus-saturation diagnostic split.
+   - Update the Commands section's demo recipes to match the justfile from Step 8 (healthy, block, cpu, slow, slow-heartbeat, stuck).
+   - Keep the antipattern marker convention section; confirm the grep string matches the code.
+   - Apply the writing rules: no em-dashes, one sentence per line in committed Markdown prose.
 
 4. Verify:
-   - Run `just check` locally and confirm exit 0. Validate the YAML parses (for example `uv run python -c "import yaml,sys; yaml.safe_load(open('.github/workflows/ci.yml')); yaml.safe_load(open('.github/dependabot.yml'))"`) and confirm exit 0. Full CI execution is confirmed on the first push, not in this step.
+   - Grep CLAUDE.md for "victim", "Greeting", and "VictimWorkflow" and confirm no stale references remain. Confirm the module list matches `ls src/temporal_async_debug/`. Run `just check` and confirm exit 0 (no code changed, so this just re-confirms the tree is green).
 
 5. Document:
-   - Optionally add a one-line CI note to README.md; otherwise "none".
+   - This step is the documentation.
 ```
 
 ## Implementation Guidelines
 
-- All Python code follows the python:python skill without exception: full type hints, Google-style docstrings on public interfaces, no single-letter names, canonical ruff/mypy/pytest config blocks.
+- All Python code follows the python:python skill without exception: full type hints, Google-style docstrings on public interfaces, no single-letter names, canonical ruff/mypy/pytest config blocks. Use PEP 695 generics and X | None as the foundation already does.
 - Demo code stays small and readable; it is excerpted line-by-line in the tutorial. Comment density serves a reader learning the failure mode.
-- Every deliberate bug, mistuning, or antipattern carries the fixed marker `# ANTIPATTERN (deliberate, for teaching): <why>. Correct: <right approach>. Do not copy.` on or immediately above the offending line. The validator should flag any mistuning that lacks one.
-- Tests must not require a running Temporal server except through the SDK's own test facilities (ActivityEnvironment, WorkflowEnvironment.start_time_skipping).
-- Network is always mocked in tests; no test hits icanhazip.com or a geo service.
-- The full local gate is `just check` (ruff check, ruff format --check, mypy strict, pytest). Autonomous-run verification is `pytest` alone via pyproject autodetection.
-- Slot exhaustion and real schedule-to-start timing are demonstrated live in the tutorial, not asserted in CI.
-- Writing rules apply to all prose (README, docstrings, commit messages): no em-dashes or en-dashes, straight quotes, one sentence per line in committed Markdown prose.
+- Every deliberate bug, mistuning, or antipattern carries the fixed marker `# ANTIPATTERN (deliberate, for teaching): <why>. Correct: <right approach>. Do not copy.` on or immediately above the offending line. The validator flags any mistuning that lacks one. slow_heartbeat is correct and carries no marker.
+- No new dependencies (Invariants: temporalio only, deps not to be added without a spec change). All new modes use stdlib (asyncio, time) and the existing httpx/temporalio.
+- No role-labeled names (no victim, villain, culprit). New workflow types are neutral and realistic.
+- Do not implement anything in Non-goals or the Deferred list (no fleet generator, no seeded culprit, no game master, no web UI, no CI changes, no Docker).
+- Tests must not require a running Temporal server except through the SDK's own facilities (ActivityEnvironment, WorkflowEnvironment.start_time_skipping). Network is always mocked. Guard activity.heartbeat with activity.in_activity() in code reused outside an activity.
+- Prefer start_local over start_time_skipping when a test involves schedule_to_start timing (a captured lesson); here, schedule_to_start is asserted via the options helper, not by tripping it under time-skipping.
+- The full local gate is `just check` (ruff check, ruff format --check, mypy strict, pytest). Autonomous-run verification is pytest alone.
+- Live failure signatures (cross-type blast radius, slot timing, CPU pinning, heartbeat and schedule-to-start timeouts) are captured live while writing the README, not asserted in CI.
+- Writing rules apply to all prose (README, CLAUDE.md, docstrings, commit messages): no em-dashes or en-dashes, straight quotes, one sentence per line in committed Markdown.
 - Never commit to main; work on a feature branch. Only Mason merges to main.
 
 ## Success Metrics
 
 - `just check` passes: ruff clean, ruff format check clean, mypy strict clean, all tests green.
-- Activity tests prove heartbeat ordering, that block mode calls time.sleep and slow mode awaits asyncio.sleep, and that the healthy path applies no delay.
-- The starvation probe test deterministically shows the probe misses ticks in block mode and keeps them in slow mode, and fails if the block branch is switched to a cooperative await.
-- Workflow tests exercise both GreetingWorkflow and VictimWorkflow happy paths under start_time_skipping with mocked-network activities, and confirm maximum_attempts=1 surfaces failures.
-- Starter tests cover flag defaults, choices validation, and input construction for --count and --victims.
-- worker.py imports cleanly, binds metrics on 127.0.0.1:9464, and prints a banner with the real PID and copy-paste introspection commands.
-- Every deliberately wrong line (time.sleep, maximum_attempts=1, victim schedule_to_start_timeout, max_concurrent_activities=2) carries the exact antipattern marker and is greppable by the fixed marker string.
-- README documents both lessons with healthy-vs-broken output shapes, the platform gotchas, the metrics URL, and the deliberately-broken-code warning; LICENSE is MIT.
-- CI runs a single pinned Python 3.14 with `just check` and pip-audit; dependabot is configured.
+- Activity tests prove each of the five modes does what it claims: block calls time.sleep, cpu busy-loops without awaiting or sleeping, slow awaits asyncio.sleep, slow_heartbeat awaits and heartbeats more than once, stuck_no_heartbeat awaits and never heartbeats; the healthy path applies no delay; provider failover still works.
+- The starvation probe deterministically shows block and cpu starve the probe while slow and slow_heartbeat do not, and the cpu case fails if its branch is switched to a cooperative await.
+- The two new bystander workflows (SalesRollupWorkflow, PriceQuoteWorkflow) pass happy-path and concurrent tests under start_time_skipping with no network, and PriceQuoteWorkflow's options helper sets the marked schedule_to_start_timeout.
+- geo_activity_options returns generous start_to_close for every mode, a heartbeat_timeout for slow_heartbeat and stuck_no_heartbeat, maximum_attempts=1 throughout, and raises on an unknown mode.
+- worker.py registers all four workflow types and every activity, keeps max_concurrent_activities=2 (marked) and the metrics endpoint, and imports cleanly.
+- The starter exposes all five modes and the --rollups/--quotes flags, constructs distinct inputs per bystander, and sequences submissions so freeze scenarios catch bystanders in-flight and saturation scenarios starve them.
+- Every deliberately wrong line (time.sleep, the cpu loop, stuck_no_heartbeat missing heartbeat, the quote schedule_to_start_timeout, maximum_attempts=1, max_concurrent_activities=2) carries the exact antipattern marker and is greppable.
+- The README documents every scenario with real captured healthy-versus-broken output, the mode-to-timeout-to-signature table, the platform gotchas, and the deliberately-broken-code warning; CLAUDE.md's architecture section matches the shipped modules with no stale Greeting/Victim references.
