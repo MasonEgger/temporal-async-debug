@@ -54,14 +54,14 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 5: Per-Mode Activity Options In The Geo Workflow
 
-- [ ] 1. RED: tests/test_geo_options.py geo_activity_options per mode (generous start_to_close, heartbeat_timeout for slow_heartbeat/stuck_no_heartbeat, maximum_attempts==1, schedule_to_close set) + unknown-mode ValueError
-- [ ] 2. Document: geo_activity_options docstring mapping each mode to its timeouts
-- [ ] 3. GREEN: geo_activity_options in workflow.py (maximum_attempts=1 marker kept); build activity kwargs from it
-- [ ] 4. RED: existing workflow tests pass; slow_heartbeat runs to completion under start_time_skipping
-- [ ] 5. GREEN: adjust execution wiring; keep get_ip/get_location signatures
-- [ ] 6. REFACTOR: per-mode branching lives only in geo_activity_options
-- [ ] 7. Docs: none
-- [ ] 8. Verify: coverage of every mode's options and the guard, run `just check`
+- [x] 1. RED: tests/test_geo_options.py geo_activity_options per mode (generous start_to_close, heartbeat_timeout for slow_heartbeat/stuck_no_heartbeat, maximum_attempts==1, schedule_to_close set) + unknown-mode ValueError
+- [x] 2. Document: geo_activity_options docstring mapping each mode to its timeouts
+- [x] 3. GREEN: geo_activity_options in workflow.py (maximum_attempts=1 marker kept); build activity kwargs from it
+- [x] 4. RED: existing workflow tests pass; slow_heartbeat runs to completion under start_time_skipping
+- [x] 5. GREEN: adjust execution wiring; keep get_ip/get_location signatures
+- [x] 6. REFACTOR: per-mode branching lives only in geo_activity_options
+- [x] 7. Docs: none
+- [x] 8. Verify: coverage of every mode's options and the guard, run `just check`
 
 ## Section 4: Worker, Starter, And Recipes
 

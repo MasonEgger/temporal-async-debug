@@ -66,6 +66,29 @@ async def test_geo_workflow_happy_path_returns_ip_and_location() -> None:
     assert result.location == STUB_LOCATION
 
 
+async def test_geo_workflow_runs_to_completion_in_slow_heartbeat_mode() -> None:
+    """geo_activity_options' heartbeat_timeout for slow_heartbeat applies without error."""
+    async with (
+        await WorkflowEnvironment.start_time_skipping() as env,
+        Worker(
+            env.client,
+            task_queue=TASK_QUEUE,
+            workflows=[GeoEnrichmentWorkflow],
+            activities=[get_ip_stub, get_location_stub],
+        ),
+    ):
+        result = await env.client.execute_workflow(
+            GeoEnrichmentWorkflow.run,
+            GeoEnrichmentInput(block_seconds=0.0, mode="slow_heartbeat"),
+            id=str(uuid.uuid4()),
+            task_queue=TASK_QUEUE,
+        )
+
+    assert isinstance(result, GeoEnrichmentOutput)
+    assert result.ip == STUB_IP
+    assert result.location == STUB_LOCATION
+
+
 async def test_geo_workflow_surfaces_first_failure_without_retrying() -> None:
     """maximum_attempts=1 fails the workflow on the first get_ip error instead of retrying."""
     attempts: list[int] = []
