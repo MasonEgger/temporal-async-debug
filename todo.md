@@ -17,14 +17,14 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 2: Extend The Starvation Probe To cpu And slow_heartbeat
 
-- [ ] 1. RED: tests/test_starvation_probe.py cpu starves, slow_heartbeat does not
-- [ ] 2. Document: module docstring names the two families (freeze vs cooperative)
-- [ ] 3. GREEN: call real _apply_mode; no new product code
-- [ ] 4. RED: comparative assertion (cpu records fewer ticks than slow_heartbeat)
-- [ ] 5. GREEN: tune thresholds/tick counts to be reliable, not flaky
-- [ ] 6. REFACTOR: fold four modes through one probe helper
-- [ ] 7. Docs: none
-- [ ] 8. Verify: cpu case has teeth (fails if switched to await), run `just check`
+- [x] 1. RED: tests/test_starvation_probe.py cpu starves, slow_heartbeat does not
+- [x] 2. Document: module docstring names the two families (freeze vs cooperative)
+- [x] 3. GREEN: call real _apply_mode; no new product code
+- [x] 4. RED: comparative assertion (cpu records fewer ticks than slow_heartbeat)
+- [x] 5. GREEN: tune thresholds/tick counts to be reliable, not flaky
+- [x] 6. REFACTOR: fold four modes through one probe helper
+- [x] 7. Docs: none
+- [x] 8. Verify: cpu case has teeth (fails if switched to await), run `just check`
 
 ## Section 2: Bystander Workflows
 

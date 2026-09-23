@@ -1,12 +1,14 @@
-"""ABOUTME: Deterministic, Temporal-free proof that block mode freezes the event loop and slow mode does not.
-ABOUTME: A probe ticks on an asyncio timer beside _apply_mode; block starves its ticks, slow spares them.
+"""ABOUTME: Deterministic, Temporal-free proof that freezing modes starve the event loop and cooperative modes do not.
+ABOUTME: A probe ticks on an asyncio timer beside _apply_mode; block and cpu starve it, slow and slow_heartbeat do not.
 
-The worker's whole failure mode is one event loop that a synchronous time.sleep can freeze. This test
+The worker's whole failure mode is one event loop that an uncancellable wait can freeze. This test
 reproduces that contrast without a Temporal server. A probe coroutine records a monotonic timestamp every
-50 ms while _apply_mode runs beside it, exactly as the worker runs its poller beside an activity. In block
-mode the real time.sleep stops the loop, so the probe misses ticks and one gap balloons past the block's
-length. In slow mode the cooperative asyncio.sleep leaves the loop free, so every gap stays near the tick
-interval and the probe records strictly more ticks over the same wall-clock window.
+50 ms while _apply_mode runs beside it, exactly as the worker runs its poller beside an activity. The
+modes fall into two families: block (a real time.sleep) and cpu (a busy loop pinning the GIL) both freeze
+the loop, so the probe misses ticks and one gap balloons past their length. slow and slow_heartbeat both
+await asyncio.sleep, cooperative even though slow_heartbeat also heartbeats between steps, so every gap
+stays near the tick interval and the probe records strictly more ticks over the same wall-clock window.
+slow_heartbeat's activity.heartbeat call is guarded by activity.in_activity(), so it runs Temporal-free here.
 """
 
 from __future__ import annotations
@@ -14,7 +16,15 @@ from __future__ import annotations
 import asyncio
 import time
 
+import pytest
+
 from temporal_async_debug.activities import _apply_mode
+
+FREEZING_MODES: tuple[str, ...] = ("block", "cpu")
+"""Uncancellable waits that pin the event loop for their full duration."""
+
+COOPERATIVE_MODES: tuple[str, ...] = ("slow", "slow_heartbeat")
+"""Awaited waits that yield the event loop back to the probe between steps."""
 
 TICK_INTERVAL_SECONDS: float = 0.05
 """How long the probe parks between ticks; short enough that a 0.5 s block is unmistakable."""
@@ -65,9 +75,10 @@ def _consecutive_gaps(timestamps: list[float]) -> list[float]:
     return [later - earlier for earlier, later in zip(timestamps, timestamps[1:], strict=False)]
 
 
-async def test_block_mode_starves_the_probe() -> None:
-    """The real time.sleep in block mode freezes the loop, so one probe gap dwarfs the tick interval."""
-    timestamps = await _record_probe_ticks("block", BLOCK_SECONDS)
+@pytest.mark.parametrize("mode", FREEZING_MODES)
+async def test_freezing_modes_starve_the_probe(mode: str) -> None:
+    """block's real time.sleep and cpu's busy loop both freeze the loop, so one gap dwarfs the tick interval."""
+    timestamps = await _record_probe_ticks(mode, BLOCK_SECONDS)
 
     gaps = _consecutive_gaps(timestamps)
 
@@ -75,9 +86,10 @@ async def test_block_mode_starves_the_probe() -> None:
     assert max(gaps) > STARVED_GAP_THRESHOLD_SECONDS
 
 
-async def test_slow_mode_keeps_the_probe_ticking() -> None:
-    """Cooperative asyncio.sleep leaves the loop free, so every probe gap stays near the tick interval."""
-    timestamps = await _record_probe_ticks("slow", BLOCK_SECONDS)
+@pytest.mark.parametrize("mode", COOPERATIVE_MODES)
+async def test_cooperative_modes_keep_the_probe_ticking(mode: str) -> None:
+    """slow and slow_heartbeat both await the loop free, so every probe gap stays near the tick interval."""
+    timestamps = await _record_probe_ticks(mode, BLOCK_SECONDS)
 
     gaps = _consecutive_gaps(timestamps)
 
@@ -91,3 +103,11 @@ async def test_block_mode_records_fewer_ticks_than_slow_mode() -> None:
     slow_ticks = await _record_probe_ticks("slow", BLOCK_SECONDS)
 
     assert len(block_ticks) < len(slow_ticks)
+
+
+async def test_cpu_mode_records_fewer_ticks_than_slow_heartbeat_mode() -> None:
+    """Over one identical window the GIL-pinned loop ticks strictly fewer times than the heartbeating one."""
+    cpu_ticks = await _record_probe_ticks("cpu", BLOCK_SECONDS)
+    slow_heartbeat_ticks = await _record_probe_ticks("slow_heartbeat", BLOCK_SECONDS)
+
+    assert len(cpu_ticks) < len(slow_heartbeat_ticks)
