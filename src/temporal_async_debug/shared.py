@@ -105,3 +105,27 @@ class SalesRollupOutput:
     """
 
     summary: str
+
+
+@dataclass(frozen=True)
+class PriceQuoteInput:
+    """Input to PriceQuoteWorkflow, the schedule-to-start sample with no network calls.
+
+    Attributes:
+        sku: Identifier for the item to quote a price for.
+        quantity: Number of units to quote. Defaults to 1.
+    """
+
+    sku: str
+    quantity: int = 1
+
+
+@dataclass(frozen=True)
+class PriceQuoteOutput:
+    """Result of PriceQuoteWorkflow.
+
+    Attributes:
+        quote: Human-readable price quote for the sku and quantity.
+    """
+
+    quote: str

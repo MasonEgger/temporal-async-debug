@@ -41,14 +41,14 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 4: Schedule-To-Start Sample (PriceQuoteWorkflow)
 
-- [ ] 1. RED: tests/test_quote.py happy path (quote includes sku, no network) + quote_activity_options schedule_to_start assertion
-- [ ] 2. Document: quote.py module + class + activity docstrings (staleness rationale)
-- [ ] 3. GREEN: PriceQuoteInput/Output in shared.py; quote.py with compute_quote, quote_activity_options (marked schedule_to_start_timeout), PriceQuoteWorkflow
-- [ ] 4. RED: concurrent quotes reflect sku and quantity
-- [ ] 5. GREEN: wire concurrent test
-- [ ] 6. REFACTOR: keep quote.py minimal
-- [ ] 7. Docs: none
-- [ ] 8. Verify: coverage of quote computation and options helper, run `just check`
+- [x] 1. RED: tests/test_quote.py happy path (quote includes sku, no network) + quote_activity_options schedule_to_start assertion
+- [x] 2. Document: quote.py module + class + activity docstrings (staleness rationale)
+- [x] 3. GREEN: PriceQuoteInput/Output in shared.py; quote.py with compute_quote, quote_activity_options (marked schedule_to_start_timeout), PriceQuoteWorkflow
+- [x] 4. RED: concurrent quotes reflect sku and quantity
+- [x] 5. GREEN: wire concurrent test
+- [x] 6. REFACTOR: keep quote.py minimal
+- [x] 7. Docs: none
+- [x] 8. Verify: coverage of quote computation and options helper, run `just check`
 
 ## Section 3: Workflow Timeout Selection Per Mode
 
