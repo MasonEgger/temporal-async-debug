@@ -2,13 +2,16 @@
 ABOUTME: get_ip and get_location apply their delay mode, then fetch from a round-robin provider list.
 
 The Temporal Python worker runs its poller and every ``async def`` activity on one asyncio event
-loop. Both activities below take a ``mode`` that decides how they wait:
+loop. Both activities below take a ``mode`` (one of ``shared.VALID_MODES``) that decides how they
+wait; see ``_apply_mode`` for what each mode does. The modes fall into two families:
 
-- ``"block"`` calls ``time.sleep``, which stops that entire loop. This is the deliberate bug the
-  tutorial diagnoses, and the reader is meant to look at the line and see nothing wrong with it.
-- ``"slow"`` awaits ``asyncio.sleep``, which delays this activity and nothing else, though a
-  running activity keeps its slot until it returns, so it holds one of the worker's slots for the
-  whole delay.
+- Freezing modes (``"block"``, ``"cpu"``) stop that entire loop. These are the deliberate bugs
+  the tutorial diagnoses, and the reader is meant to look at the line and see nothing wrong with
+  it.
+- Cooperative modes (``"slow"``, ``"slow_heartbeat"``, ``"stuck_no_heartbeat"``) await
+  ``asyncio.sleep`` instead, delaying this activity and nothing else, though a running activity
+  keeps its slot until it returns, so each still holds one of the worker's slots for the whole
+  delay.
 
 Each activity fetches from a short round-robin list of providers and falls back to the next on
 failure, so one provider's rate limit or outage does not break the demo. ``HEALTHY_EQUIVALENTS``
@@ -31,6 +34,10 @@ if TYPE_CHECKING:
 HEALTHY_EQUIVALENTS: tuple[str, ...] = ("asyncio.sleep", "httpx")
 """The non-blocking calls an async activity should reach for: ``asyncio.sleep`` in place of
 ``time.sleep``, and ``httpx``'s async client in place of a synchronous HTTP library."""
+
+HEARTBEAT_STEP_SECONDS: float = 3.0
+"""Interval between heartbeats in slow_heartbeat mode, well under any heartbeat_timeout the
+workflow sets for that mode."""
 
 HTTP_TIMEOUT_SECONDS: float = 10.0
 """Per-request timeout, short enough that a hung lookup does not masquerade as a frozen loop."""
@@ -88,10 +95,17 @@ async def _apply_mode(mode: str, block_seconds: float) -> None:
     """Wait for block_seconds in whichever way the mode asks for.
 
     Both activities call this before their HTTP request, so a single mode flag decides
-    whether the worker's event loop keeps running during the wait.
+    whether the worker's event loop keeps running during the wait, and whether the
+    activity heartbeats while it waits.
 
     Args:
-        mode: "block" to wait with time.sleep, "slow" to await asyncio.sleep. Any other
+        mode: One of shared.VALID_MODES. "block" waits with time.sleep, freezing the
+            event loop. "cpu" spins on time.monotonic, also freezing the loop but pinning
+            the GIL instead of releasing it. "slow" awaits asyncio.sleep once, cooperative
+            but silent. "slow_heartbeat" awaits asyncio.sleep in steps and heartbeats
+            between them, the correct way to hold a slot for legitimate long work.
+            "stuck_no_heartbeat" awaits asyncio.sleep once like "slow" but never
+            heartbeats, tripping a heartbeat_timeout the workflow sets for it. Any other
             value waits not at all.
         block_seconds: Seconds to wait. Zero, the healthy default, applies no delay.
     """
@@ -102,7 +116,28 @@ async def _apply_mode(mode: str, block_seconds: float) -> None:
         # starving the poller, heartbeat sender, and every other async activity. Correct: await
         # asyncio.sleep for cooperative delay, or run truly blocking work in an executor. Do not copy.
         time.sleep(block_seconds)
+    elif mode == "cpu":
+        deadline = time.monotonic() + block_seconds
+        # ANTIPATTERN (deliberate, for teaching): a CPU-bound loop pins the GIL and freezes the
+        # single worker event loop; it is uncancellable so the SDK cannot reclaim the slot.
+        # Correct: run CPU-bound work in a ProcessPoolExecutor off the event loop. Do not copy.
+        while time.monotonic() < deadline:
+            pass
     elif mode == "slow":
+        await asyncio.sleep(block_seconds)
+    elif mode == "slow_heartbeat":
+        remaining = block_seconds
+        while remaining > 0:
+            step = min(HEARTBEAT_STEP_SECONDS, remaining)
+            await asyncio.sleep(step)
+            remaining -= step
+            if activity.in_activity():
+                activity.heartbeat("slow_heartbeat progress")
+    elif mode == "stuck_no_heartbeat":
+        # ANTIPATTERN (deliberate, for teaching): this awaits long-running work but never
+        # heartbeats, so a workflow that sets heartbeat_timeout has the server cancel it
+        # mid-flight. Correct: heartbeat periodically during long work, as slow_heartbeat does.
+        # Do not copy.
         await asyncio.sleep(block_seconds)
 
 
@@ -112,7 +147,7 @@ async def get_ip(block_seconds: float, mode: str) -> str:
 
     Args:
         block_seconds: Seconds to wait before the request. Zero means no wait.
-        mode: "block" or "slow"; see _apply_mode.
+        mode: One of shared.VALID_MODES; see _apply_mode for what each does.
 
     Returns:
         The public IP address, stripped of the provider's trailing whitespace.
@@ -140,7 +175,7 @@ async def get_location(ip: str, block_seconds: float, mode: str) -> str:
     Args:
         ip: Address to look up, as returned by get_ip.
         block_seconds: Seconds to wait before the request. Zero means no wait.
-        mode: "block" or "slow"; see _apply_mode.
+        mode: One of shared.VALID_MODES; see _apply_mode for what each does.
 
     Returns:
         The city, region, and country of the address, as one comma-separated line.

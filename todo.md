@@ -6,14 +6,14 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 1: Extend The Mode Set (cpu, slow_heartbeat, stuck_no_heartbeat)
 
-- [ ] 1. RED: tests/test_activities.py cases for cpu (no sleep/await), slow_heartbeat (awaits + heartbeats >= 2), stuck_no_heartbeat (awaits, no heartbeat), VALID_MODES set
-- [ ] 2. Document: VALID_MODES constant in shared.py, extended _apply_mode docstring
-- [ ] 3. GREEN: three new _apply_mode branches; markers on cpu loop and stuck_no_heartbeat; block/slow unchanged
-- [ ] 4. RED: end-to-end slow_heartbeat activity test (result returns and heartbeats fire)
-- [ ] 5. GREEN: wire the branch; tune step size for the asserted heartbeat count
-- [ ] 6. REFACTOR: keep the five-way branch flat and readable
-- [ ] 7. Docs: confirm VALID_MODES and docstrings present
-- [ ] 8. Verify: coverage of the three new branches, run `just check`
+- [x] 1. RED: tests/test_activities.py cases for cpu (no sleep/await), slow_heartbeat (awaits + heartbeats >= 2), stuck_no_heartbeat (awaits, no heartbeat), VALID_MODES set
+- [x] 2. Document: VALID_MODES constant in shared.py, extended _apply_mode docstring
+- [x] 3. GREEN: three new _apply_mode branches; markers on cpu loop and stuck_no_heartbeat; block/slow unchanged
+- [x] 4. RED: end-to-end slow_heartbeat activity test (result returns and heartbeats fire)
+- [x] 5. GREEN: wire the branch; tune step size for the asserted heartbeat count
+- [x] 6. REFACTOR: keep the five-way branch flat and readable
+- [x] 7. Docs: confirm VALID_MODES and docstrings present
+- [x] 8. Verify: coverage of the three new branches, run `just check`
 
 ### Step 2: Extend The Starvation Probe To cpu And slow_heartbeat
 

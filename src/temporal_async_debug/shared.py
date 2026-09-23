@@ -15,6 +15,17 @@ from dataclasses import dataclass
 TASK_QUEUE: str = "async-debug-task-queue"
 """Task queue that the worker polls and the starter submits to."""
 
+VALID_MODES: tuple[str, ...] = ("block", "cpu", "slow", "slow_heartbeat", "stuck_no_heartbeat")
+"""Every delay mode an activity can apply, each demonstrating a distinct failure signature.
+
+- "block": time.sleep freezes the worker's single event loop (uncancellable).
+- "cpu": a busy loop pins the GIL and freezes the loop too, but burns 100% CPU doing it.
+- "slow": asyncio.sleep waits cooperatively, holding an activity slot but not the loop.
+- "slow_heartbeat": asyncio.sleep in steps with heartbeats between them, the correct way
+    to hold a slot for legitimate long-running work.
+- "stuck_no_heartbeat": asyncio.sleep with no heartbeat, tripping a heartbeat timeout.
+"""
+
 
 @dataclass(frozen=True)
 class GeoEnrichmentInput:
@@ -23,10 +34,12 @@ class GeoEnrichmentInput:
     Attributes:
         block_seconds: Seconds of delay each activity applies before its HTTP call.
             Defaults to 0.0, the healthy value, meaning no delay at all.
-        mode: Which delay to apply when block_seconds is above zero. "block" calls
-            time.sleep, which freezes the worker's event loop and is the deliberate
-            bug this demo teaches. "slow" awaits asyncio.sleep, which is cooperative
-            but still holds an activity slot for the duration.
+        mode: Which delay to apply when block_seconds is above zero. One of
+            shared.VALID_MODES. Freezing modes ("block", "cpu") stop the worker's
+            entire event loop and are the deliberate bugs this demo teaches.
+            Cooperative modes ("slow", "slow_heartbeat", "stuck_no_heartbeat")
+            await asyncio.sleep instead, holding an activity slot without freezing
+            the loop; see activities._apply_mode for what each mode does.
     """
 
     block_seconds: float = 0.0
