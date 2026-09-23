@@ -86,12 +86,12 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 8: One Just Recipe Per Scenario (task)
 
-- [ ] 1. Scope defined (justfile edit)
-- [ ] 2. Tooling: none (just)
-- [ ] 3. Do: keep `default` (`@just --list`) as the FIRST recipe so bare `just` prints the help
-- [ ] 3. Do: healthy, block, cpu, slow, slow-heartbeat, stuck recipes as thin starter wrappers with the right fleet mix
-- [ ] 4. Verify: bare `just` prints the recipe list, `just --list` shows every recipe and parses, `just check` exits 0
-- [ ] 5. Document: none (recipes documented in README)
+- [x] 1. Scope defined (justfile edit)
+- [x] 2. Tooling: none (just)
+- [x] 3. Do: keep `default` (`@just --list`) as the FIRST recipe so bare `just` prints the help
+- [x] 3. Do: healthy, block, cpu, slow, slow-heartbeat, stuck recipes as thin starter wrappers with the right fleet mix
+- [x] 4. Verify: bare `just` prints the recipe list, `just --list` shows every recipe and parses, `just check` exits 0
+- [x] 5. Document: none (recipes documented in README)
 
 ## Section 5: Documentation
 

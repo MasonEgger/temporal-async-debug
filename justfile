@@ -25,14 +25,30 @@ server:
 worker:
     uv run python -m temporal_async_debug.worker
 
-# Trigger a healthy fleet: geo-enrichment and order-receipt runs, all completing
+# Trigger a small healthy fleet: geo-enrichment and order-receipt runs, all completing
 trigger:
     uv run python -m temporal_async_debug.starter --geo 2 --receipts 3
 
+# Trigger the full healthy fleet: geo, rollup, receipt, and quote runs, all completing
+healthy:
+    uv run python -m temporal_async_debug.starter --geo 2 --rollups 1 --receipts 3 --quotes 1
+
 # Trigger a fleet where one geo run blocks the event loop, freezing the whole worker (frozen-loop lesson)
 block seconds="30":
-    uv run python -m temporal_async_debug.starter --mode block --block-seconds {{seconds}} --bad 1 --geo 2 --receipts 3
+    uv run python -m temporal_async_debug.starter --mode block --block-seconds {{seconds}} --bad 1 --geo 1 --rollups 1 --receipts 2
+
+# Trigger a fleet where one geo run pins the GIL in a busy loop, freezing the whole worker (CPU-pinned lesson)
+cpu seconds="30":
+    uv run python -m temporal_async_debug.starter --mode cpu --block-seconds {{seconds}} --bad 1 --geo 1 --rollups 1 --receipts 2
 
 # Trigger a fleet where two slow geo runs hold both slots, starving the rest (slot-exhaustion lesson)
 slow seconds="30":
-    uv run python -m temporal_async_debug.starter --mode slow --block-seconds {{seconds}} --bad 2 --geo 2 --receipts 3
+    uv run python -m temporal_async_debug.starter --mode slow --block-seconds {{seconds}} --bad 2 --geo 1 --rollups 1 --receipts 2 --quotes 1
+
+# Trigger a fleet where two correctly-heartbeating geo runs still saturate an undersized worker (slot-exhaustion lesson, no bug in the bad run itself)
+slow-heartbeat seconds="30":
+    uv run python -m temporal_async_debug.starter --mode slow_heartbeat --block-seconds {{seconds}} --bad 2 --receipts 2 --rollups 1
+
+# Trigger a fleet where a geo run holds a slot without heartbeating, tripping a heartbeat timeout (heartbeat-loss lesson)
+stuck seconds="30":
+    uv run python -m temporal_async_debug.starter --mode stuck_no_heartbeat --block-seconds {{seconds}} --bad 1 --geo 1
