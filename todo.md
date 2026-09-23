@@ -75,14 +75,14 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 7: Extend The Starter To The Full Scenario Set
 
-- [ ] 1. RED: tests/test_starter.py --mode over five VALID_MODES, --rollups/--quotes flags, input-construction helpers, full-flag parse
-- [ ] 2. Document: starter.py module docstring for the full mode set, new flags, per-scenario mix
-- [ ] 3. GREEN: mode choices from VALID_MODES; --rollups/--quotes; rollup_inputs_from_args/quote_inputs_from_args; per-scenario submission ordering; keep os._exit(0)
-- [ ] 4. RED: input-construction edge test (distinct periods/skus for fan-out)
-- [ ] 5. GREEN: wire main() to shared construction helpers
-- [ ] 6. REFACTOR: separate parsing, construction, submission ordering
-- [ ] 7. Docs: none
-- [ ] 8. Verify: coverage of parsing and input construction, run `just check`
+- [x] 1. RED: tests/test_starter.py --mode over five VALID_MODES, --rollups/--quotes flags, input-construction helpers, full-flag parse
+- [x] 2. Document: starter.py module docstring for the full mode set, new flags, per-scenario mix
+- [x] 3. GREEN: mode choices from VALID_MODES; --rollups/--quotes; rollup_inputs_from_args/quote_inputs_from_args; per-scenario submission ordering; keep os._exit(0)
+- [x] 4. RED: input-construction edge test (distinct periods/skus for fan-out)
+- [x] 5. GREEN: wire main() to shared construction helpers
+- [x] 6. REFACTOR: separate parsing, construction, submission ordering
+- [x] 7. Docs: none
+- [x] 8. Verify: coverage of parsing and input construction, run `just check`
 
 ### Step 8: One Just Recipe Per Scenario (task)
 

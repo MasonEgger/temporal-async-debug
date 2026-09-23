@@ -10,13 +10,21 @@ from __future__ import annotations
 
 import pytest
 
-from temporal_async_debug.shared import GeoEnrichmentInput, OrderReceiptInput
+from temporal_async_debug.shared import (
+    VALID_MODES,
+    GeoEnrichmentInput,
+    OrderReceiptInput,
+    PriceQuoteInput,
+    SalesRollupInput,
+)
 from temporal_async_debug.starter import (
     bad_geo_inputs_from_args,
     build_parser,
     healthy_geo_inputs_from_args,
     parse_activity_slots_available,
+    quote_inputs_from_args,
     receipt_inputs_from_args,
+    rollup_inputs_from_args,
 )
 
 _LABELS = 'namespace="default",service_name="temporal-core-sdk",task_queue="async-debug-task-queue"'
@@ -47,29 +55,78 @@ def test_flag_defaults() -> None:
     assert args.bad == 0
     assert args.geo == 0
     assert args.receipts == 0
+    assert args.rollups == 0
+    assert args.quotes == 0
 
 
 def test_mode_rejects_invalid_value() -> None:
-    """--mode is restricted to the two known modes; anything else exits via argparse."""
+    """--mode is restricted to shared.VALID_MODES; anything else exits via argparse."""
     with pytest.raises(SystemExit):
         build_parser().parse_args(["--mode", "sideways"])
 
 
-@pytest.mark.parametrize("mode", ["block", "slow"])
+@pytest.mark.parametrize("mode", VALID_MODES)
 def test_mode_accepts_known_values(mode: str) -> None:
-    """Both documented modes parse without error."""
+    """Every mode in shared.VALID_MODES parses without error, sourced from the same constant."""
     assert build_parser().parse_args(["--mode", mode]).mode == mode
 
 
 def test_numeric_flags_parse_to_their_types() -> None:
-    """--block-seconds parses as float; --bad, --geo, and --receipts parse as int."""
-    args = build_parser().parse_args(["--block-seconds", "1.5", "--bad", "2", "--geo", "4", "--receipts", "7"])
+    """--block-seconds parses as float; --bad, --geo, --receipts, --rollups, and --quotes parse as int."""
+    args = build_parser().parse_args(
+        [
+            "--block-seconds",
+            "1.5",
+            "--bad",
+            "2",
+            "--geo",
+            "4",
+            "--receipts",
+            "7",
+            "--rollups",
+            "3",
+            "--quotes",
+            "1",
+        ]
+    )
 
     assert isinstance(args.block_seconds, float)
     assert args.block_seconds == 1.5
     assert args.bad == 2
     assert args.geo == 4
     assert args.receipts == 7
+    assert args.rollups == 3
+    assert args.quotes == 1
+
+
+def test_full_flag_set_parses_to_expected_values() -> None:
+    """The full flag set from a saturation scenario parses to exactly the typed values given."""
+    args = build_parser().parse_args(
+        [
+            "--mode",
+            "stuck_no_heartbeat",
+            "--block-seconds",
+            "30",
+            "--bad",
+            "1",
+            "--geo",
+            "1",
+            "--rollups",
+            "2",
+            "--receipts",
+            "2",
+            "--quotes",
+            "1",
+        ]
+    )
+
+    assert args.mode == "stuck_no_heartbeat"
+    assert args.block_seconds == 30.0
+    assert args.bad == 1
+    assert args.geo == 1
+    assert args.rollups == 2
+    assert args.receipts == 2
+    assert args.quotes == 1
 
 
 def test_bad_geo_inputs_carry_mode_and_block_seconds() -> None:
@@ -106,6 +163,30 @@ def test_receipt_inputs_have_distinct_order_ids() -> None:
     assert len(set(order_ids)) == 3
 
 
+def test_rollup_inputs_have_distinct_periods() -> None:
+    """--rollups 3 yields three SalesRollupInput values with three distinct periods."""
+    args = build_parser().parse_args(["--rollups", "3"])
+
+    rollup_inputs = rollup_inputs_from_args(args)
+
+    assert len(rollup_inputs) == 3
+    assert all(isinstance(rollup_input, SalesRollupInput) for rollup_input in rollup_inputs)
+    periods = [rollup_input.period for rollup_input in rollup_inputs]
+    assert len(set(periods)) == 3
+
+
+def test_quote_inputs_have_distinct_skus() -> None:
+    """--quotes 2 yields two PriceQuoteInput values with two distinct skus."""
+    args = build_parser().parse_args(["--quotes", "2"])
+
+    quote_inputs = quote_inputs_from_args(args)
+
+    assert len(quote_inputs) == 2
+    assert all(isinstance(quote_input, PriceQuoteInput) for quote_input in quote_inputs)
+    skus = [quote_input.sku for quote_input in quote_inputs]
+    assert len(set(skus)) == 2
+
+
 def test_counts_default_to_empty_fleets() -> None:
     """The defaults produce no workflows of any kind."""
     args = build_parser().parse_args([])
@@ -113,6 +194,8 @@ def test_counts_default_to_empty_fleets() -> None:
     assert bad_geo_inputs_from_args(args) == []
     assert healthy_geo_inputs_from_args(args) == []
     assert receipt_inputs_from_args(args) == []
+    assert rollup_inputs_from_args(args) == []
+    assert quote_inputs_from_args(args) == []
 
 
 @pytest.mark.parametrize("activity_free", [0, 1, 2])
