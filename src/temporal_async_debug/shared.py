@@ -83,3 +83,25 @@ class OrderReceiptOutput:
     """
 
     receipt: str
+
+
+@dataclass(frozen=True)
+class SalesRollupInput:
+    """Input to SalesRollupWorkflow, an ordinary short-work workflow with no network calls.
+
+    Attributes:
+        period: Label for the period being rolled up, for example "2026-09".
+    """
+
+    period: str
+
+
+@dataclass(frozen=True)
+class SalesRollupOutput:
+    """Result of SalesRollupWorkflow.
+
+    Attributes:
+        summary: Human-readable summary of the period's rolled-up sales total.
+    """
+
+    summary: str

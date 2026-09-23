@@ -30,14 +30,14 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 3: Short-Work Bystander (SalesRollupWorkflow)
 
-- [ ] 1. RED: tests/test_rollup.py happy path (start_time_skipping, summary includes period, no network) + roll_up_sales unit test
-- [ ] 2. Document: rollup.py module + class + activity docstrings
-- [ ] 3. GREEN: SalesRollupInput/Output in shared.py; rollup.py with roll_up_sales (cooperative work, no network) and SalesRollupWorkflow
-- [ ] 4. RED: concurrent executions all succeed with distinct periods
-- [ ] 5. GREEN: wire concurrent test
-- [ ] 6. REFACTOR: keep rollup.py minimal and obviously correct
-- [ ] 7. Docs: none
-- [ ] 8. Verify: coverage of rollup computation and orchestration, run `just check`
+- [x] 1. RED: tests/test_rollup.py happy path (start_time_skipping, summary includes period, no network) + roll_up_sales unit test
+- [x] 2. Document: rollup.py module + class + activity docstrings
+- [x] 3. GREEN: SalesRollupInput/Output in shared.py; rollup.py with roll_up_sales (cooperative work, no network) and SalesRollupWorkflow
+- [x] 4. RED: concurrent executions all succeed with distinct periods
+- [x] 5. GREEN: wire concurrent test
+- [x] 6. REFACTOR: keep rollup.py minimal and obviously correct
+- [x] 7. Docs: none
+- [x] 8. Verify: coverage of rollup computation and orchestration, run `just check`
 
 ### Step 4: Schedule-To-Start Sample (PriceQuoteWorkflow)
 
