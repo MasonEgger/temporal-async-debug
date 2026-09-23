@@ -67,11 +67,11 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 6: Register The Full Fleet On The Worker (task)
 
-- [ ] 1. Scope defined (worker.py edit, import-and-smoke verification)
-- [ ] 2. Tooling: python + temporal skill, temporal-docs MCP if needed
-- [ ] 3. Do: import rollup and quote workflows/activities; add to workflows= and activities= lists; keep max_concurrent_activities=2 marker and metrics
-- [ ] 4. Verify: import succeeds, `just check` exits 0
-- [ ] 5. Document: none (fleet documented in README)
+- [x] 1. Scope defined (worker.py edit, import-and-smoke verification)
+- [x] 2. Tooling: python + temporal skill, temporal-docs MCP if needed
+- [x] 3. Do: import rollup and quote workflows/activities; add to workflows= and activities= lists; keep max_concurrent_activities=2 marker and metrics
+- [x] 4. Verify: import succeeds, `just check` exits 0
+- [x] 5. Document: none (fleet documented in README)
 
 ### Step 7: Extend The Starter To The Full Scenario Set
 

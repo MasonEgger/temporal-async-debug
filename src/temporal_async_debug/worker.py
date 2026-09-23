@@ -1,8 +1,8 @@
-"""ABOUTME: The deliberately mistuned worker that hosts both demo workflow types and every activity.
+"""ABOUTME: The deliberately mistuned worker that hosts every demo workflow type and activity.
 ABOUTME: max_concurrent_activities=2 with no executor lets two blocking activities stall the queue.
 
 This worker is the process the tutorial attaches to and inspects. It runs its poller, its heartbeat
-sender, and every async activity from both workflow types on a single asyncio event loop, so the
+sender, and every async activity from all four workflow types on a single asyncio event loop, so the
 blocking bug in activities.py freezes the whole worker, unrelated workflows included. Two deliberate
 choices make the failure legible:
 
@@ -26,12 +26,14 @@ from temporalio.worker import Worker
 
 from temporal_async_debug import shared
 from temporal_async_debug.activities import get_ip, get_location
+from temporal_async_debug.quote import PriceQuoteWorkflow, compute_quote
 from temporal_async_debug.receipt import (
     OrderReceiptWorkflow,
     compute_total,
     format_receipt,
     validate_order,
 )
+from temporal_async_debug.rollup import SalesRollupWorkflow, roll_up_sales
 from temporal_async_debug.workflow import GeoEnrichmentWorkflow
 
 TEMPORAL_TARGET: str = "localhost:7233"
@@ -65,7 +67,7 @@ async def main() -> None:
     """Connect to the local Temporal server and run the deliberately mistuned worker.
 
     Builds a Runtime with the Prometheus metrics endpoint enabled, connects a Client to the
-    local dev server, constructs the Worker for both workflow types and all their activities,
+    local dev server, constructs the Worker for all four workflow types and their activities,
     prints the startup banner, and then serves until interrupted.
     """
     runtime = Runtime(
@@ -77,8 +79,21 @@ async def main() -> None:
     worker = Worker(
         client,
         task_queue=shared.TASK_QUEUE,
-        workflows=[GeoEnrichmentWorkflow, OrderReceiptWorkflow],
-        activities=[get_ip, get_location, validate_order, compute_total, format_receipt],
+        workflows=[
+            GeoEnrichmentWorkflow,
+            OrderReceiptWorkflow,
+            SalesRollupWorkflow,
+            PriceQuoteWorkflow,
+        ],
+        activities=[
+            get_ip,
+            get_location,
+            validate_order,
+            compute_total,
+            format_receipt,
+            roll_up_sales,
+            compute_quote,
+        ],
         # ANTIPATTERN (deliberate, for teaching): max_concurrent_activities=2 undersizes the
         # worker so two slow activities exhaust every slot and stall the queue. Correct: size
         # slots to expected concurrency and load. Do not copy.
