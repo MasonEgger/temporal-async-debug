@@ -112,10 +112,10 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 10: Refresh CLAUDE.md Architecture (task)
 
-- [ ] 1. Scope defined (CLAUDE.md Architecture + Commands sections)
-- [ ] 2. Tooling: none
-- [ ] 3. Do: rewrite Architecture to the real modules (shared, activities five modes, workflow + geo_activity_options, receipt, rollup, quote, worker, starter), cross-type blast radius, diagnostic split
-- [ ] 3. Do: update Commands demo recipes to match the justfile (healthy, block, cpu, slow, slow-heartbeat, stuck)
-- [ ] 3. Do: keep antipattern marker convention; confirm grep string matches code
-- [ ] 4. Verify: grep confirms no victim/Greeting references, module list matches src/, `just check` exits 0
-- [ ] 5. Document: this step is the documentation
+- [x] 1. Scope defined (CLAUDE.md Architecture + Commands sections)
+- [x] 2. Tooling: none
+- [x] 3. Do: rewrite Architecture to the real modules (shared, activities five modes, workflow + geo_activity_options, receipt, rollup, quote, worker, starter), cross-type blast radius, diagnostic split
+- [x] 3. Do: update Commands demo recipes to match the justfile (healthy, block, cpu, slow, slow-heartbeat, stuck)
+- [x] 3. Do: keep antipattern marker convention; confirm grep string matches code
+- [x] 4. Verify: grep confirms no victim/Greeting references, module list matches src/, `just check` exits 0
+- [x] 5. Document: this step is the documentation

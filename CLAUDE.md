@@ -34,31 +34,51 @@ just test    # pytest only
 
 Run a single test with `uv run pytest path/to/test_file.py::test_name`.
 
-Demo-running recipes (require `temporal server start-dev` and the worker running in separate terminals):
+Demo-running recipes (require `temporal server start-dev` and the worker running in separate terminals; the scenario recipes take an optional `seconds` argument, default 30):
 
 ```bash
-just server              # local Temporal dev server
-just worker               # the demo worker (prints its PID for asyncio introspection)
-just trigger name="x"     # a healthy, non-blocking workflow run
-just block seconds="30"   # frozen-event-loop lesson (time.sleep blocks the worker)
-just slow seconds="30"    # slot-exhaustion lesson (cooperative but hogs both activity slots)
+just server                # local Temporal dev server
+just worker                # the demo worker (prints its PID for asyncio introspection)
+just healthy               # full healthy fleet (geo, rollup, receipt, quote), all completing
+just trigger               # smaller healthy fleet (geo and receipts only), a quick smoke test
+just block seconds="30"    # frozen-loop lesson (time.sleep blocks the worker)
+just cpu seconds="30"      # frozen-loop lesson, CPU-pinned (busy loop holds the GIL)
+just slow seconds="30"     # slot-exhaustion lesson (asyncio.sleep hogs both activity slots)
+just slow-heartbeat seconds="30"  # slot exhaustion with a correct, heartbeating activity
+just stuck seconds="30"    # heartbeat-loss lesson (no heartbeat, trips heartbeat_timeout)
 ```
 
 ## Architecture
 
 Package lives under `src/temporal_async_debug/` (src layout, hatchling build backend, Python 3.14+ required).
-Per `spec.md`, the modules are:
+The modules are:
 
-- `shared.py`: frozen dataclasses for workflow inputs/outputs and the task queue name constant.
-- `activities.py`: the misbehaving workflow's two async activities (`get_ip`, `get_location`, httpx-based). Each heartbeats, then branches on a `mode` field: `"block"` calls `time.sleep` (the deliberate bug, freezes the worker's single asyncio event loop), `"slow"` awaits `asyncio.sleep` (cooperative, but still occupies an activity slot).
-- `victim.py`: `VictimWorkflow`, an innocent, correct-in-every-respect workflow used to demonstrate collateral damage from the misbehaving workflow's failure modes.
-- `workflow.py`: `GreetingWorkflow`, the misbehaving workflow, orchestrating `get_ip` then `get_location`.
-- `worker.py`: connects to the Temporal server, registers both workflows and all activities, and is deliberately mistuned (`max_concurrent_activities=2`) to make slot exhaustion reproducible. Exposes Prometheus metrics on `localhost:9464`. Prints a startup banner with its PID and copy-paste `python -m asyncio ps`/`pstree` commands.
-- `starter.py`: CLI (argparse) for submitting workflow runs with configurable mode, block duration, and concurrency.
+- `shared.py`: frozen dataclasses for every workflow's input and output, `VALID_MODES` (`block`, `cpu`, `slow`, `slow_heartbeat`, `stuck_no_heartbeat`), and the task queue name constant.
+- `activities.py`: `get_ip` and `get_location` (httpx-based). Both call `_apply_mode`, which branches on the five modes. `block` calls `time.sleep` and `cpu` spins in a busy loop (both freeze the loop). `slow` awaits `asyncio.sleep`. `slow_heartbeat` awaits in steps and heartbeats correctly. `stuck_no_heartbeat` awaits one long sleep and never heartbeats. The `block` line, the `cpu` loop, and `stuck_no_heartbeat` carry markers. `slow_heartbeat` is correct and has none.
+- `workflow.py`: `GeoEnrichmentWorkflow`, the workflow that carries the bad modes, and `geo_activity_options`, which picks per-mode timeouts. It sets `maximum_attempts=1` (marked).
+- `receipt.py`: `OrderReceiptWorkflow`, an instant in-memory bystander.
+- `rollup.py`: `SalesRollupWorkflow`, a short-work bystander (a two-second cooperative pause, then a sum).
+- `quote.py`: `PriceQuoteWorkflow`, the schedule-to-start sample. It is the one place a `schedule_to_start_timeout` is set (marked).
+- `worker.py`: registers all four workflow types and all activities on one task queue, with `max_concurrent_activities=2` (marked) so slot exhaustion is reproducible. Exposes Prometheus metrics on `localhost:9464`. Prints a startup banner with its PID and copy-paste `python -m asyncio ps`/`pstree` commands.
+- `starter.py`: fleet CLI (argparse) over the five modes, with `--bad`, `--geo`, `--rollups`, `--receipts`, `--quotes`, and `--block-seconds`. It orders submissions so the freeze or saturation is in place before the bystanders arrive, and exits with `os._exit(0)`.
 
-The core teaching mechanism: the Temporal Python worker runs its poller, heartbeat sender, and every `async def` activity on **one** asyncio event loop.
-A single blocking call (the `time.sleep` antipattern) starves all of them at once; this is diagnosable from outside the process with Python 3.14's native `asyncio ps`/`pstree` introspection, with zero instrumentation.
-A separate failure mode, exhausting the worker's `max_concurrent_activities` slots, looks similar to a downstream workflow (it stalls) but has a different signature in the tooling (healthy stacks, metrics show zero available slots) and a different fix (resize the worker, don't touch the event loop).
-`spec.md`'s Behavior Requirements section spells out exactly what each mode must produce.
+The core teaching mechanism: the Temporal Python worker runs its pollers, heartbeat sender, workflow task processing, and every `async def` activity on **one** asyncio event loop.
+The four workflow types are unrelated, yet they share that loop and the same two activity slots.
+A misbehaving geo activity therefore fails the rollups, receipts, and quotes too, even though their code is correct (the cross-type blast radius).
+
+The two root causes look alike from a workflow's point of view and differ in the tooling:
+
+- Frozen loop (`block`, `cpu`): a single blocking or CPU-bound call starves everything at once.
+  `python -m asyncio ps` and `pstree` show the shape with zero instrumentation: the wedged task dead-ends at the SDK handler `_ActivityWorker._handle_start_activity_task` with no await beneath it, and the other tasks sit parked at awaits.
+  They do not name the blocking line, because a task stuck in synchronous code is not suspended at an await.
+  `py-spy dump` reads the OS thread stack and names the exact line.
+  CPU separates the two causes: near zero for `block` (`time.sleep` releases the GIL), 100 percent for `cpu`.
+  The metrics endpoint stays reachable during a freeze, so it is not a freeze signal.
+- Saturated worker (`slow`, `slow_heartbeat`): the loop is healthy but every activity slot is full.
+  Every task is parked at an await with a complete stack, `temporal_worker_task_slots_available` reads 0, the task-queue backlog age in `temporal task-queue describe` keeps climbing, and the poller `LastAccessTime` goes stale.
+  The fix is to resize the worker, not to touch the event loop.
+- Heartbeat loss (`stuck_no_heartbeat`): the loop is healthy and one slot is held without heartbeats, so the heartbeat timeout fails the run fast.
+
+`spec.md`'s Behavior Requirements section spells out exactly what each mode must produce, and `README.md` is the tutorial companion with captured output for each lesson.
 
 Tests must never require a running Temporal server except through the SDK's own test facilities (`temporalio.testing.ActivityEnvironment`, `WorkflowEnvironment.start_time_skipping()`); all network calls are mocked.
