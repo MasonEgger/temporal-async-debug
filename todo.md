@@ -97,18 +97,18 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 9: Comprehensive README Catalog (task)
 
-- [ ] 1. Scope defined (README.md rewrite as the in-repo tutorial home)
-- [ ] 2. Tooling: tutorial-writing before drafting, review-content after, temporal skill + MCP for metric-name verification
-- [ ] 3. Do: capture real tool output live (asyncio ps/pstree, CPU, metrics) for each scenario
-- [ ] 3. Do: what-it-demonstrates + deliberately-broken warning + cross-type blast radius headline
-- [ ] 3. Do: three-terminal quickstart
-- [ ] 3. Do: one lesson per scenario (healthy, block, cpu, slow, slow_heartbeat, stuck_no_heartbeat, schedule-to-start) with healthy-vs-broken shapes
-- [ ] 3. Do: mode-to-timeout-to-signature summary table with the frozen-loop vs saturation split
-- [ ] 3. Do: platform gotchas (3.14+, Yama ptrace_scope, macOS sudo, transient asyncio ps)
-- [ ] 3. Do: realistic-timeouts framing (start_to_close/schedule_to_close SLA, schedule_to_start rare, latency metric the tell, why no workflow timeouts)
-- [ ] 3. Do: antipattern marker grep note + tutorial link placeholder (masonegger.com TODO)
-- [ ] 4. Verify: review-content pass addressed; human-check writing rules, commands/metric names match code, output is real, warning present
-- [ ] 5. Document: this step is the documentation
+- [x] 1. Scope defined (README.md rewrite as the in-repo tutorial home)
+- [x] 2. Tooling: tutorial-writing before drafting, review-content after, temporal skill + MCP for metric-name verification
+- [x] 3. Do: capture real tool output live (asyncio ps/pstree, CPU, metrics) for each scenario
+- [x] 3. Do: what-it-demonstrates + deliberately-broken warning + cross-type blast radius headline
+- [x] 3. Do: three-terminal quickstart
+- [x] 3. Do: one lesson per scenario (healthy, block, cpu, slow, slow_heartbeat, stuck_no_heartbeat, schedule-to-start) with healthy-vs-broken shapes
+- [x] 3. Do: mode-to-timeout-to-signature summary table with the frozen-loop vs saturation split
+- [x] 3. Do: platform gotchas (3.14+, Yama ptrace_scope, macOS sudo, transient asyncio ps)
+- [x] 3. Do: realistic-timeouts framing (start_to_close/schedule_to_close SLA, schedule_to_start rare, latency metric the tell, why no workflow timeouts)
+- [x] 3. Do: antipattern marker grep note + tutorial link placeholder (masonegger.com TODO)
+- [x] 4. Verify: review-content pass addressed; human-check writing rules, commands/metric names match code, output is real, warning present
+- [x] 5. Document: this step is the documentation
 
 ### Step 10: Refresh CLAUDE.md Architecture (task)
 
