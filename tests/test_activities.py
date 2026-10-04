@@ -153,6 +153,67 @@ async def test_get_location_fails_over_when_the_first_payload_is_unusable() -> N
         assert await ActivityEnvironment().run(get_location, MOCKED_IP, 0.0, "block") == failover_location
 
 
+@pytest.mark.parametrize(
+    "unusable_payload",
+    [
+        ["Austin", "Texas", "United States"],
+        {"city": None, "region": "Texas", "country_name": "United States"},
+    ],
+    ids=["non-dict-body", "null-field"],
+)
+async def test_get_location_fails_over_on_a_malformed_payload(unusable_payload: object) -> None:
+    """A non-dict body or a null field is a parse failure that fails over, not a leaked error or "None"."""
+    failover_location = "Denver, Colorado, United States"
+    first_geo_url = GEO_PROVIDERS[0][0].format(ip=MOCKED_IP)
+    second_geo_url = GEO_PROVIDERS[1][0].format(ip=MOCKED_IP)
+    with respx.mock(assert_all_called=False) as router:
+        router.get(first_geo_url).mock(return_value=httpx.Response(200, json=unusable_payload))
+        router.get(second_geo_url).mock(
+            return_value=httpx.Response(200, json={"city": "Denver", "region": "Colorado", "country": "United States"})
+        )
+
+        assert await ActivityEnvironment().run(get_location, MOCKED_IP, 0.0, "block") == failover_location
+
+
+async def test_slow_heartbeat_mode_heartbeats_before_every_provider_attempt() -> None:
+    """slow_heartbeat heartbeats right before each provider request, so a slow provider cannot
+    run out the heartbeat_timeout while the activity is legitimately busy."""
+    events: list[str] = []
+
+    def failing_request(_request: httpx.Request) -> httpx.Response:
+        events.append("request")
+        return httpx.Response(500)
+
+    def answering_request(_request: httpx.Request) -> httpx.Response:
+        events.append("request")
+        return httpx.Response(200, text=f"{MOCKED_IP}\n")
+
+    environment = ActivityEnvironment()
+    environment.on_heartbeat = lambda *_details: events.append("heartbeat")
+    with respx.mock(assert_all_called=False) as router:
+        router.get(IP_PROVIDERS[0]).mock(side_effect=failing_request)
+        router.get(IP_PROVIDERS[1]).mock(side_effect=answering_request)
+
+        assert await environment.run(get_ip, 0.0, "slow_heartbeat") == MOCKED_IP
+
+    assert events == ["heartbeat", "request", "heartbeat", "request"]
+
+
+@pytest.mark.parametrize("mode", ["block", "slow", "stuck_no_heartbeat"])
+async def test_non_heartbeat_modes_never_heartbeat_around_the_http_phase(
+    mode: str,
+    mocked_network: respx.MockRouter,
+) -> None:
+    """Only slow_heartbeat heartbeats; the other modes leave the HTTP phase silent."""
+    heartbeats: list[object] = []
+    environment = ActivityEnvironment()
+    environment.on_heartbeat = lambda *details: heartbeats.append(details)
+
+    await environment.run(get_location, MOCKED_IP, 0.0, mode)
+
+    assert heartbeats == []
+
+
 async def test_get_ip_raises_when_every_provider_fails() -> None:
     """With every provider erroring, get_ip exhausts the list and raises rather than returning junk."""
     with respx.mock(assert_all_called=False) as router:

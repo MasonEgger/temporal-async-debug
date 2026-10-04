@@ -8,6 +8,7 @@ from datetime import timedelta
 
 import pytest
 
+from temporal_async_debug.activities import HEARTBEAT_STEP_SECONDS, HTTP_TIMEOUT_SECONDS
 from temporal_async_debug.workflow import (
     GEO_HEARTBEAT_TIMEOUT,
     GEO_SCHEDULE_TO_CLOSE_TIMEOUT,
@@ -52,6 +53,23 @@ def test_geo_activity_options_module_constants_match_the_returned_values() -> No
     assert options.start_to_close_timeout == GEO_START_TO_CLOSE_TIMEOUT
     assert options.schedule_to_close_timeout == GEO_SCHEDULE_TO_CLOSE_TIMEOUT
     assert geo_activity_options("slow_heartbeat").heartbeat_timeout == GEO_HEARTBEAT_TIMEOUT
+
+
+def test_heartbeat_step_fits_inside_the_heartbeat_timeout() -> None:
+    """slow_heartbeat's step interval must stay under the heartbeat_timeout it has to satisfy."""
+    assert GEO_HEARTBEAT_TIMEOUT.total_seconds() > HEARTBEAT_STEP_SECONDS
+
+
+def test_http_timeout_fits_inside_the_heartbeat_timeout() -> None:
+    """One hung provider must give up before slow_heartbeat's next heartbeat is overdue."""
+    assert GEO_HEARTBEAT_TIMEOUT.total_seconds() > HTTP_TIMEOUT_SECONDS
+
+
+def test_hung_connect_plus_hung_read_fits_inside_the_heartbeat_timeout() -> None:
+    """httpx applies HTTP_TIMEOUT_SECONDS per phase, so a hung connect followed by a hung read
+    costs twice the timeout; both together must still land before slow_heartbeat's next heartbeat
+    is overdue."""
+    assert GEO_HEARTBEAT_TIMEOUT.total_seconds() > 2 * HTTP_TIMEOUT_SECONDS
 
 
 def test_geo_activity_options_rejects_an_unknown_mode() -> None:

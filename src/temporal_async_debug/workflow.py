@@ -21,6 +21,7 @@ from typing import TypedDict
 
 from temporalio import workflow
 from temporalio.common import RetryPolicy
+from temporalio.exceptions import ApplicationError
 
 with workflow.unsafe.imports_passed_through():
     from temporal_async_debug.activities import get_ip, get_location
@@ -101,9 +102,14 @@ def geo_activity_options(mode: str) -> GeoActivityOptions:
         start_to_close_timeout=GEO_START_TO_CLOSE_TIMEOUT,
         schedule_to_close_timeout=GEO_SCHEDULE_TO_CLOSE_TIMEOUT,
         heartbeat_timeout=heartbeat_timeout,
-        # ANTIPATTERN (deliberate, for teaching): maximum_attempts=1 disables retries so the demo
-        # surfaces the first failure instead of masking it. Correct: allow retries with sensible
-        # backoff in production. Do not copy.
+        # ANTIPATTERN (deliberate, for teaching): maximum_attempts=1 looks like exactly-once but
+        # is at-most-one dispatch: a transient failure before the call means it never runs and the
+        # Workflow fails, and a Worker that finishes the side effect but crashes before recording
+        # completion leaves the effect done while the Workflow sees a failure. Correct: keep
+        # retries (Activities are at-least-once) and make the Activity idempotent with a stable
+        # key such as workflow_run_id plus activity_id for effectively-once side effects; cap
+        # attempts only when a duplicate is worse than a loss and the loss is handled. Set here
+        # only so the demo surfaces the first failure instead of retrying past it. Do not copy.
         retry_policy=RetryPolicy(maximum_attempts=1),
     )
 
@@ -134,8 +140,9 @@ class GeoEnrichmentWorkflow:
 
     The workflow runs get_ip and then get_location, both of which can block the worker's event
     loop or hold an activity slot when their input asks them to. geo_activity_options(args.mode)
-    selects each mode's timeouts; the maximum_attempts=1 retry policy it returns lets the first
-    failure surface to the caller instead of being retried silently.
+    selects each mode's timeouts. The maximum_attempts=1 retry policy it returns lets the first
+    failure surface to the caller instead of being retried past; it is at-most-one dispatch, not
+    exactly-once, so production code keeps retries and makes the Activity idempotent instead.
     """
 
     @workflow.run
@@ -148,8 +155,18 @@ class GeoEnrichmentWorkflow:
 
         Returns:
             A GeoEnrichmentOutput carrying the IP and the location.
+
+        Raises:
+            ApplicationError: Of type "InvalidMode", if args.mode is not one of shared.VALID_MODES.
+                A plain ValueError raised in workflow code fails only the workflow task, which the
+                worker retries forever and the run stalls; an ApplicationError fails the run
+                itself, so the caller sees the bad input at once.
         """
-        activity_kwargs = _activity_execution_kwargs(geo_activity_options(args.mode))
+        try:
+            options = geo_activity_options(args.mode)
+        except ValueError as invalid_mode:
+            raise ApplicationError(str(invalid_mode), type="InvalidMode") from invalid_mode
+        activity_kwargs = _activity_execution_kwargs(options)
 
         ip = await workflow.execute_activity(
             get_ip,

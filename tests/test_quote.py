@@ -15,6 +15,7 @@ from temporalio.worker import Worker
 
 from temporal_async_debug.quote import PriceQuoteWorkflow, compute_quote, quote_activity_options
 from temporal_async_debug.shared import TASK_QUEUE, PriceQuoteInput, PriceQuoteOutput
+from tests.history import scheduled_activity_attributes
 
 
 @pytest.fixture(autouse=True)
@@ -67,6 +68,32 @@ async def test_price_quote_workflow_happy_path_returns_the_quote() -> None:
     assert isinstance(result, PriceQuoteOutput)
     assert "WIDGET-1" in result.quote
     assert result.quote != ""
+
+
+async def test_price_quote_workflow_passes_schedule_to_start_through_to_the_scheduled_activity() -> None:
+    """The scheduled compute_quote carries the 5-second schedule_to_start, read back from history."""
+    async with (
+        await WorkflowEnvironment.start_time_skipping() as env,
+        Worker(
+            env.client,
+            task_queue=TASK_QUEUE,
+            workflows=[PriceQuoteWorkflow],
+            activities=[compute_quote],
+        ),
+    ):
+        handle = await env.client.start_workflow(
+            PriceQuoteWorkflow.run,
+            PriceQuoteInput(sku="WIDGET-1"),
+            id=str(uuid.uuid4()),
+            task_queue=TASK_QUEUE,
+        )
+        await handle.result()
+        scheduled = await scheduled_activity_attributes(handle)
+
+    assert len(scheduled) == 1
+    assert scheduled[0].activity_type.name == "compute_quote"
+    assert scheduled[0].schedule_to_start_timeout.ToTimedelta() == timedelta(seconds=5)
+    assert scheduled[0].start_to_close_timeout.ToTimedelta() == timedelta(seconds=5)
 
 
 async def test_price_quote_workflow_runs_concurrently_with_distinct_skus() -> None:

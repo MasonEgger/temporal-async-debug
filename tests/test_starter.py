@@ -1,5 +1,5 @@
 """ABOUTME: CLI-contract tests for the starter's argument parser, input helpers, and metrics parser.
-ABOUTME: No test touches a Temporal server; main()'s live submission is exercised manually.
+ABOUTME: No test touches a Temporal server; submission order runs against a recording fake client.
 
 These tests pin the flag names, defaults, and choices, prove that the count flags fan out into the
 right workflow inputs, and check that the metrics parser reads the ActivityWorker slot gauge rather
@@ -8,8 +8,12 @@ than the LocalActivityWorker line.
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, cast
+
 import pytest
 
+from temporal_async_debug import starter
 from temporal_async_debug.shared import (
     VALID_MODES,
     GeoEnrichmentInput,
@@ -18,14 +22,25 @@ from temporal_async_debug.shared import (
     SalesRollupInput,
 )
 from temporal_async_debug.starter import (
+    FREEZE_MODES,
+    SATURATION_MODES,
+    Fleet,
     bad_geo_inputs_from_args,
     build_parser,
+    fleet_from_args,
     healthy_geo_inputs_from_args,
     parse_activity_slots_available,
     quote_inputs_from_args,
     receipt_inputs_from_args,
     rollup_inputs_from_args,
+    run_main,
+    select_scenario,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Coroutine
+
+    from temporalio.client import Client
 
 _LABELS = 'namespace="default",service_name="temporal-core-sdk",task_queue="async-debug-task-queue"'
 """The label set the real worker emits, shared by the metrics-parsing fixtures below."""
@@ -34,14 +49,14 @@ _LABELS = 'namespace="default",service_name="temporal-core-sdk",task_queue="asyn
 def _metrics_page(activity_free: int) -> str:
     """Build a metrics page with the given ActivityWorker free-slot count.
 
-    The LocalActivityWorker line is included on purpose: its label contains "ActivityWorker" as a
-    substring, so parsing must not pick it up by mistake.
+    The LocalActivityWorker line comes first on purpose: its label contains "ActivityWorker" as a
+    substring, so a loosened pattern that matches it would return 100 here and fail the test.
     """
     return (
         "# HELP temporal_worker_task_slots_available Current number of available slots per task type\n"
         "# TYPE temporal_worker_task_slots_available gauge\n"
-        f'temporal_worker_task_slots_available{{{_LABELS},worker_type="ActivityWorker"}} {activity_free}\n'
         f'temporal_worker_task_slots_available{{{_LABELS},worker_type="LocalActivityWorker"}} 100\n'
+        f'temporal_worker_task_slots_available{{{_LABELS},worker_type="ActivityWorker"}} {activity_free}\n'
         f'temporal_worker_task_slots_available{{{_LABELS},worker_type="WorkflowWorker"}} 100\n'
     )
 
@@ -207,3 +222,273 @@ def test_parse_activity_slots_reads_the_activity_worker_gauge(activity_free: int
 def test_parse_activity_slots_returns_none_when_absent() -> None:
     """A metrics page without the activity slot gauge yields None, not a crash or a wrong reading."""
     assert parse_activity_slots_available("# nothing relevant here\n") is None
+
+
+def test_mode_families_partition_the_valid_modes() -> None:
+    """Every mode belongs to exactly one family, so no mode falls through to the unordered path."""
+    assert set(FREEZE_MODES) | set(SATURATION_MODES) == set(VALID_MODES)
+    assert set(FREEZE_MODES).isdisjoint(SATURATION_MODES)
+
+
+def test_fleet_from_args_fans_every_count_flag_into_the_fleet() -> None:
+    """fleet_from_args carries every bystander kind, so no scenario can lose a flag on the way in."""
+    args = build_parser().parse_args(
+        ["--mode", "cpu", "--block-seconds", "30", "--bad", "1", "--geo", "2", "--receipts", "3"]
+        + ["--rollups", "4", "--quotes", "5"]
+    )
+
+    fleet = fleet_from_args(args)
+
+    assert len(fleet.bad_geo) == 1
+    assert all(bad_input.mode == "cpu" for bad_input in fleet.bad_geo)
+    assert len(fleet.healthy_geo) == 2
+    assert len(fleet.receipts) == 3
+    assert len(fleet.rollups) == 4
+    assert len(fleet.quotes) == 5
+
+
+@pytest.mark.parametrize(
+    ("flags", "expected_scenario"),
+    [
+        (["--mode", "block", "--bad", "1", "--receipts", "2"], "freeze"),
+        (["--mode", "cpu", "--bad", "1", "--quotes", "1"], "freeze"),
+        (["--mode", "cpu", "--bad", "1", "--geo", "1"], "freeze"),
+        (["--mode", "slow", "--bad", "2", "--geo", "1"], "saturation"),
+        (["--mode", "stuck_no_heartbeat", "--bad", "1", "--geo", "1"], "saturation"),
+        (["--mode", "slow_heartbeat", "--bad", "2", "--rollups", "1"], "saturation"),
+        (["--mode", "slow", "--bad", "2"], "concurrent"),
+        (["--mode", "block", "--geo", "2", "--receipts", "3"], "concurrent"),
+    ],
+)
+def test_select_scenario_routes_each_bystander_kind_to_its_mode_family(
+    flags: list[str],
+    expected_scenario: str,
+) -> None:
+    """Any bystander kind triggers the mode family's ordering; no bad runs or no bystanders do not."""
+    args = build_parser().parse_args([*flags, "--block-seconds", "30"])
+
+    assert select_scenario(args.mode, args.block_seconds, fleet_from_args(args)) == expected_scenario
+
+
+def test_select_scenario_runs_concurrently_when_the_bad_runs_have_no_delay() -> None:
+    """A bad run with zero block_seconds is healthy, so there is nothing to sequence around."""
+    args = build_parser().parse_args(["--mode", "block", "--bad", "1", "--receipts", "2"])
+
+    assert select_scenario(args.mode, args.block_seconds, fleet_from_args(args)) == "concurrent"
+
+
+@dataclass
+class _FakeHandle:
+    """A started-workflow stand-in whose result is immediate."""
+
+    id: str
+
+    async def result(self) -> str:
+        """Return a fixed result, as a completed workflow would."""
+        return "done"
+
+
+@dataclass
+class _FakeClient:
+    """A Temporal client stand-in that records each start as a label, in order.
+
+    Attributes:
+        events: Labels in the order the starter did things, shared with the slot-poll fakes.
+        labels_by_id: The label each started workflow id was recorded under.
+    """
+
+    events: list[str]
+    labels_by_id: dict[str, str] = field(default_factory=dict)
+
+    async def start_workflow(self, _run: object, workflow_input: object, *, id: str, task_queue: str) -> _FakeHandle:
+        """Record the start, labeling geo runs as bad or healthy by their delay."""
+        label = id.split("-", 1)[0]
+        if isinstance(workflow_input, GeoEnrichmentInput):
+            label = "geo:bad" if workflow_input.block_seconds > 0 else "geo:healthy"
+        self.events.append(label)
+        self.labels_by_id[id] = label
+        return _FakeHandle(id=id)
+
+
+def _install_slot_fakes(monkeypatch: pytest.MonkeyPatch, events: list[str], baseline_free: int | None) -> None:
+    """Replace the metrics reads with fakes: a fixed baseline, and a wait that records its target."""
+
+    async def read_free_slots() -> int | None:
+        return baseline_free
+
+    async def wait_for_slots(target_free: int) -> bool:
+        events.append(f"wait:{target_free}")
+        return True
+
+    monkeypatch.setattr(starter, "_read_free_activity_slots", read_free_slots)
+    monkeypatch.setattr(starter, "wait_for_free_activity_slots", wait_for_slots)
+
+
+def _reported_labels(output: str, client: _FakeClient) -> list[str]:
+    """Map each printed result line back to the label its workflow was started under."""
+    return [client.labels_by_id[line.split()[1].rstrip(":")] for line in output.splitlines() if " " in line]
+
+
+def _full_fleet(mode: str, bad_count: int) -> Fleet:
+    """Build a fleet with one of every bystander kind and bad_count bad geo runs in mode."""
+    args = build_parser().parse_args(
+        ["--mode", mode, "--block-seconds", "30", "--bad", str(bad_count), "--geo", "1"]
+        + ["--receipts", "1", "--rollups", "1", "--quotes", "1"]
+    )
+    return fleet_from_args(args)
+
+
+async def test_freeze_scenario_submits_instant_bystanders_after_the_freeze_and_reports_rollups_first(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Rollups and healthy geo go first, the freeze lands once a slot is taken, receipts and quotes stall
+    behind it; the in-flight rollup, the first to fail, is reported first."""
+    events: list[str] = []
+    _install_slot_fakes(monkeypatch, events, baseline_free=2)
+    client = _FakeClient(events)
+
+    await starter._submit_freeze_scenario(cast("Client", client), _full_fleet("block", bad_count=1))
+
+    assert events == ["rollup", "geo:healthy", "wait:1", "geo:bad", "receipt", "quote"]
+    assert _reported_labels(capsys.readouterr().out, client) == [
+        "rollup",
+        "geo:healthy",
+        "receipt",
+        "quote",
+        "geo:bad",
+    ]
+
+
+async def test_freeze_scenario_warns_and_skips_the_wait_when_metrics_are_unreachable(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """With no baseline slot reading, the freeze path says so instead of silently racing."""
+    events: list[str] = []
+    _install_slot_fakes(monkeypatch, events, baseline_free=None)
+
+    await starter._submit_freeze_scenario(cast("Client", _FakeClient(events)), _full_fleet("cpu", bad_count=1))
+
+    assert not any(event.startswith("wait") for event in events)
+    assert "metrics endpoint unreachable" in capsys.readouterr().out
+
+
+async def test_freeze_scenario_warns_and_clamps_the_wait_when_no_slot_is_free_at_baseline(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A prior scenario still holding every slot gives a wait target of 0, never -1, plus a warning."""
+    events: list[str] = []
+    _install_slot_fakes(monkeypatch, events, baseline_free=0)
+
+    await starter._submit_freeze_scenario(cast("Client", _FakeClient(events)), _full_fleet("block", bad_count=1))
+
+    assert events == ["rollup", "geo:healthy", "wait:0", "geo:bad", "receipt", "quote"]
+    assert "already has no free activity slots" in capsys.readouterr().out
+
+
+async def test_freeze_scenario_with_only_instant_bystanders_skips_the_wait_and_freezes_first(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """With no rollups or healthy geo to occupy a slot, nothing is worth waiting for: the bad run goes
+    in at once, and the receipts and quotes stall behind it."""
+    events: list[str] = []
+    _install_slot_fakes(monkeypatch, events, baseline_free=2)
+    args = build_parser().parse_args(
+        ["--mode", "block", "--block-seconds", "30", "--bad", "1", "--receipts", "1", "--quotes", "1"]
+    )
+
+    await starter._submit_freeze_scenario(cast("Client", _FakeClient(events)), fleet_from_args(args))
+
+    assert events == ["geo:bad", "receipt", "quote"]
+
+
+@pytest.mark.parametrize(("bad_count", "expected_target"), [(1, 1), (2, 0), (3, 0)])
+async def test_saturation_scenario_waits_for_the_bad_runs_slots_then_submits_every_bystander(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    bad_count: int,
+    expected_target: int,
+) -> None:
+    """The wait target is the baseline minus the bad runs, floored at zero; healthy geo joins the bystanders."""
+    events: list[str] = []
+    _install_slot_fakes(monkeypatch, events, baseline_free=2)
+    client = _FakeClient(events)
+
+    await starter._submit_saturation_scenario(cast("Client", client), _full_fleet("slow", bad_count=bad_count))
+
+    assert events == [
+        *["geo:bad"] * bad_count,
+        f"wait:{expected_target}",
+        "receipt",
+        "rollup",
+        "quote",
+        "geo:healthy",
+    ]
+    assert _reported_labels(capsys.readouterr().out, client)[-bad_count:] == ["geo:bad"] * bad_count
+
+
+async def test_saturation_scenario_warns_and_skips_the_wait_when_metrics_are_unreachable(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """With no baseline slot reading, the saturation path warns instead of burning the poll timeout."""
+    events: list[str] = []
+    _install_slot_fakes(monkeypatch, events, baseline_free=None)
+
+    await starter._submit_saturation_scenario(cast("Client", _FakeClient(events)), _full_fleet("slow", bad_count=2))
+
+    assert not any(event.startswith("wait") for event in events)
+    assert "metrics endpoint unreachable" in capsys.readouterr().out
+
+
+async def _main_succeeds() -> None:
+    """Stand in for a starter main() that finishes normally."""
+
+
+async def _main_raises_runtime_error() -> None:
+    """Stand in for a starter main() that fails, for example when the server is down."""
+    raise RuntimeError("connection refused")
+
+
+async def _main_is_interrupted() -> None:
+    """Stand in for a starter main() the user stops with Ctrl-C."""
+    raise KeyboardInterrupt
+
+
+async def _main_rejects_its_arguments() -> None:
+    """Stand in for argparse rejecting the flags, which exits with status 2."""
+    raise SystemExit(2)
+
+
+@pytest.mark.parametrize(
+    ("fake_main", "expected_exit_code"),
+    [
+        (_main_succeeds, 0),
+        (_main_raises_runtime_error, 1),
+        (_main_is_interrupted, 130),
+        (_main_rejects_its_arguments, 2),
+    ],
+)
+def test_run_main_turns_every_outcome_into_an_exit_code(
+    monkeypatch: pytest.MonkeyPatch,
+    fake_main: Callable[[], Coroutine[None, None, None]],
+    expected_exit_code: int,
+) -> None:
+    """run_main never lets an exception escape, so the os._exit teardown always runs after it."""
+    monkeypatch.setattr(starter, "main", fake_main)
+
+    assert run_main() == expected_exit_code
+
+
+def test_run_main_prints_the_traceback_of_a_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A failing run still shows why, even though os._exit skips Python's normal error report."""
+    monkeypatch.setattr(starter, "main", _main_raises_runtime_error)
+
+    run_main()
+
+    assert "connection refused" in capsys.readouterr().err

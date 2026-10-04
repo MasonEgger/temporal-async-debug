@@ -5,6 +5,7 @@ ABOUTME: Confirms the receipt math and formatting, and the happy path under a ti
 from __future__ import annotations
 
 import uuid
+from datetime import timedelta
 
 import httpx
 import pytest
@@ -12,6 +13,8 @@ from temporalio.testing import ActivityEnvironment, WorkflowEnvironment
 from temporalio.worker import Worker
 
 from temporal_async_debug.receipt import (
+    ACTIVITY_SCHEDULE_TO_CLOSE_TIMEOUT,
+    ACTIVITY_START_TO_CLOSE_TIMEOUT,
     OrderReceiptWorkflow,
     compute_total,
     format_receipt,
@@ -33,6 +36,12 @@ def forbid_network(monkeypatch: pytest.MonkeyPatch) -> None:
         raise AssertionError("order-receipt activities must not touch the network")
 
     monkeypatch.setattr(httpx.AsyncClient, "request", _forbidden)
+
+
+def test_receipt_timeouts_are_pinned() -> None:
+    """Receipt activities get a 5-second start_to_close inside a 10-second schedule_to_close."""
+    assert timedelta(seconds=5) == ACTIVITY_START_TO_CLOSE_TIMEOUT
+    assert timedelta(seconds=10) == ACTIVITY_SCHEDULE_TO_CLOSE_TIMEOUT
 
 
 async def test_compute_total_multiplies_count_by_unit_price() -> None:

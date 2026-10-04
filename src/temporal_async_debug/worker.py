@@ -54,29 +54,30 @@ def print_startup_banner() -> None:
     carry the real PID so the reader can copy-paste them straight into a second terminal.
     """
     pid = os.getpid()
-    print("=" * 72)
-    print(f"temporal-async-debug worker running with PID {pid}")
-    print("Inspect the live event loop from another terminal with either of:")
-    print(f"    python -m asyncio ps {pid}")
-    print(f"    python -m asyncio pstree {pid}")
-    print(f"Prometheus metrics: {METRICS_URL}")
-    print("=" * 72)
+    # flush=True on every line: under nohup or a log redirect stdout is block-buffered, and the
+    # PID would otherwise sit unwritten in the buffer while the reader needs it.
+    print("=" * 72, flush=True)
+    print(f"temporal-async-debug worker running with PID {pid}", flush=True)
+    print("Inspect the live event loop from another terminal with either of:", flush=True)
+    print(f"    python -m asyncio ps {pid}", flush=True)
+    print(f"    python -m asyncio pstree {pid}", flush=True)
+    print(f"Prometheus metrics: {METRICS_URL}", flush=True)
+    print("=" * 72, flush=True)
 
 
-async def main() -> None:
-    """Connect to the local Temporal server and run the deliberately mistuned worker.
+def build_worker(client: Client) -> Worker:
+    """Construct the deliberately mistuned Worker for all four workflow types and their activities.
 
-    Builds a Runtime with the Prometheus metrics endpoint enabled, connects a Client to the
-    local dev server, constructs the Worker for all four workflow types and their activities,
-    prints the startup banner, and then serves until interrupted.
+    Kept free of any connection logic so tests can build it against a test environment's client
+    and inspect its configuration without polling a real server.
+
+    Args:
+        client: A connected Temporal client.
+
+    Returns:
+        The Worker, not yet running.
     """
-    runtime = Runtime(
-        telemetry=TelemetryConfig(
-            metrics=PrometheusConfig(bind_address=METRICS_BIND_ADDRESS),
-        ),
-    )
-    client = await Client.connect(TEMPORAL_TARGET, runtime=runtime)
-    worker = Worker(
+    return Worker(
         client,
         task_queue=shared.TASK_QUEUE,
         workflows=[
@@ -99,6 +100,22 @@ async def main() -> None:
         # slots to expected concurrency and load. Do not copy.
         max_concurrent_activities=2,
     )
+
+
+async def main() -> None:
+    """Connect to the local Temporal server and run the deliberately mistuned worker.
+
+    Builds a Runtime with the Prometheus metrics endpoint enabled, connects a Client to the
+    local dev server, builds the Worker with build_worker, prints the startup banner, and then
+    serves until interrupted.
+    """
+    runtime = Runtime(
+        telemetry=TelemetryConfig(
+            metrics=PrometheusConfig(bind_address=METRICS_BIND_ADDRESS),
+        ),
+    )
+    client = await Client.connect(TEMPORAL_TARGET, runtime=runtime)
+    worker = build_worker(client)
     print_startup_banner()
     await worker.run()
 

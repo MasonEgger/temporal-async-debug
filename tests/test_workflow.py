@@ -9,6 +9,7 @@ maximum_attempts=1 surfaces the first failure as a WorkflowFailureError instead 
 from __future__ import annotations
 
 import uuid
+from datetime import timedelta
 
 import pytest
 from temporalio import activity
@@ -19,6 +20,7 @@ from temporalio.worker import Worker
 
 from temporal_async_debug.shared import TASK_QUEUE, GeoEnrichmentInput, GeoEnrichmentOutput
 from temporal_async_debug.workflow import GeoEnrichmentWorkflow
+from tests.history import scheduled_activity_attributes
 
 STUB_IP: str = "203.0.113.7"
 """Address the stubbed get_ip returns, from the RFC 5737 documentation range."""
@@ -87,6 +89,73 @@ async def test_geo_workflow_runs_to_completion_in_slow_heartbeat_mode() -> None:
     assert isinstance(result, GeoEnrichmentOutput)
     assert result.ip == STUB_IP
     assert result.location == STUB_LOCATION
+
+
+@pytest.mark.parametrize(
+    ("mode", "expected_heartbeat_timeout"),
+    [("slow_heartbeat", timedelta(seconds=10)), ("block", timedelta(0))],
+)
+async def test_geo_workflow_passes_its_timeouts_through_to_the_scheduled_activities(
+    mode: str,
+    expected_heartbeat_timeout: timedelta,
+) -> None:
+    """Both scheduled geo activities carry the mode's timeouts, read back from the server's history.
+
+    A zero heartbeat_timeout in the history is how the server records "none set".
+    """
+    async with (
+        await WorkflowEnvironment.start_time_skipping() as env,
+        Worker(
+            env.client,
+            task_queue=TASK_QUEUE,
+            workflows=[GeoEnrichmentWorkflow],
+            activities=[get_ip_stub, get_location_stub],
+        ),
+    ):
+        handle = await env.client.start_workflow(
+            GeoEnrichmentWorkflow.run,
+            GeoEnrichmentInput(block_seconds=0.0, mode=mode),
+            id=str(uuid.uuid4()),
+            task_queue=TASK_QUEUE,
+        )
+        await handle.result()
+        scheduled = await scheduled_activity_attributes(handle)
+
+    assert [attributes.activity_type.name for attributes in scheduled] == ["get_ip", "get_location"]
+    for attributes in scheduled:
+        assert attributes.heartbeat_timeout.ToTimedelta() == expected_heartbeat_timeout
+        assert attributes.start_to_close_timeout.ToTimedelta() == timedelta(seconds=120)
+        assert attributes.schedule_to_close_timeout.ToTimedelta() == timedelta(seconds=150)
+
+
+async def test_geo_workflow_fails_fast_on_an_unknown_mode() -> None:
+    """An unknown mode fails the run with an ApplicationError of type InvalidMode instead of stalling it.
+
+    A plain ValueError raised in workflow code would fail the workflow task and retry it forever.
+    """
+    async with (
+        await WorkflowEnvironment.start_time_skipping() as env,
+        Worker(
+            env.client,
+            task_queue=TASK_QUEUE,
+            workflows=[GeoEnrichmentWorkflow],
+            activities=[get_ip_stub, get_location_stub],
+        ),
+    ):
+        with pytest.raises(WorkflowFailureError) as failure:
+            await env.client.execute_workflow(
+                GeoEnrichmentWorkflow.run,
+                GeoEnrichmentInput(block_seconds=0.0, mode="sideways"),
+                id=str(uuid.uuid4()),
+                task_queue=TASK_QUEUE,
+                # Bounds the stall a retrying workflow task would cause, so a regression fails here.
+                execution_timeout=timedelta(minutes=1),
+            )
+
+    application_error = failure.value.cause
+    assert isinstance(application_error, ApplicationError)
+    assert application_error.type == "InvalidMode"
+    assert "unknown mode" in str(application_error)
 
 
 async def test_geo_workflow_surfaces_first_failure_without_retrying() -> None:

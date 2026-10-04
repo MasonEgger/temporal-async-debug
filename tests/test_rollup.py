@@ -5,7 +5,9 @@ ABOUTME: Confirms the rollup math and the happy and concurrent paths under a tim
 from __future__ import annotations
 
 import asyncio
+import inspect
 import uuid
+from datetime import timedelta
 
 import httpx
 import pytest
@@ -13,7 +15,7 @@ from temporalio import activity
 from temporalio.testing import ActivityEnvironment, WorkflowEnvironment
 from temporalio.worker import Worker
 
-from temporal_async_debug.rollup import SalesRollupWorkflow, roll_up_sales
+from temporal_async_debug.rollup import ACTIVITY_START_TO_CLOSE_TIMEOUT, SalesRollupWorkflow, roll_up_sales
 from temporal_async_debug.shared import TASK_QUEUE, SalesRollupInput, SalesRollupOutput
 
 
@@ -32,20 +34,45 @@ def forbid_network(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(httpx.AsyncClient, "request", _forbidden)
 
 
+@activity.defn(name="roll_up_sales")
+async def roll_up_sales_stub(period: str, work_seconds: float = 5.0) -> str:
+    """Stand in for roll_up_sales, returning instantly so the workflow tests skip its pause.
+
+    The real activity's output and timing are covered by the ActivityEnvironment unit test.
+    """
+    return f"Sales rollup for {period}: total 6030"
+
+
 async def test_roll_up_sales_returns_the_period_and_total_with_no_pause() -> None:
     """roll_up_sales sums the in-memory figures and names the period, with the pause skipped."""
     assert await ActivityEnvironment().run(roll_up_sales, "2026-09", 0.0) == "Sales rollup for 2026-09: total 6030"
 
 
+def test_roll_up_sales_default_work_leaves_a_freeze_margin_inside_its_start_to_close() -> None:
+    """The default pause is long enough for a freeze to land mid-run, yet under start_to_close.
+
+    The starter waits for the rollup to take a slot before submitting the freeze, polling every
+    half second, so a pause of a few seconds keeps the rollup in flight when the freeze lands.
+    """
+    default_work_seconds = inspect.signature(roll_up_sales).parameters["work_seconds"].default
+    assert default_work_seconds == 5.0
+    assert 0 < default_work_seconds < ACTIVITY_START_TO_CLOSE_TIMEOUT.total_seconds()
+
+
+def test_rollup_start_to_close_is_shorter_than_the_default_freeze() -> None:
+    """A rollup caught by the recipes' default 30-second freeze must breach its start_to_close."""
+    assert timedelta(seconds=30) > ACTIVITY_START_TO_CLOSE_TIMEOUT
+
+
 async def test_sales_rollup_workflow_happy_path_returns_the_summary() -> None:
-    """The workflow rolls up the period's sales with no network involved."""
+    """The workflow rolls up the period's sales with no network involved, using the instant stub."""
     async with (
         await WorkflowEnvironment.start_time_skipping() as env,
         Worker(
             env.client,
             task_queue=TASK_QUEUE,
             workflows=[SalesRollupWorkflow],
-            activities=[roll_up_sales],
+            activities=[roll_up_sales_stub],
         ),
     ):
         result = await env.client.execute_workflow(
@@ -63,18 +90,12 @@ async def test_sales_rollup_workflow_happy_path_returns_the_summary() -> None:
 async def test_sales_rollup_workflow_runs_concurrently_with_distinct_periods() -> None:
     """Several concurrent SalesRollupWorkflow runs each complete with their own period reflected.
 
-    This stubs roll_up_sales with an instant stand-in rather than the real 2-second cooperative
+    This stubs roll_up_sales with an instant stand-in rather than the real 5-second cooperative
     pause, since the activity's own timing is already covered by the ActivityEnvironment unit test
     above, and disables automatic time-skipping for the gather: three concurrent executions racing
     the time-skipping server's auto-advance against real activity dispatch is a proven source of
     flakiness (spurious start_to_close timeouts) that has nothing to do with the code under test.
     """
-
-    @activity.defn(name="roll_up_sales")
-    async def roll_up_sales_stub(period: str, work_seconds: float = 2.0) -> str:
-        """Stand in for roll_up_sales, returning instantly so concurrency, not timing, is tested."""
-        return f"Sales rollup for {period}: total 6030"
-
     periods = ["2026-01", "2026-02", "2026-03"]
     async with (
         await WorkflowEnvironment.start_time_skipping() as env,

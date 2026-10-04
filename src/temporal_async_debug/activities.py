@@ -14,8 +14,9 @@ wait; see ``_apply_mode`` for what each mode does. The modes fall into two famil
   delay.
 
 Each activity fetches from a short round-robin list of providers and falls back to the next on
-failure, so one provider's rate limit or outage does not break the demo. ``HEALTHY_EQUIVALENTS``
-names the correct calls in one place so the tutorial can point at the contrast.
+failure, so one provider's rate limit or outage does not break the demo. In "slow_heartbeat" mode
+each provider attempt starts with a heartbeat, so a slow provider cannot run out the
+heartbeat_timeout while the activity is legitimately busy.
 """
 
 from __future__ import annotations
@@ -31,16 +32,17 @@ from temporalio import activity
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-HEALTHY_EQUIVALENTS: tuple[str, ...] = ("asyncio.sleep", "httpx")
-"""The non-blocking calls an async activity should reach for: ``asyncio.sleep`` in place of
-``time.sleep``, and ``httpx``'s async client in place of a synchronous HTTP library."""
-
 HEARTBEAT_STEP_SECONDS: float = 3.0
 """Interval between heartbeats in slow_heartbeat mode, well under any heartbeat_timeout the
 workflow sets for that mode."""
 
-HTTP_TIMEOUT_SECONDS: float = 10.0
-"""Per-request timeout, short enough that a hung lookup does not masquerade as a frozen loop."""
+HTTP_TIMEOUT_SECONDS: float = 4.0
+"""Per-request timeout, short enough that a hung lookup does not masquerade as a frozen loop.
+
+Must stay under the workflow's GEO_HEARTBEAT_TIMEOUT (10s): slow_heartbeat heartbeats before each
+provider attempt, so one hung provider has to give up before the next heartbeat is overdue. httpx
+applies the value per phase, so a hung connect followed by a hung read still lands under 10s. Five
+providers at this timeout still fail over well inside the activity's start_to_close."""
 
 IP_PROVIDERS: tuple[str, ...] = (
     "https://icanhazip.com",
@@ -52,22 +54,44 @@ IP_PROVIDERS: tuple[str, ...] = (
 """Plain-text endpoints that each echo back the caller's public IP address."""
 
 
+def _join_location_fields(response: httpx.Response, city_key: str, region_key: str, country_key: str) -> str:
+    """Join a JSON response's city, region, and country fields into one location line.
+
+    Args:
+        response: A geo provider's response, expected to carry a JSON object.
+        city_key: The provider's key for the city.
+        region_key: The provider's key for the region.
+        country_key: The provider's key for the country.
+
+    Returns:
+        The three fields as one comma-separated line.
+
+    Raises:
+        ValueError: If the body is not JSON, not a JSON object, or lacks any of the fields, so the
+            caller fails over to the next provider.
+    """
+    body: object = response.json()
+    if not isinstance(body, dict):
+        raise ValueError(f"expected a JSON object, got {type(body).__name__}")
+    fields = [body.get(key) for key in (city_key, region_key, country_key)]
+    if any(field_value is None for field_value in fields):
+        raise ValueError(f"missing location fields in {body!r}")
+    return ", ".join(str(field_value) for field_value in fields)
+
+
 def _parse_ipapi_co(response: httpx.Response) -> str:
     """Parse a location string from an ipapi.co JSON response."""
-    body: dict[str, object] = response.json()
-    return f"{body['city']}, {body['region']}, {body['country_name']}"
+    return _join_location_fields(response, "city", "region", "country_name")
 
 
 def _parse_ipwho_is(response: httpx.Response) -> str:
     """Parse a location string from an ipwho.is JSON response."""
-    body: dict[str, object] = response.json()
-    return f"{body['city']}, {body['region']}, {body['country']}"
+    return _join_location_fields(response, "city", "region", "country")
 
 
 def _parse_ip_api_com(response: httpx.Response) -> str:
     """Parse a location string from an ip-api.com JSON response."""
-    body: dict[str, object] = response.json()
-    return f"{body['city']}, {body['regionName']}, {body['country']}"
+    return _join_location_fields(response, "city", "regionName", "country")
 
 
 GEO_PROVIDERS: tuple[tuple[str, Callable[[httpx.Response], str]], ...] = (
@@ -135,10 +159,24 @@ async def _apply_mode(mode: str, block_seconds: float) -> None:
                 activity.heartbeat("slow_heartbeat progress")
     elif mode == "stuck_no_heartbeat":
         # ANTIPATTERN (deliberate, for teaching): this awaits long-running work but never
-        # heartbeats, so a workflow that sets heartbeat_timeout has the server cancel it
-        # mid-flight. Correct: heartbeat periodically during long work, as slow_heartbeat does.
-        # Do not copy.
+        # heartbeats, so when the workflow sets heartbeat_timeout the server times the activity
+        # out at that interval and the SDK's local heartbeat tracking cancels the task.
+        # Correct: heartbeat periodically during long work, as slow_heartbeat does. Do not copy.
         await asyncio.sleep(block_seconds)
+
+
+def _heartbeat_before_provider_attempt(mode: str) -> None:
+    """Heartbeat before a provider request when the mode promises steady heartbeats.
+
+    Only "slow_heartbeat" heartbeats. A provider can take up to HTTP_TIMEOUT_SECONDS to answer, so
+    a fresh heartbeat before each attempt keeps one slow provider from running out the
+    heartbeat_timeout while the activity is still doing legitimate work.
+
+    Args:
+        mode: One of shared.VALID_MODES.
+    """
+    if mode == "slow_heartbeat" and activity.in_activity():
+        activity.heartbeat("provider attempt")
 
 
 @activity.defn
@@ -159,6 +197,7 @@ async def get_ip(block_seconds: float, mode: str) -> str:
     errors: list[str] = []
     async with httpx.AsyncClient(timeout=HTTP_TIMEOUT_SECONDS) as client:
         for url in _rotated(IP_PROVIDERS):
+            _heartbeat_before_provider_attempt(mode)
             try:
                 response = await client.get(url)
                 response.raise_for_status()
@@ -188,10 +227,11 @@ async def get_location(ip: str, block_seconds: float, mode: str) -> str:
     async with httpx.AsyncClient(timeout=HTTP_TIMEOUT_SECONDS) as client:
         for url_template, parse in _rotated(GEO_PROVIDERS):
             url = url_template.format(ip=ip)
+            _heartbeat_before_provider_attempt(mode)
             try:
                 response = await client.get(url)
                 response.raise_for_status()
                 return parse(response)
-            except (httpx.HTTPError, KeyError, ValueError) as error:
+            except (httpx.HTTPError, ValueError) as error:
                 errors.append(f"{url}: {error!r}")
     raise RuntimeError(f"every geo provider failed: {'; '.join(errors)}")

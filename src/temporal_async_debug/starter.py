@@ -16,11 +16,13 @@ instead of racing (spec's Starting context, live-verified):
 
 - Freeze modes ("block", "cpu") stop the worker's event loop, which stops it from scheduling new
   activity tasks. Only a bystander already in-flight or queued before the freeze lands trips a
-  timeout, so the starter submits the bystanders first, waits for at least one activity slot to
-  be occupied, and only then submits the freezing bad geo run.
+  timeout, so the starter submits the short-work bystanders (rollups, healthy geo) first, waits for
+  at least one activity slot to be occupied, and only then submits the freezing bad geo run. The
+  instant bystanders (receipts, quotes) go in after the freeze, so they visibly stall behind it.
 - Saturation modes ("slow", "slow_heartbeat", "stuck_no_heartbeat") hold activity slots without
   freezing the loop, so the starter submits the bad geo runs first, waits for the activity slot
-  gauge to read zero, and only then submits the bystanders, which starve for a slot instead.
+  gauge to show they hold their slots, and only then submits every bystander, which starve for a
+  slot instead.
 
 Nothing here is labeled a victim; the reader finds the cause from the tooling, not from a name.
 """
@@ -32,8 +34,10 @@ import asyncio
 import os
 import re
 import sys
+import traceback
 import uuid
-from typing import TYPE_CHECKING
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Literal
 
 import httpx
 from temporalio.client import Client, WorkflowFailureError, WorkflowHandle
@@ -79,6 +83,9 @@ SLOT_POLL_TIMEOUT_SECONDS: float = 20.0
 
 SLOT_POLL_INTERVAL_SECONDS: float = 0.5
 """How often to re-scrape the slot gauge while waiting for the slots to fill."""
+
+Scenario = Literal["freeze", "saturation", "concurrent"]
+"""The submission order a run uses: freeze-family, saturation-family, or everything at once."""
 
 _ACTIVITY_SLOTS_PATTERN = re.compile(
     r'temporal_worker_task_slots_available\{[^}]*worker_type="ActivityWorker"[^}]*\}\s+([0-9.]+)'
@@ -203,6 +210,68 @@ def quote_inputs_from_args(args: argparse.Namespace) -> list[PriceQuoteInput]:
         A list of ``args.quotes`` PriceQuoteInput values with distinct skus.
     """
     return [PriceQuoteInput(sku=f"SKU-{run_index}") for run_index in range(args.quotes)]
+
+
+@dataclass(frozen=True)
+class Fleet:
+    """Every workflow input one starter run submits, grouped by kind.
+
+    Attributes:
+        bad_geo: Geo runs in the misbehaving mode.
+        healthy_geo: Geo runs with no delay.
+        receipts: Order-receipt runs, instant and no network.
+        rollups: Sales-rollup runs, a few seconds of cooperative work.
+        quotes: Price-quote runs, the schedule-to-start sample.
+    """
+
+    bad_geo: list[GeoEnrichmentInput]
+    healthy_geo: list[GeoEnrichmentInput]
+    receipts: list[OrderReceiptInput]
+    rollups: list[SalesRollupInput]
+    quotes: list[PriceQuoteInput]
+
+
+def fleet_from_args(args: argparse.Namespace) -> Fleet:
+    """Build the full fleet from the parsed CLI flags.
+
+    Args:
+        args: Parsed CLI arguments from build_parser.
+
+    Returns:
+        A Fleet carrying one input per requested run of every kind.
+    """
+    return Fleet(
+        bad_geo=bad_geo_inputs_from_args(args),
+        healthy_geo=healthy_geo_inputs_from_args(args),
+        receipts=receipt_inputs_from_args(args),
+        rollups=rollup_inputs_from_args(args),
+        quotes=quote_inputs_from_args(args),
+    )
+
+
+def select_scenario(mode: str, block_seconds: float, fleet: Fleet) -> Scenario:
+    """Pick the submission order for a fleet.
+
+    Ordering only matters when there are bad runs that actually misbehave and at least one
+    bystander of any kind for them to hurt; every bystander kind joins either family's scenario.
+
+    Args:
+        mode: The bad runs' mode, one of shared.VALID_MODES.
+        block_seconds: The bad runs' delay; zero means they are healthy.
+        fleet: The runs to submit.
+
+    Returns:
+        "freeze" or "saturation" for the mode's family, or "concurrent" when nothing needs
+        sequencing.
+    """
+    has_bystanders = bool(fleet.healthy_geo or fleet.receipts or fleet.rollups or fleet.quotes)
+    if block_seconds <= 0 or not fleet.bad_geo or not has_bystanders:
+        return "concurrent"
+    if mode in FREEZE_MODES:
+        return "freeze"
+    if mode in SATURATION_MODES:
+        return "saturation"
+    return "concurrent"
 
 
 def parse_activity_slots_available(metrics_text: str) -> int | None:
@@ -336,90 +405,101 @@ async def _start_quotes(
     ]
 
 
-async def _submit_freeze_scenario(
-    client: Client,
-    bad_geo_inputs: list[GeoEnrichmentInput],
-    healthy_geo_inputs: list[GeoEnrichmentInput],
-    rollup_inputs: list[SalesRollupInput],
-) -> None:
-    """Submit bystanders first, then the freezing bad geo run once a slot is occupied.
+async def _read_baseline_free_slots() -> int | None:
+    """Read the free activity slot count before submitting anything, warning if metrics are down.
+
+    Returns:
+        The free slot count, or None when the metrics endpoint did not answer, in which case the
+        scenario submits without waiting on the slot gauge.
+    """
+    baseline_free = await _read_free_activity_slots()
+    if baseline_free is None:
+        print(f"warning: metrics endpoint unreachable at {METRICS_URL}; submitting without waiting for slots")
+    return baseline_free
+
+
+async def _submit_freeze_scenario(client: Client, fleet: Fleet) -> None:
+    """Submit the short-work bystanders, freeze the loop once one holds a slot, then pile on more.
 
     A frozen loop stops scheduling new activity tasks, so only a bystander already in-flight or
     queued before the freeze lands trips a timeout; anything submitted after only stalls.
-    Submitting the bystanders first and confirming at least one activity slot is occupied before
-    the bad geo run lands turns that into a certainty instead of a race.
+    Submitting the rollups and healthy geo runs first and confirming at least one activity slot is
+    occupied before the bad geo run lands turns that into a certainty instead of a race. The
+    receipts and quotes go in after the freeze on purpose: they are instant, so they show the
+    other half of the lesson, stalling behind the frozen loop and completing late once it clears.
 
     Args:
         client: A connected Temporal client.
-        bad_geo_inputs: The geo runs in a freeze mode ("block" or "cpu").
-        healthy_geo_inputs: Healthy geo runs submitted as bystanders.
-        rollup_inputs: Sales-rollup runs submitted as bystanders, caught in-flight by the freeze.
+        fleet: The runs to submit; fleet.bad_geo holds the runs in a freeze mode ("block" or "cpu").
     """
-    baseline_free = await _read_free_activity_slots()
+    baseline_free = await _read_baseline_free_slots()
 
-    healthy_handles = await _start_geo(client, healthy_geo_inputs)
-    rollup_handles = await _start_rollups(client, rollup_inputs)
+    rollup_handles = await _start_rollups(client, fleet.rollups)
+    healthy_handles = await _start_geo(client, fleet.healthy_geo)
 
-    if baseline_free is not None and not await wait_for_free_activity_slots(baseline_free - 1):
+    has_early_bystanders = bool(fleet.rollups or fleet.healthy_geo)
+    if baseline_free == 0:
+        print("warning: the worker already has no free activity slots (a prior run may still hold them); proceeding")
+    if (
+        baseline_free is not None
+        and has_early_bystanders
+        and not await wait_for_free_activity_slots(max(0, baseline_free - 1))
+    ):
         print("warning: no bystander activity took a slot in time; submitting the freeze anyway")
 
-    bad_handles = await _start_geo(client, bad_geo_inputs)
+    bad_handles = await _start_geo(client, fleet.bad_geo)
+    receipt_handles = await _start_receipts(client, fleet.receipts)
+    quote_handles = await _start_quotes(client, fleet.quotes)
 
-    # Bystanders fail first while the freeze holds the loop, so surface them before the bad runs.
-    await _report_results("geo", healthy_handles)
+    # The in-flight rollup fails first, so report it before the healthy geo runs that survive the
+    # freeze; the receipts and quotes complete once the freeze clears, and the bad run ends last.
     await _report_results("rollup", rollup_handles)
+    await _report_results("geo", healthy_handles)
+    await _report_results("receipt", receipt_handles)
+    await _report_results("quote", quote_handles)
     await _report_results("geo", bad_handles)
 
 
-async def _submit_saturation_scenario(
-    client: Client,
-    bad_geo_inputs: list[GeoEnrichmentInput],
-    receipt_inputs: list[OrderReceiptInput],
-    rollup_inputs: list[SalesRollupInput],
-    quote_inputs: list[PriceQuoteInput],
-) -> None:
-    """Submit the bad geo runs first, wait until they hold every slot, then submit bystanders.
+async def _submit_saturation_scenario(client: Client, fleet: Fleet) -> None:
+    """Submit the bad geo runs first, wait until they hold their slots, then submit bystanders.
 
     Saturation modes hold activity slots without freezing the loop, so starting the bad runs
-    first and confirming the slot gauge reads zero before the bystanders arrive is what turns
-    the starvation into a certainty: the bystanders starve for a slot every time.
+    first and confirming they have taken their slots before the bystanders arrive is what turns
+    the starvation into a certainty: the bystanders starve for a slot every time. The wait target
+    is the baseline free count minus one slot per bad run, floored at zero, so a single bad run on
+    a two-slot worker waits for one free slot instead of running out the poll timeout.
 
     Args:
         client: A connected Temporal client.
-        bad_geo_inputs: The geo runs in a saturation mode ("slow", "slow_heartbeat", or
-            "stuck_no_heartbeat") that fill the worker's activity slots.
-        receipt_inputs: Order-receipt runs submitted as bystanders.
-        rollup_inputs: Sales-rollup runs submitted as bystanders.
-        quote_inputs: Price-quote runs submitted as bystanders, which trip schedule_to_start.
+        fleet: The runs to submit; fleet.bad_geo holds the runs in a saturation mode ("slow",
+            "slow_heartbeat", or "stuck_no_heartbeat") that fill the worker's activity slots.
     """
-    bad_handles = await _start_geo(client, bad_geo_inputs)
+    baseline_free = await _read_baseline_free_slots()
 
-    if not await wait_for_free_activity_slots(0):
-        print("warning: the bad geo activities did not take every slot in time; submitting bystanders anyway")
+    bad_handles = await _start_geo(client, fleet.bad_geo)
 
-    receipt_handles = await _start_receipts(client, receipt_inputs)
-    rollup_handles = await _start_rollups(client, rollup_inputs)
-    quote_handles = await _start_quotes(client, quote_inputs)
+    if baseline_free is not None and not await wait_for_free_activity_slots(max(0, baseline_free - len(fleet.bad_geo))):
+        print("warning: the bad geo activities did not take their slots in time; submitting bystanders anyway")
+
+    receipt_handles = await _start_receipts(client, fleet.receipts)
+    rollup_handles = await _start_rollups(client, fleet.rollups)
+    quote_handles = await _start_quotes(client, fleet.quotes)
+    healthy_handles = await _start_geo(client, fleet.healthy_geo)
 
     # Bystanders fail first while the slots are held, so surface them before the long bad runs.
     await _report_results("receipt", receipt_handles)
     await _report_results("rollup", rollup_handles)
     await _report_results("quote", quote_handles)
+    await _report_results("geo", healthy_handles)
     await _report_results("geo", bad_handles)
 
 
-async def _run_all_concurrently(
-    client: Client,
-    geo_inputs: list[GeoEnrichmentInput],
-    receipt_inputs: list[OrderReceiptInput],
-    rollup_inputs: list[SalesRollupInput],
-    quote_inputs: list[PriceQuoteInput],
-) -> None:
+async def _run_all_concurrently(client: Client, fleet: Fleet) -> None:
     """Submit every workflow run at once and print each result, for healthy runs."""
-    geo_handles = await _start_geo(client, geo_inputs)
-    receipt_handles = await _start_receipts(client, receipt_inputs)
-    rollup_handles = await _start_rollups(client, rollup_inputs)
-    quote_handles = await _start_quotes(client, quote_inputs)
+    geo_handles = await _start_geo(client, [*fleet.bad_geo, *fleet.healthy_geo])
+    receipt_handles = await _start_receipts(client, fleet.receipts)
+    rollup_handles = await _start_rollups(client, fleet.rollups)
+    quote_handles = await _start_quotes(client, fleet.quotes)
     await _report_results("geo", geo_handles)
     await _report_results("receipt", receipt_handles)
     await _report_results("rollup", rollup_handles)
@@ -429,47 +509,63 @@ async def _run_all_concurrently(
 async def main() -> None:
     """Parse the CLI flags, connect to the local server, and submit the fleet.
 
-    A run with bad geo workflows and bystanders to protect goes through the ordering that matches
-    its mode family, freeze or saturation (see the module docstring), so the collateral failure is
-    deterministic rather than a race. Every other run submits concurrently.
+    select_scenario picks the submission order that matches the bad runs' mode family, freeze or
+    saturation (see the module docstring), so the collateral failure is deterministic rather than
+    a race. Every other run submits concurrently.
     """
     args = build_parser().parse_args()
-    bad_geo_inputs = bad_geo_inputs_from_args(args)
-    healthy_geo_inputs = healthy_geo_inputs_from_args(args)
-    receipt_inputs = receipt_inputs_from_args(args)
-    rollup_inputs = rollup_inputs_from_args(args)
-    quote_inputs = quote_inputs_from_args(args)
+    fleet = fleet_from_args(args)
 
     client = await Client.connect(TEMPORAL_TARGET)
 
-    has_freeze_bystanders = healthy_geo_inputs or rollup_inputs
-    has_saturation_bystanders = receipt_inputs or rollup_inputs or quote_inputs
+    match select_scenario(args.mode, args.block_seconds, fleet):
+        case "freeze":
+            await _submit_freeze_scenario(client, fleet)
+        case "saturation":
+            await _submit_saturation_scenario(client, fleet)
+        case "concurrent":
+            await _run_all_concurrently(client, fleet)
 
-    if args.block_seconds > 0 and bad_geo_inputs and args.mode in FREEZE_MODES and has_freeze_bystanders:
-        await _submit_freeze_scenario(client, bad_geo_inputs, healthy_geo_inputs, rollup_inputs)
-    elif args.block_seconds > 0 and bad_geo_inputs and args.mode in SATURATION_MODES and has_saturation_bystanders:
-        await _submit_saturation_scenario(client, bad_geo_inputs, receipt_inputs, rollup_inputs, quote_inputs)
-    else:
-        await _run_all_concurrently(
-            client,
-            [*bad_geo_inputs, *healthy_geo_inputs],
-            receipt_inputs,
-            rollup_inputs,
-            quote_inputs,
-        )
+
+def run_main() -> int:
+    """Run main() to completion and turn every way it can end into a process exit code.
+
+    Nothing escapes, so the os._exit teardown below always runs after it. Because os._exit skips
+    Python's normal error report, a failure's traceback is printed here instead.
+
+    Returns:
+        0 on success, the requested status for SystemExit (argparse uses 2 for bad flags), 130 for
+        Ctrl-C, and 1 for any other exception.
+    """
+    try:
+        asyncio.run(main())
+    except SystemExit as exit_request:
+        if exit_request.code is None:
+            return 0
+        return exit_request.code if isinstance(exit_request.code, int) else 1
+    except KeyboardInterrupt:
+        return 130
+    except Exception:
+        traceback.print_exc()
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
-    # WORKAROUND: temporalio's default Core runtime owns a process-wide Tokio thread pool
-    # that Python only tears down during interpreter finalization, since neither Client
-    # nor the default Runtime exposes a public close/shutdown call
-    # (temporalio/sdk-python#300, still open on temporalio 1.33). That teardown
-    # intermittently races a Tokio worker thread reacquiring the GIL while CPython is
-    # finalizing: the worker thread parks forever and the process hangs on exit even
-    # though every result already printed above. Once main() has returned, the run's
-    # work is done, so skip Python's normal finalization, where the race lives, and exit
-    # immediately instead of waiting for it.
-    sys.stdout.flush()
-    sys.stderr.flush()
-    os._exit(0)
+    exit_code = 1
+    try:
+        exit_code = run_main()
+    finally:
+        # WORKAROUND: temporalio's default Core runtime owns a process-wide Tokio thread pool
+        # that Python only tears down during interpreter finalization, since neither Client
+        # nor the default Runtime exposes a public close/shutdown call
+        # (temporalio/sdk-python#300, still open on temporalio 1.33). That teardown
+        # intermittently races a Tokio worker thread reacquiring the GIL while CPython is
+        # finalizing: the worker thread parks forever and the process hangs on exit even
+        # though every result already printed above. Once main() has returned, the run's
+        # work is done, so skip Python's normal finalization, where the race lives, and exit
+        # immediately instead of waiting for it. The finally clause makes this run on every
+        # exit path, failures included.
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(exit_code)
