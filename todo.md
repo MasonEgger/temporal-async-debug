@@ -95,7 +95,7 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ## Section 5: Documentation
 
-### Step 9: Comprehensive README Catalog (task)
+### Step 9: Full README Catalog (task)
 
 - [x] 1. Scope defined (README.md rewrite as the in-repo tutorial home)
 - [x] 2. Tooling: tutorial-writing before drafting, review-content after, temporal skill + MCP for metric-name verification
@@ -105,7 +105,7 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 - [x] 3. Do: one lesson per scenario (healthy, block, cpu, slow, slow_heartbeat, stuck_no_heartbeat, schedule-to-start) with healthy-vs-broken shapes
 - [x] 3. Do: mode-to-timeout-to-signature summary table with the frozen-loop vs saturation split
 - [x] 3. Do: platform gotchas (3.14+, Yama ptrace_scope, macOS sudo, transient asyncio ps)
-- [x] 3. Do: realistic-timeouts framing (start_to_close/schedule_to_close SLA, schedule_to_start rare, latency metric the tell, why no workflow timeouts)
+- [x] 3. Do: realistic-timeouts framing (start_to_close/schedule_to_close SLA, schedule_to_start rare, backlog age the tell, latency metric a lagging confirmation, why no workflow timeouts)
 - [x] 3. Do: antipattern marker grep note + tutorial link placeholder (masonegger.com TODO)
 - [x] 4. Verify: review-content pass addressed; human-check writing rules, commands/metric names match code, output is real, warning present
 - [x] 5. Document: this step is the documentation

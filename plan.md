@@ -22,7 +22,7 @@ Read `spec.md` in full before starting; the `## Starting context` live-verified 
   - [ ] Step 7: Extend The Starter To The Full Scenario Set
   - [ ] Step 8: One Just Recipe Per Scenario (task)
 - [ ] Section 5: Documentation
-  - [ ] Step 9: Comprehensive README Catalog (task)
+  - [ ] Step 9: Full README Catalog (task)
   - [ ] Step 10: Refresh CLAUDE.md Architecture (task)
 
 ## Architecture Recap (target)
@@ -58,7 +58,11 @@ Proposed new workflow names (neutral, adjustable at review): `SalesRollupWorkflo
 
 ### Step 1: Extend The Mode Set (cpu, slow_heartbeat, stuck_no_heartbeat)
 
-**NOTE**: The foundation's `activities.py` has `_apply_mode(mode, block_seconds)` handling `block` (time.sleep, marked) and `slow` (asyncio.sleep). This step adds three modes. `slow_heartbeat` must call `activity.heartbeat` but `_apply_mode` is also called from the Temporal-free starvation probe test, so guard every heartbeat with `activity.in_activity()` (a captured lesson). cpu must NOT await and must NOT call time.sleep; it busy-loops on `time.monotonic()`. Keep the mode branch a plain, obvious `if`/`elif` chain as the spec requires.
+**NOTE**: The foundation's `activities.py` has `_apply_mode(mode, block_seconds)` handling `block` (time.sleep, marked) and `slow` (asyncio.sleep).
+This step adds three modes.
+`slow_heartbeat` must call `activity.heartbeat` but `_apply_mode` is also called from the Temporal-free starvation probe test, so guard every heartbeat with `activity.in_activity()` (a captured lesson).
+cpu must NOT await and must NOT call time.sleep; it busy-loops on `time.monotonic()`.
+Keep the mode branch a plain, obvious `if`/`elif` chain as the spec requires.
 
 ```text
 1. RED: Extend the activity-behavior tests (via temporalio.testing.ActivityEnvironment, httpx mocked with the existing respx fixtures and deterministic_rotation autouse):
@@ -98,7 +102,10 @@ Proposed new workflow names (neutral, adjustable at review): `SalesRollupWorkflo
 
 ### Step 2: Extend The Starvation Probe To cpu And slow_heartbeat
 
-**NOTE**: The foundation's tests/test_starvation_probe.py proves block starves a 50 ms probe and slow does not. This step adds cpu (starves, like block) and slow_heartbeat (does not starve, like slow). Reuse the same probe helper. Pick thresholds with wide slack in one pass (a captured lesson): block/cpu against a floor well above 0.05 s, slow/slow_heartbeat well below.
+**NOTE**: The foundation's tests/test_starvation_probe.py proves block starves a 50 ms probe and slow does not.
+This step adds cpu (starves, like block) and slow_heartbeat (does not starve, like slow).
+Reuse the same probe helper.
+Pick thresholds with wide slack in one pass (a captured lesson): block/cpu against a floor well above 0.05 s, slow/slow_heartbeat well below.
 
 ```text
 1. RED: Extend the probe test:
@@ -135,7 +142,12 @@ Proposed new workflow names (neutral, adjustable at review): `SalesRollupWorkflo
 
 ### Step 3: Short-Work Bystander (SalesRollupWorkflow)
 
-**NOTE**: This is the bystander a freeze catches in-flight. Its one activity does a couple of seconds of cooperative in-memory work (no network) so that, when a freeze lands while it is running, it trips start_to_close, producing cross-type activity-timeout damage rather than only a stall. It is correct code and carries no marker. Name is neutral and adjustable; `roll_up_sales` sums an in-memory list with a short cooperative pause. Keep it obviously correct so the tutorial can contrast it with the geo misbehaver. Mirror the shape of the existing receipt.py.
+**NOTE**: This is the bystander a freeze catches in-flight.
+Its one activity does a few seconds of cooperative in-memory work (no network) so that, when a freeze lands while it is running, it trips start_to_close, producing cross-type activity-timeout damage rather than only a stall.
+It is correct code and carries no marker.
+Name is neutral and adjustable; `roll_up_sales` sums an in-memory list with a short cooperative pause.
+Keep it obviously correct so the tutorial can contrast it with the geo misbehaver.
+Mirror the shape of the existing receipt.py.
 
 ```text
 1. RED: Write the happy-path workflow test first (via temporalio.testing.WorkflowEnvironment.start_time_skipping):
@@ -171,7 +183,10 @@ Proposed new workflow names (neutral, adjustable at review): `SalesRollupWorkflo
 
 ### Step 4: Schedule-To-Start Sample (PriceQuoteWorkflow)
 
-**NOTE**: This is the one place schedule_to_start_timeout appears, since setting it is rare. The workflow models a task that is worthless if it does not start promptly (a price quote goes stale), which is the legitimate routing/staleness use case, so the short schedule_to_start_timeout is realistic here yet still carries the marker because it is normally an antipattern. The activity is near-instant in-memory; the timeout fires only because the worker is saturated when it is submitted. Name is neutral and adjustable.
+**NOTE**: This is the one place schedule_to_start_timeout appears, since setting it is rare.
+The workflow models a task that is worthless if it does not start promptly (a late price quote is out of date), which is the legitimate routing/staleness use case, so the short schedule_to_start_timeout is realistic here yet still carries the marker because it is normally an antipattern.
+The activity is near-instant in-memory; the timeout fires only because the worker is saturated when it is submitted.
+Name is neutral and adjustable.
 
 ```text
 1. RED: Write the happy-path workflow test first (via WorkflowEnvironment.start_time_skipping):
@@ -215,7 +230,11 @@ Proposed new workflow names (neutral, adjustable at review): `SalesRollupWorkflo
 
 ### Step 5: Per-Mode Activity Options In The Geo Workflow
 
-**NOTE**: The foundation's workflow.py runs get_ip then get_location with fixed start_to_close (10s) plus schedule_to_close (15s) and maximum_attempts=1. The catalog needs the geo activity options to depend on the mode: generous start_to_close so slow and slow_heartbeat hold their slots the full block duration (live-verified: an awaiting activity is cancelled at start_to_close), and a heartbeat_timeout for slow_heartbeat (which it satisfies) and stuck_no_heartbeat (which it does not, so it fails). block and cpu keep a generous start_to_close and no heartbeat_timeout; they are detected from the frozen-loop stack, not from a timeout. Extract the selection into a pure helper so it is unit-testable without a server. Keep maximum_attempts=1 (marked) for every mode.
+**NOTE**: The foundation's workflow.py runs get_ip then get_location with fixed start_to_close (10s) plus schedule_to_close (15s) and maximum_attempts=1.
+The catalog needs the geo activity options to depend on the mode: generous start_to_close so slow and slow_heartbeat hold their slots the full block duration (live-verified: an awaiting activity is cancelled at start_to_close), and a heartbeat_timeout for slow_heartbeat (which it satisfies) and stuck_no_heartbeat (which it does not, so it fails).
+block and cpu keep a generous start_to_close and no heartbeat_timeout; they are detected from the frozen-loop stack, not from a timeout.
+Extract the selection into a pure helper so it is unit-testable without a server.
+Keep maximum_attempts=1 (marked) for every mode.
 
 ```text
 1. RED: Write per-mode options tests first:
@@ -257,7 +276,10 @@ Proposed new workflow names (neutral, adjustable at review): `SalesRollupWorkflo
 - MCPs: mcp__temporal-docs__search_temporal_knowledge_sources
 - Linters: uv run ruff check --output-format=json ., uv run mypy .
 
-**NOTE**: Wiring, so Task template. The worker already registers GeoEnrichmentWorkflow and OrderReceiptWorkflow with max_concurrent_activities=2 (marked) and metrics on 127.0.0.1:9464. This step adds the two new workflow types and their activities. Keep the mistuning and the metrics endpoint; verified by import, not a unit test.
+**NOTE**: Wiring, so Task template.
+The worker already registers GeoEnrichmentWorkflow and OrderReceiptWorkflow with max_concurrent_activities=2 (marked) and metrics on 127.0.0.1:9464.
+This step adds the two new workflow types and their activities.
+Keep the mistuning and the metrics endpoint; verified by import, not a unit test.
 
 ```text
 1. Scope:
@@ -288,7 +310,10 @@ Proposed new workflow names (neutral, adjustable at review): `SalesRollupWorkflo
 - MCPs: mcp__temporal-docs__search_temporal_knowledge_sources
 - Linters: uv run ruff check --output-format=json ., uv run mypy .
 
-**NOTE**: The foundation's starter.py has a fleet CLI (--mode block|slow, --block-seconds, --bad, --geo, --receipts), a metrics parser (parse_activity_slots_available matching worker_type="ActivityWorker"), wait_for_free_activity_slots, and the os._exit(0) teardown workaround. This step widens --mode to all five, adds flags for the two new bystanders, and sequences submissions so each scenario's timeouts fire deterministically live. Argument parsing and input construction are our logic and are unit-testable without a server; the live submission ordering is thin and exercised manually. Respect the live-verified mechanic (spec Starting context): to make a freeze trip a bystander's activity timeout, that bystander's activity must already be in-flight or scheduled BEFORE the freeze lands, because a frozen loop stops scheduling new activity tasks.
+**NOTE**: The foundation's starter.py has a fleet CLI (--mode block|slow, --block-seconds, --bad, --geo, --receipts), a metrics parser (parse_activity_slots_available matching worker_type="ActivityWorker"), wait_for_free_activity_slots, and the os._exit(0) teardown workaround.
+This step widens --mode to all five, adds flags for the two new bystanders, and sequences submissions so each scenario's timeouts fire deterministically live.
+Argument parsing and input construction are our logic and are unit-testable without a server; the live submission ordering is thin and exercised manually.
+Respect the live-verified mechanic (spec Starting context): to make a freeze trip a bystander's activity timeout, that bystander's activity must already be in-flight or scheduled BEFORE the freeze lands, because a frozen loop stops scheduling new activity tasks.
 
 ```text
 1. RED: Extend argument-parsing and input-construction tests first:
@@ -307,7 +332,7 @@ Proposed new workflow names (neutral, adjustable at review): `SalesRollupWorkflo
    - Add --rollups and --quotes flags (type int, default 0).
    - Add rollup_inputs_from_args and quote_inputs_from_args mirroring the existing bad_geo/healthy_geo/receipt helpers, with distinct labels (period, sku).
    - In main(), submit the fleet with ordering that makes the scenario deterministic:
-     - For the freeze modes (block, cpu): submit the short-work bystanders (rollups) and any healthy geo first and wait until at least one activity slot is occupied (reuse the existing slot-polling helper), THEN submit the --bad geo run in the freeze mode, so the bystander is in-flight when the freeze lands and trips start_to_close.
+     - For the freeze modes (block, cpu): submit the short-work bystanders (rollups) and any healthy geo first and wait until at least one activity slot is occupied (reuse the existing slot-polling helper), THEN submit the --bad geo run in the freeze mode, so the bystander is in-flight when the freeze lands and trips start_to_close. (Final, live-verified ordering: await the healthy geo before the bad run; submit receipts and quotes only after the server reports the bad run's second activity, get_location, STARTED plus a 1-second guard, so they stall through the final freeze and complete at the thaw instead of landing in the sub-second thaw between the two freezes, which ran 60 to 570 ms across the 8 final runs depending on get_ip's HTTP call and 138 ms in the run that exposed the race.)
      - For the saturation modes (slow, slow_heartbeat, stuck_no_heartbeat): submit the --bad geo runs to fill the slots, wait until parse_activity_slots_available reads 0, THEN submit the bystanders (receipts, rollups, quotes) so they starve and trip schedule_to_close (and, for quotes, schedule_to_start).
      - Keep the os._exit(0) teardown workaround.
    - Report each result (or failure) as the foundation's _report_results does; extend it to the new workflow types via its existing generic typing.
@@ -329,7 +354,10 @@ Proposed new workflow names (neutral, adjustable at review): `SalesRollupWorkflo
 
 **Tools:** none
 
-**NOTE**: Wiring, so Task template. The justfile already has server, worker, trigger, and block/slow recipes for the fleet CLI. This step adds a recipe per catalog scenario so a reader runs one command per lesson. Recipes only compose the starter CLI; no new logic.
+**NOTE**: Wiring, so Task template.
+The justfile already has server, worker, trigger, and block/slow recipes for the fleet CLI.
+This step adds a recipe per catalog scenario so a reader runs one command per lesson.
+Recipes only compose the starter CLI; no new logic.
 
 ```text
 1. Scope:
@@ -361,14 +389,20 @@ Proposed new workflow names (neutral, adjustable at review): `SalesRollupWorkflo
 
 ## Section 5: Documentation
 
-### Step 9: Comprehensive README Catalog (task)
+### Step 9: Full README Catalog (task)
 
 **Tools:**
 - Skills: python:python, temporal:temporal-developer, content-design:tutorial-writing, content-design:review-content
 - MCPs: mcp__temporal-docs__search_temporal_knowledge_sources
 - Linters: none
 
-**NOTE**: The current README is stale (it describes the old Greeting/Victim design). Rewrite it against the final catalog behavior. Prose follows the writing hard rules: no em-dashes or en-dashes, one sentence per line in committed Markdown, straight quotes, sentence-case headings (this is a Temporal education doc). Capture real tool output before writing the prose (a captured lesson): run the scenarios live against `temporal server start-dev` and the worker, and paste the genuine `asyncio ps` / `pstree`, `py-spy dump`, CPU, and metrics output rather than inventing it. The live-verified diagnostic story (see spec.md Starting context, corrected October 2026) is two-tool: `asyncio ps` / `pstree` show the frozen-loop shape (the wedged task dead-ended at `_ActivityWorker._handle_start_activity_task`, the rest parked at awaits), and `py-spy dump` names the exact blocking line; `asyncio ps` does NOT show the blocking line, so do not claim it does. The README and the GitHub repo description both state the repo contains deliberately broken code for educational purposes. Invoke content-design:tutorial-writing before drafting and content-design:review-content after.
+**NOTE**: The current README is stale (it describes the old Greeting/Victim design).
+Rewrite it against the final catalog behavior.
+Prose follows the writing hard rules: no em-dashes or en-dashes, one sentence per line in committed Markdown, straight quotes, sentence-case headings (this is a Temporal education doc).
+Capture real tool output before writing the prose (a captured lesson): run the scenarios live against `temporal server start-dev` and the worker, and paste the genuine `asyncio ps` / `pstree`, `py-spy dump`, CPU, and metrics output rather than inventing it.
+The live-verified diagnostic story (see spec.md Starting context, corrected October 2026) is two-tool: `asyncio ps` / `pstree` show the frozen-loop shape (the wedged task dead-ended at `_ActivityWorker._handle_start_activity_task`, the rest parked at awaits), and `py-spy dump` names the exact blocking line; `asyncio ps` does NOT show the blocking line, so do not claim it does.
+The README and the GitHub repo description both state the repo contains deliberately broken code for educational purposes.
+Invoke content-design:tutorial-writing before drafting and content-design:review-content after.
 
 ```text
 1. Scope:
@@ -377,7 +411,7 @@ Proposed new workflow names (neutral, adjustable at review): `SalesRollupWorkflo
 
 2. Tooling:
    - Skills: content-design:tutorial-writing (invoke before drafting), content-design:review-content (invoke after drafting: Vale plus copy-editor), temporal:temporal-developer, python:python
-   - MCPs: mcp__temporal-docs__search_temporal_knowledge_sources (verify the exact metric names temporal_worker_task_slots_available and temporal_activity_schedule_to_start_latency, and that the poller LastAccessTime goes stale in task-queue describe rather than vanishing instantly, before writing them into prose)
+   - MCPs: mcp__temporal-docs__search_temporal_knowledge_sources (verify the exact metric names temporal_worker_task_slots_available and temporal_activity_schedule_to_start_latency, and how the poller LastAccessTime behaves in task-queue describe, before writing them into prose)
    - External: a running `temporal server start-dev` and worker for capturing real output; `py-spy` via `uvx py-spy dump --pid <worker-pid>` (no project dependency; needs ptrace_scope=0 or sudo); Vale via review-content
 
 3. Do the work:
@@ -388,7 +422,7 @@ Proposed new workflow names (neutral, adjustable at review): `SalesRollupWorkflo
      - The two-tool diagnostic framing stated up front: `asyncio ps` / `pstree` show the frozen-loop shape with zero instrumentation (the wedged activity task dead-ended at `_ActivityWorker._handle_start_activity_task` with no await beneath it, while every other task is parked at a normal await), and `py-spy dump` names the exact blocking line in `activities.py`; explain that asyncio ps cannot show the line because a task stuck in synchronous code is not suspended at an await.
      - Quickstart: three terminals, `just server`, `just worker`, then a scenario recipe.
      - One lesson per scenario: healthy baseline, frozen loop blocking (block), frozen loop CPU (cpu), slot exhaustion (slow), correct long-running activity (slow_heartbeat), heartbeat timeout (stuck_no_heartbeat), and the schedule-to-start sample. Each lesson shows the expected healthy-versus-broken shapes for `asyncio ps` / `pstree` (the shape), `py-spy` (the line, for the freeze lessons), CPU, and the metrics, and names which timeout fires.
-     - A summary table mapping each mode to the timeout it trips (start_to_close, schedule_to_close, schedule_to_start, heartbeat) and the tool signature that identifies it, with the frozen-loop versus saturated-worker split called out: freeze shows one task dead-ended at the SDK handler (block near-zero CPU, cpu at 100 percent, py-spy names the line, metrics reachable); saturation shows every task parked at a healthy await, slots at 0, task-queue backlog age climbing, poller LastAccessTime going stale.
+     - A summary table mapping each mode to the timeout it trips (start_to_close, schedule_to_close, schedule_to_start, heartbeat) and the tool signature that identifies it, with the frozen-loop versus saturated-worker split called out: freeze shows one task dead-ended at the SDK handler (block near-zero CPU, cpu at 100 percent, py-spy names the line, metrics reachable); saturation shows every task parked at a healthy await, slots at 0, task-queue backlog age climbing (poller LastAccessTime is not a freeze signal and at most a weak saturation hint).
      - Platform gotchas: inspector and target both Python 3.14+; `asyncio ps` and `py-spy` both read process memory, so on Linux Yama `ptrace_scope=1` blocks them (asyncio ps presents as "Failed to find the PyRuntime section"), fixed with sudo or `ptrace_scope=0`; macOS requires sudo; and 3.14 asyncio ps can fail transiently so re-run it.
      - The realistic-timeouts framing: start_to_close and schedule_to_close as the SLA, schedule_to_start as the rare routing case, the `task-queue describe` backlog age as the saturation tell (with `temporal_activity_schedule_to_start_latency` as a lagging confirmation that only moves once queued tasks start); and why workflow timeouts are not used (business logic depends on correctness, not time).
      - The antipattern marker convention and the grep for "ANTIPATTERN (deliberate, for teaching)".
@@ -406,7 +440,10 @@ Proposed new workflow names (neutral, adjustable at review): `SalesRollupWorkflo
 
 **Tools:** none
 
-**NOTE**: The current CLAUDE.md architecture section still describes the old Greeting/Victim design, heartbeats, and the old flags. Refresh it to the catalog's module and mode layout. Same writing rules apply. This is a straight documentation update with no code change.
+**NOTE**: The current CLAUDE.md architecture section still describes the old Greeting/Victim design, heartbeats, and the old flags.
+Refresh it to the catalog's module and mode layout.
+Same writing rules apply.
+This is a straight documentation update with no code change.
 
 ```text
 1. Scope:
@@ -419,7 +456,7 @@ Proposed new workflow names (neutral, adjustable at review): `SalesRollupWorkflo
    - External: none
 
 3. Do the work:
-   - Update the Architecture section to the module list above, describing the shared single event loop, the five misbehavior modes, the cross-type blast radius across the four workflow types, and the frozen-loop-versus-saturation diagnostic split (asyncio ps / pstree for the frozen-loop shape, py-spy dump for the exact blocking line, CPU to separate block from cpu, task-queue backlog age and stale poller for saturation).
+   - Update the Architecture section to the module list above, describing the shared single event loop, the five misbehavior modes, the cross-type blast radius across the four workflow types, and the frozen-loop-versus-saturation diagnostic split (asyncio ps / pstree for the frozen-loop shape, py-spy dump for the exact blocking line, CPU to separate block from cpu, task-queue backlog age for saturation).
    - Update the Commands section's demo recipes to match the justfile from Step 8 (healthy, block, cpu, slow, slow-heartbeat, stuck).
    - Keep the antipattern marker convention section; confirm the grep string matches the code.
    - Apply the writing rules: no em-dashes, one sentence per line in committed Markdown prose.
