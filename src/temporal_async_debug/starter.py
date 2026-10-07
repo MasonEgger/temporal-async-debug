@@ -16,13 +16,18 @@ instead of racing (spec's Starting context, live-verified):
 
 - Freeze modes ("block", "cpu") stop the worker's event loop, which stops it from scheduling new
   activity tasks. Only a bystander already in-flight or queued before the freeze lands trips a
-  timeout, so the starter submits the short-work bystanders (rollups, healthy geo) first, waits for
-  at least one activity slot to be occupied, and only then submits the freezing bad geo run. The
-  instant bystanders (receipts, quotes) go in only after the server reports the bad activity as
-  STARTED (polled through describe()) and a short guard has passed, so their first workflow task
-  cannot run until the loop thaws, and they stall and complete late. Without that gate, a
-  bystander whose activity is scheduled while both slots are held but before the lock lands fails
-  ScheduleToStart instead.
+  timeout, so the starter submits the short-work bystanders (rollups, healthy geo) first and waits
+  for at least one activity slot to be occupied. It then waits for the healthy geo runs to finish,
+  which takes well under a second, so the first lock can never catch one mid-call; only the rollup
+  holds a slot when the freezing bad geo run is submitted. A bad geo run freezes twice, once in
+  get_ip and again in get_location, with the loop live for only about 140 ms in between. The
+  instant bystanders (receipts, quotes) go in only after the server reports the bad run's second
+  activity, get_location, as STARTED (polled through describe()) and a short guard has passed, so
+  their first workflow task cannot run until the final freeze thaws, and they stall and complete
+  late with no re-freeze left to race. Released at the first thaw instead, a bystander needing
+  several sequential activity round trips can be caught by the re-freeze and time out; released
+  before any lock, one whose activity is scheduled while both slots are held fails
+  ScheduleToStart.
 - Saturation modes ("slow", "slow_heartbeat", "stuck_no_heartbeat") hold activity slots without
   freezing the loop, so the starter submits the bad geo runs first, waits for the activity slot
   gauge to show they hold their slots, and only then submits every bystander, which starve for a
@@ -35,6 +40,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import os
 import re
 import sys
@@ -47,6 +53,7 @@ import httpx
 from temporalio.client import Client, PendingActivityState, WorkflowFailureError, WorkflowHandle
 from temporalio.service import RPCError
 
+from temporal_async_debug.activities import get_location
 from temporal_async_debug.quote import PriceQuoteWorkflow
 from temporal_async_debug.receipt import OrderReceiptWorkflow
 from temporal_async_debug.rollup import SalesRollupWorkflow
@@ -89,11 +96,17 @@ SLOT_POLL_TIMEOUT_SECONDS: float = 20.0
 SLOT_POLL_INTERVAL_SECONDS: float = 0.5
 """How often to re-scrape the slot gauge while waiting for the slots to fill."""
 
-LOCK_POLL_TIMEOUT_SECONDS: float = 20.0
-"""How long to poll describe() for the bad activity to report STARTED before giving up with a warning."""
+FREEZE_GATE_ACTIVITY: str = get_location.__name__
+"""The bad geo run's second and last freezing activity, by the name the SDK registers and describe() reports."""
+
+LOCK_POLL_MIN_TIMEOUT_SECONDS: float = 20.0
+"""The shortest the starter polls describe() for FREEZE_GATE_ACTIVITY to report STARTED before warning."""
+
+LOCK_POLL_DISPATCH_MARGIN_SECONDS: float = 10.0
+"""Time on top of one full first freeze for the workflow to schedule FREEZE_GATE_ACTIVITY and a worker to poll it."""
 
 LOCK_POLL_INTERVAL_SECONDS: float = 0.25
-"""Pause between describe() polls while waiting for the bad activity to report STARTED."""
+"""Pause between describe() polls while waiting for FREEZE_GATE_ACTIVITY to report STARTED."""
 
 FREEZE_LOCK_GUARD_SECONDS: float = 1.0
 """Margin after the lock signal before the instant bystanders, so the freezing call has time to run."""
@@ -347,28 +360,51 @@ async def _read_free_activity_slots() -> int | None:
     return parse_activity_slots_available(response.text)
 
 
-async def wait_for_activity_started[WorkflowT, ResultT](handle: WorkflowHandle[WorkflowT, ResultT]) -> bool:
-    """Poll describe() until the server reports one of the workflow's activities as STARTED.
+def lock_poll_timeout_seconds(block_seconds: float) -> float:
+    """How long to poll for FREEZE_GATE_ACTIVITY to start, given the bad run's per-activity delay.
+
+    get_location cannot start until get_ip's freeze of block_seconds has ended, so the budget covers
+    one full first freeze plus LOCK_POLL_DISPATCH_MARGIN_SECONDS, and never drops below
+    LOCK_POLL_MIN_TIMEOUT_SECONDS.
+
+    Args:
+        block_seconds: Seconds each bad geo activity freezes the loop.
+
+    Returns:
+        The poll timeout in seconds.
+    """
+    return max(LOCK_POLL_MIN_TIMEOUT_SECONDS, block_seconds + LOCK_POLL_DISPATCH_MARGIN_SECONDS)
+
+
+async def wait_for_activity_started[WorkflowT, ResultT](
+    handle: WorkflowHandle[WorkflowT, ResultT],
+    activity_type: str,
+    timeout_seconds: float,
+) -> bool:
+    """Poll describe() until the server reports the named activity of the workflow as STARTED.
 
     The server marks an activity STARTED when a worker's poll returns its task. describe() is a
     client-to-server call on the starter's own event loop, so a frozen worker loop cannot stall it.
-    The poll is bounded by a fixed number of attempts, LOCK_POLL_TIMEOUT_SECONDS divided by
+    The poll is bounded by a fixed number of attempts, timeout_seconds divided by
     LOCK_POLL_INTERVAL_SECONDS, so slow describe() round trips stretch it slightly past the timeout.
 
     Args:
         handle: The workflow whose pending activities to watch, for example the first bad geo run.
+        activity_type: The registered activity name to wait for, for example FREEZE_GATE_ACTIVITY.
+            Any other activity reporting STARTED does not count.
+        timeout_seconds: How long to keep polling, for example lock_poll_timeout_seconds(...).
 
     Returns:
-        True once a pending activity reports STARTED, False if none did within the poll budget.
+        True once that activity reports STARTED, False if it did not within the poll budget.
 
     Raises:
         RPCError: If describe() fails, for example when the server is unreachable.
     """
-    for _ in range(round(LOCK_POLL_TIMEOUT_SECONDS / LOCK_POLL_INTERVAL_SECONDS)):
+    for _ in range(round(timeout_seconds / LOCK_POLL_INTERVAL_SECONDS)):
         description = await handle.describe()
         # The proto carries the state as a raw enum int; PendingActivityState is the SDK's IntEnum mirror.
         if any(
-            int(pending.state) == PendingActivityState.STARTED
+            pending.activity_type.name == activity_type and int(pending.state) == PendingActivityState.STARTED
             for pending in description.raw_description.pending_activities
         ):
             return True
@@ -390,6 +426,19 @@ async def _report_results[WorkflowT, ResultT](label: str, handles: list[Workflow
             print(f"{label} {handle.id} FAILED: {failure.cause}")
         else:
             print(f"{label} {handle.id}: {result}")
+
+
+async def _await_completion[WorkflowT, ResultT](handles: list[WorkflowHandle[WorkflowT, ResultT]]) -> None:
+    """Wait for each workflow to close, succeeded or failed, without printing anything.
+
+    A failure is not handled here: _report_results awaits the same handles later and prints it.
+
+    Args:
+        handles: The started workflow handles to wait on.
+    """
+    for handle in handles:
+        with contextlib.suppress(WorkflowFailureError):
+            await handle.result()
 
 
 async def _start_geo(
@@ -475,24 +524,31 @@ async def _submit_freeze_scenario(client: Client, fleet: Fleet) -> None:
     A frozen loop stops scheduling new activity tasks, so only a bystander already in-flight or
     queued before the freeze lands trips a timeout. Submitting the rollups and healthy geo runs
     first and confirming at least one activity slot is occupied before the bad geo run lands turns
-    that into a certainty instead of a race.
+    that into a certainty instead of a race. The healthy geo runs are then awaited before the bad
+    run is submitted; they finish in well under a second, and a slow HTTP call can otherwise let
+    the first lock catch one mid-call. Only the rollup holds a slot when the freeze lands.
 
-    The receipts and quotes are instant, so they show the other half of the lesson: they are
-    submitted only after the server reports the first bad geo run's activity as STARTED, polled
-    through describe(), plus a FREEZE_LOCK_GUARD_SECONDS margin. STARTED means a worker's poll
-    returned the task; in the freeze modes the freezing call is the first thing the activity body
-    runs, so the lock normally lands within milliseconds of that report, and the guard covers the
-    gap. Their first workflow task then cannot run until the loop thaws, so they stall and complete
-    late. Submitted any earlier, a bystander whose activity is scheduled while both slots are held
-    but before the lock lands fails ScheduleToStart instead; the gate exists to keep the run off
-    that knife-edge. If describe() never reports STARTED in time, the starter warns and submits
-    anyway after the guard.
+    The receipts and quotes are instant, so they show the other half of the lesson. A bad geo run
+    freezes twice: get_ip for block_seconds, then get_location for block_seconds, with the loop live
+    for only about 140 ms between them. A bystander released at that first thaw needs several
+    sequential activity round trips in that window, and one dispatched too late is caught by the
+    re-freeze and can time out. So the receipts and quotes are submitted only after the server
+    reports the first bad run's second activity, FREEZE_GATE_ACTIVITY, as STARTED, polled through
+    describe(), plus a FREEZE_LOCK_GUARD_SECONDS margin. STARTED means a worker's poll returned the
+    task; in the freeze modes the freezing call is the first thing the activity body runs, so the
+    final lock normally lands within milliseconds of that report, and the guard covers the gap.
+    Their first workflow task then cannot run until the final freeze thaws, so they stall and
+    complete late with no re-freeze left to race. The poll budget comes from
+    lock_poll_timeout_seconds, since get_location cannot start until get_ip's freeze ends. If
+    describe() never reports it STARTED in time, the starter warns and submits anyway after the
+    guard.
 
     If describe() itself fails, the gate falls back to the slot gauge: it waits for the free count
-    to drop by the bad activity's slot, and by one more when a rollup or healthy geo run is holding
-    a slot too. The metrics endpoint is served by the worker's Rust core, so the gauge stays
-    readable during the freeze. When metrics are also unreachable, the last resort is a blind
-    FREEZE_FALLBACK_DELAY_SECONDS pause.
+    to drop by the bad activity's slot, and by one more when a rollup is holding a slot too. The
+    gauge cannot tell get_ip from get_location, so this fallback gate is approximate and may release
+    the bystanders into the first freeze. The metrics endpoint is served by the worker's Rust core,
+    so the gauge stays readable during the freeze. When metrics are also unreachable, the last
+    resort is a blind FREEZE_FALLBACK_DELAY_SECONDS pause.
 
     Args:
         client: A connected Temporal client.
@@ -513,15 +569,18 @@ async def _submit_freeze_scenario(client: Client, fleet: Fleet) -> None:
     ):
         print("warning: no bystander activity took a slot in time; submitting the freeze anyway")
 
+    await _await_completion(healthy_handles)
+
     bad_handles = await _start_geo(client, fleet.bad_geo)
 
     if fleet.receipts or fleet.quotes:
+        lock_timeout = lock_poll_timeout_seconds(fleet.bad_geo[0].block_seconds)
         # describe() goes from this process straight to the server, never through the worker, so the
         # frozen worker loop cannot block this poll.
         try:
-            if not await wait_for_activity_started(bad_handles[0]):
+            if not await wait_for_activity_started(bad_handles[0], FREEZE_GATE_ACTIVITY, lock_timeout):
                 print(
-                    f"warning: the bad activity never reported STARTED within {LOCK_POLL_TIMEOUT_SECONDS}s; "
+                    f"warning: {FREEZE_GATE_ACTIVITY} never reported STARTED within {lock_timeout}s; "
                     f"{_LOCK_NOT_CONFIRMED_CONSEQUENCE}"
                 )
             await asyncio.sleep(FREEZE_LOCK_GUARD_SECONDS)
@@ -533,9 +592,14 @@ async def _submit_freeze_scenario(client: Client, fleet: Fleet) -> None:
                 )
                 await asyncio.sleep(FREEZE_FALLBACK_DELAY_SECONDS)
             else:
-                print(f"warning: describe() failed ({describe_error}); falling back to the activity slot gauge")
-                # The bad activity takes one slot, and a rollup or healthy geo run may hold another.
-                lock_target = max(0, baseline_free - (1 if has_early_bystanders else 0) - 1)
+                print(
+                    f"warning: describe() failed ({describe_error}); falling back to the activity slot gauge; "
+                    f"the gate is approximate, since the gauge cannot tell {FREEZE_GATE_ACTIVITY} from the "
+                    "first freezing activity, so the receipts and quotes may land in the first freeze and "
+                    "race the re-freeze"
+                )
+                # The bad activity takes one slot, and a rollup may hold another; the healthy geo has finished.
+                lock_target = max(0, baseline_free - (1 if fleet.rollups else 0) - 1)
                 if not await wait_for_free_activity_slots(lock_target):
                     print(
                         f"warning: the slot gauge never fell to {lock_target} free; {_LOCK_NOT_CONFIRMED_CONSEQUENCE}"
@@ -545,8 +609,8 @@ async def _submit_freeze_scenario(client: Client, fleet: Fleet) -> None:
     receipt_handles = await _start_receipts(client, fleet.receipts)
     quote_handles = await _start_quotes(client, fleet.quotes)
 
-    # The in-flight rollup fails first, so report it before the healthy geo runs that survive the
-    # freeze; the receipts and quotes complete once the freeze clears, and the bad run ends last.
+    # The in-flight rollup fails first, so report it before the healthy geo runs that finished before
+    # the freeze; the receipts and quotes complete once the final freeze clears, and the bad run ends last.
     await _report_results("rollup", rollup_handles)
     await _report_results("geo", healthy_handles)
     await _report_results("receipt", receipt_handles)
