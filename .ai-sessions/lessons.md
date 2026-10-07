@@ -2,6 +2,7 @@
 
 ## Recent
 
+- To gate on "the Worker has started running Activity X" from outside the Worker, poll the Workflow handle's describe() for a pending activity in PendingActivityState.STARTED; temporal_worker_task_slots_available cannot identify which Activity holds a permit, and a frozen Worker cannot block a client-to-server describe() call (2026-10-07)
 - `maximum_attempts=1` gives at-most-one dispatch, not exactly-once: a transient failure before the call means the operation never runs, and a Worker that finishes the side effect but crashes before recording it leaves the effect done while the Workflow sees failure; effectively-once comes from keeping retries plus an idempotent Activity keyed on workflow_run_id + activity_id (per docs.temporal.io fixed-count-retries and the multi-cluster guide) (2026-10-04)
 - Do not set non_retryable on an ApplicationError raised inside Workflow code; any ApplicationError from the Workflow already fails the run, and a plain ValueError there only fails the workflow task, which the server retries forever (the run stalls instead of failing) (2026-10-04)
 - Python 3.14 `asyncio ps` / `pstree` do NOT show the blocking line of an async activity wedged in synchronous code (e.g. `time.sleep` or a CPU loop): that task truncates at the SDK frame `_ActivityWorker._handle_start_activity_task` with no await beneath it, because asyncio introspection walks the await chain and synchronous code is not an await, so those frames live on the OS thread stack. Use `py-spy dump` (or faulthandler) for the exact line; use asyncio ps / pstree for the frozen-loop SHAPE (the wedged task dead-ended at the SDK handler while every other task sits parked at a real await) (2026-10-04)
@@ -11,7 +12,6 @@
 - BPE 0.7.0 `/bpe:plan` honors three scope fences: `## Invariants`, `## Non-goals`, and `**Deferred:**` under `## Roadmap / phase log`; keep out-of-scope work under one of those exact headings (not a custom "Future work" section) or the plan writer will not treat it as a mechanical fence (2026-09-20)
 - To hold an activity slot for a long cooperative wait, heartbeat every few seconds inside the wait (interval a few times shorter than heartbeat_timeout); otherwise the server cancels the activity at heartbeat_timeout and frees the slot early (2026-09-18)
 - To demo slot exhaustion without a race, fill the slots first and confirm it: submit the slot-holders, poll temporal_worker_task_slots_available until the ActivityWorker gauge reads 0, then submit the work that should starve, so it fails on schedule_to_start every run (2026-09-18)
-- When a shared helper is called both inside and outside an activity (e.g. reused by a Temporal-free test), guard activity.heartbeat with activity.in_activity() so the bare call does not raise (2026-09-18)
 
 ## Testing
 
@@ -22,6 +22,7 @@
 
 ## Temporal
 
+- To gate on "the Worker has started running Activity X" from outside the Worker, poll the Workflow handle's describe() for a pending activity in PendingActivityState.STARTED; temporal_worker_task_slots_available cannot identify which Activity holds a permit, and a frozen Worker cannot block a client-to-server describe() call (2026-10-07)
 - `maximum_attempts=1` gives at-most-one dispatch, not exactly-once: a transient failure before the call means the operation never runs, and a Worker that finishes the side effect but crashes before recording it leaves the effect done while the Workflow sees failure; effectively-once comes from keeping retries plus an idempotent Activity keyed on workflow_run_id + activity_id (per docs.temporal.io fixed-count-retries and the multi-cluster guide) (2026-10-04)
 - Do not set non_retryable on an ApplicationError raised inside Workflow code; any ApplicationError from the Workflow already fails the run, and a plain ValueError there only fails the workflow task, which the server retries forever (the run stalls instead of failing) (2026-10-04)
 - The Temporal Python SDK serves its Prometheus metrics endpoint from the Rust core runtime on its own threads, not the Python event loop, so `curl :9464/metrics` stays reachable while a blocking call freezes the loop (verified live). The frozen-loop signal is the `asyncio ps` SHAPE (the wedged task dead-ended at `_ActivityWorker._handle_start_activity_task`, every other task parked at an await) plus CPU, with `py-spy dump` for the exact line, not endpoint reachability (2026-10-04)
@@ -31,6 +32,7 @@
 - `schedule_to_start_timeout` is non-retryable and normally an antipattern; it is useful in demos precisely because it converts slot exhaustion into a fast, visible failure (2026-09-16)
 - `schedule_to_start_timeout` combined with `WorkflowEnvironment.start_time_skipping` is flaky because the skipped clock can cross the deadline while tasks queue; test such workflows under a real-time (`start_local`) environment (2026-09-17)
 - A cooperative slow-mode Activity that awaits `asyncio.sleep` without heartbeating gets cancelled at its `heartbeat_timeout` (10s here), not at the full sleep duration, so a slot-exhaustion window built on `--block-seconds 30` is really only ~10-14s wide; to hold slots for the full duration, heartbeat periodically during the wait or lengthen the heartbeat timeout (2026-09-18)
+- When a shared helper is called both inside and outside an activity (e.g. reused by a Temporal-free test), guard activity.heartbeat with activity.in_activity() so the bare call does not raise (2026-09-18)
 
 ## Architecture
 

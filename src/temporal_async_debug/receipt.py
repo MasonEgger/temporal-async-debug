@@ -4,7 +4,8 @@ ABOUTME: It shares a worker with GeoEnrichmentWorkflow and is what breaks when t
 Nothing here is broken. The activities validate an order, compute its total, and format a receipt,
 all in memory and in microseconds. This workflow exists so the tutorial can show that a problem in a
 completely unrelated workflow takes it down too, purely because they share one worker and one event
-loop. When the reader sees this instant, no-network workflow timing out, the shared-fate lesson lands.
+loop. When the reader sees this instant, no-network workflow time out behind saturated activity
+slots, or stall behind a frozen loop and complete late, the shared-fate lesson lands.
 """
 
 from __future__ import annotations

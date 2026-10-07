@@ -8,10 +8,13 @@ than the LocalActivityWorker line.
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, cast
 
 import pytest
+from temporalio.client import PendingActivityState
+from temporalio.service import RPCError, RPCStatusCode
 
 from temporal_async_debug import starter
 from temporal_async_debug.shared import (
@@ -22,7 +25,11 @@ from temporal_async_debug.shared import (
     SalesRollupInput,
 )
 from temporal_async_debug.starter import (
+    FREEZE_FALLBACK_DELAY_SECONDS,
+    FREEZE_LOCK_GUARD_SECONDS,
     FREEZE_MODES,
+    LOCK_POLL_INTERVAL_SECONDS,
+    LOCK_POLL_TIMEOUT_SECONDS,
     SATURATION_MODES,
     Fleet,
     bad_geo_inputs_from_args,
@@ -277,15 +284,60 @@ def test_select_scenario_runs_concurrently_when_the_bad_runs_have_no_delay() -> 
     assert select_scenario(args.mode, args.block_seconds, fleet_from_args(args)) == "concurrent"
 
 
+@dataclass(frozen=True)
+class _FakePendingActivity:
+    """The one field of a server-side PendingActivityInfo the starter reads."""
+
+    state: int
+
+
+@dataclass(frozen=True)
+class _FakeRawDescription:
+    """The one field of a DescribeWorkflowExecutionResponse the starter reads."""
+
+    pending_activities: list[_FakePendingActivity]
+
+
+@dataclass(frozen=True)
+class _FakeDescription:
+    """A WorkflowExecutionDescription stand-in carrying only the raw description."""
+
+    raw_description: _FakeRawDescription
+
+
 @dataclass
 class _FakeHandle:
-    """A started-workflow stand-in whose result is immediate."""
+    """A started-workflow stand-in whose result is immediate and whose describe() is scripted.
+
+    Attributes:
+        id: The workflow id the run was started under.
+        events: The shared event log; every describe() call records "describe".
+        describes_until_started: How many describe() calls report the activity SCHEDULED before one
+            reports it STARTED, or None for an activity that never reports STARTED.
+        describe_raises: When True, describe() raises an RPCError, as it would if the server failed.
+    """
 
     id: str
+    events: list[str]
+    describes_until_started: int | None = 0
+    describe_raises: bool = False
 
     async def result(self) -> str:
         """Return a fixed result, as a completed workflow would."""
         return "done"
+
+    async def describe(self) -> _FakeDescription:
+        """Record the call and report the pending activity's state for this point in the script."""
+        self.events.append("describe")
+        if self.describe_raises:
+            raise RPCError("server unavailable", RPCStatusCode.UNAVAILABLE, b"")
+        if self.describes_until_started is not None and self.describes_until_started <= 0:
+            state = PendingActivityState.STARTED
+        else:
+            state = PendingActivityState.SCHEDULED
+            if self.describes_until_started is not None:
+                self.describes_until_started -= 1
+        return _FakeDescription(_FakeRawDescription([_FakePendingActivity(state=state)]))
 
 
 @dataclass
@@ -294,10 +346,14 @@ class _FakeClient:
 
     Attributes:
         events: Labels in the order the starter did things, shared with the slot-poll fakes.
+        describes_until_started: Passed to every handle; see _FakeHandle.
+        describe_raises: Passed to every handle; see _FakeHandle.
         labels_by_id: The label each started workflow id was recorded under.
     """
 
     events: list[str]
+    describes_until_started: int | None = 0
+    describe_raises: bool = False
     labels_by_id: dict[str, str] = field(default_factory=dict)
 
     async def start_workflow(self, _run: object, workflow_input: object, *, id: str, task_queue: str) -> _FakeHandle:
@@ -307,21 +363,40 @@ class _FakeClient:
             label = "geo:bad" if workflow_input.block_seconds > 0 else "geo:healthy"
         self.events.append(label)
         self.labels_by_id[id] = label
-        return _FakeHandle(id=id)
+        return _FakeHandle(
+            id=id,
+            events=self.events,
+            describes_until_started=self.describes_until_started,
+            describe_raises=self.describe_raises,
+        )
 
 
-def _install_slot_fakes(monkeypatch: pytest.MonkeyPatch, events: list[str], baseline_free: int | None) -> None:
-    """Replace the metrics reads with fakes: a fixed baseline, and a wait that records its target."""
+def _install_slot_fakes(
+    monkeypatch: pytest.MonkeyPatch,
+    events: list[str],
+    baseline_free: int | None,
+    *,
+    slots_reached: bool = True,
+) -> None:
+    """Replace the metrics reads and asyncio.sleep with fakes that record into events, so nothing sleeps.
+
+    The baseline read returns baseline_free, the slot wait records its target and returns
+    slots_reached (False drives the gauge wait's timeout path), and every sleep records its duration.
+    """
 
     async def read_free_slots() -> int | None:
         return baseline_free
 
     async def wait_for_slots(target_free: int) -> bool:
         events.append(f"wait:{target_free}")
-        return True
+        return slots_reached
+
+    async def record_sleep(seconds: float) -> None:
+        events.append(f"sleep:{seconds}")
 
     monkeypatch.setattr(starter, "_read_free_activity_slots", read_free_slots)
     monkeypatch.setattr(starter, "wait_for_free_activity_slots", wait_for_slots)
+    monkeypatch.setattr(asyncio, "sleep", record_sleep)
 
 
 def _reported_labels(output: str, client: _FakeClient) -> list[str]:
@@ -338,19 +413,39 @@ def _full_fleet(mode: str, bad_count: int) -> Fleet:
     return fleet_from_args(args)
 
 
-async def test_freeze_scenario_submits_instant_bystanders_after_the_freeze_and_reports_rollups_first(
+def _instant_only_fleet() -> Fleet:
+    """Build a freeze fleet with one bad run and only the instant bystanders, receipts and quotes."""
+    args = build_parser().parse_args(
+        ["--mode", "block", "--block-seconds", "30", "--bad", "1", "--receipts", "1", "--quotes", "1"]
+    )
+    return fleet_from_args(args)
+
+
+async def test_freeze_scenario_submits_instant_bystanders_only_after_the_bad_activity_starts(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """Rollups and healthy geo go first, the freeze lands once a slot is taken, receipts and quotes stall
-    behind it; the in-flight rollup, the first to fail, is reported first."""
+    """Rollups and healthy geo go first, the freeze lands once a slot is taken, and receipts and quotes
+    wait until the server reports the bad activity STARTED plus the lock guard, so they stall instead
+    of racing the lock; the in-flight rollup, the first to fail, is reported first."""
     events: list[str] = []
     _install_slot_fakes(monkeypatch, events, baseline_free=2)
-    client = _FakeClient(events)
+    client = _FakeClient(events, describes_until_started=1)
 
     await starter._submit_freeze_scenario(cast("Client", client), _full_fleet("block", bad_count=1))
 
-    assert events == ["rollup", "geo:healthy", "wait:1", "geo:bad", "receipt", "quote"]
+    assert events == [
+        "rollup",
+        "geo:healthy",
+        "wait:1",
+        "geo:bad",
+        "describe",
+        f"sleep:{LOCK_POLL_INTERVAL_SECONDS}",
+        "describe",
+        f"sleep:{FREEZE_LOCK_GUARD_SECONDS}",
+        "receipt",
+        "quote",
+    ]
     assert _reported_labels(capsys.readouterr().out, client) == [
         "rollup",
         "geo:healthy",
@@ -360,48 +455,160 @@ async def test_freeze_scenario_submits_instant_bystanders_after_the_freeze_and_r
     ]
 
 
-async def test_freeze_scenario_warns_and_skips_the_wait_when_metrics_are_unreachable(
+async def test_freeze_scenario_with_only_instant_bystanders_gates_on_started_without_a_gauge_wait(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """With no rollups or healthy geo, only the bad activity can hold a slot, so the gate must not
+    wait for the gauge to read zero free; the STARTED report alone releases the receipts and quotes."""
+    events: list[str] = []
+    _install_slot_fakes(monkeypatch, events, baseline_free=2)
+
+    await starter._submit_freeze_scenario(cast("Client", _FakeClient(events)), _instant_only_fleet())
+
+    assert events == ["geo:bad", "describe", f"sleep:{FREEZE_LOCK_GUARD_SECONDS}", "receipt", "quote"]
+
+
+async def test_freeze_scenario_warns_with_the_consequence_when_the_bad_activity_never_starts(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """With no baseline slot reading, the freeze path says so instead of silently racing."""
+    """If describe() never reports STARTED, the poll gives up after its timeout, warns what that means
+    for the run, and still sleeps the guard before submitting the receipts and quotes."""
+    events: list[str] = []
+    _install_slot_fakes(monkeypatch, events, baseline_free=2)
+    client = _FakeClient(events, describes_until_started=None)
+
+    await starter._submit_freeze_scenario(cast("Client", client), _full_fleet("block", bad_count=1))
+
+    poll_events = events[events.index("geo:bad") + 1 : events.index(f"sleep:{FREEZE_LOCK_GUARD_SECONDS}")]
+    assert events.count("describe") > 1
+    assert set(poll_events) == {"describe", f"sleep:{LOCK_POLL_INTERVAL_SECONDS}"}
+    assert not any(event.startswith("wait") for event in poll_events)
+    assert events[-3:] == [f"sleep:{FREEZE_LOCK_GUARD_SECONDS}", "receipt", "quote"]
+    assert (
+        f"warning: the bad activity never reported STARTED within {LOCK_POLL_TIMEOUT_SECONDS}s; "
+        "the loop may not be locked, so the receipts and quotes may complete on time instead of stalling"
+    ) in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("fleet_factory", "expected_lock_wait"),
+    [
+        (_instant_only_fleet, "wait:1"),
+        (lambda: _full_fleet("block", bad_count=1), "wait:0"),
+    ],
+)
+async def test_freeze_scenario_falls_back_to_the_slot_gauge_when_describe_raises(
+    monkeypatch: pytest.MonkeyPatch,
+    fleet_factory: Callable[[], Fleet],
+    expected_lock_wait: str,
+) -> None:
+    """When describe() fails, the gate waits for the gauge to drop by the bad activity's slot, plus one
+    more only when a rollup or healthy geo run is holding a slot too, then sleeps the guard."""
+    events: list[str] = []
+    _install_slot_fakes(monkeypatch, events, baseline_free=2)
+
+    await starter._submit_freeze_scenario(cast("Client", _FakeClient(events, describe_raises=True)), fleet_factory())
+
+    after_bad = events[events.index("geo:bad") + 1 :]
+    assert after_bad == ["describe", expected_lock_wait, f"sleep:{FREEZE_LOCK_GUARD_SECONDS}", "receipt", "quote"]
+
+
+async def test_freeze_scenario_warns_with_the_consequence_when_the_gauge_fallback_times_out(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """With describe() failing and the gauge never reaching its target, the starter warns what that means
+    for the run and still submits the receipts and quotes after the guard."""
+    events: list[str] = []
+    _install_slot_fakes(monkeypatch, events, baseline_free=2, slots_reached=False)
+
+    await starter._submit_freeze_scenario(
+        cast("Client", _FakeClient(events, describe_raises=True)), _instant_only_fleet()
+    )
+
+    assert events == ["geo:bad", "describe", "wait:1", f"sleep:{FREEZE_LOCK_GUARD_SECONDS}", "receipt", "quote"]
+    assert (
+        "the loop may not be locked, so the receipts and quotes may complete on time instead of stalling"
+        in capsys.readouterr().out
+    )
+
+
+async def test_freeze_scenario_gates_on_started_even_when_metrics_are_unreachable(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """With no baseline slot reading, the occupied-slot wait is skipped with a warning, but the STARTED
+    gate needs only the server, so it still runs before the instant bystanders."""
     events: list[str] = []
     _install_slot_fakes(monkeypatch, events, baseline_free=None)
 
     await starter._submit_freeze_scenario(cast("Client", _FakeClient(events)), _full_fleet("cpu", bad_count=1))
 
-    assert not any(event.startswith("wait") for event in events)
+    assert events == [
+        "rollup",
+        "geo:healthy",
+        "geo:bad",
+        "describe",
+        f"sleep:{FREEZE_LOCK_GUARD_SECONDS}",
+        "receipt",
+        "quote",
+    ]
     assert "metrics endpoint unreachable" in capsys.readouterr().out
+
+
+async def test_freeze_scenario_sleeps_the_fixed_delay_when_describe_raises_and_metrics_are_unreachable(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """With neither the server nor the metrics endpoint able to confirm the lock, the last resort is a
+    blind pause longer than the guard before the instant bystanders."""
+    events: list[str] = []
+    _install_slot_fakes(monkeypatch, events, baseline_free=None)
+
+    await starter._submit_freeze_scenario(
+        cast("Client", _FakeClient(events, describe_raises=True)), _full_fleet("cpu", bad_count=1)
+    )
+
+    assert events == [
+        "rollup",
+        "geo:healthy",
+        "geo:bad",
+        "describe",
+        f"sleep:{FREEZE_FALLBACK_DELAY_SECONDS}",
+        "receipt",
+        "quote",
+    ]
+    assert FREEZE_FALLBACK_DELAY_SECONDS > FREEZE_LOCK_GUARD_SECONDS
+    out = capsys.readouterr().out
+    assert "the metrics endpoint is unreachable" in out
+    assert f"pausing {FREEZE_FALLBACK_DELAY_SECONDS}s blind" in out
+    assert "the loop may not be locked" in out
+    assert "falling back to the activity slot gauge" not in out
 
 
 async def test_freeze_scenario_warns_and_clamps_the_wait_when_no_slot_is_free_at_baseline(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """A prior scenario still holding every slot gives a wait target of 0, never -1, plus a warning."""
+    """A prior scenario still holding every slot gives an occupied-slot wait target of 0, never -1, plus
+    a warning; the STARTED gate still runs before the instant bystanders."""
     events: list[str] = []
     _install_slot_fakes(monkeypatch, events, baseline_free=0)
 
     await starter._submit_freeze_scenario(cast("Client", _FakeClient(events)), _full_fleet("block", bad_count=1))
 
-    assert events == ["rollup", "geo:healthy", "wait:0", "geo:bad", "receipt", "quote"]
+    assert events == [
+        "rollup",
+        "geo:healthy",
+        "wait:0",
+        "geo:bad",
+        "describe",
+        f"sleep:{FREEZE_LOCK_GUARD_SECONDS}",
+        "receipt",
+        "quote",
+    ]
     assert "already has no free activity slots" in capsys.readouterr().out
-
-
-async def test_freeze_scenario_with_only_instant_bystanders_skips_the_wait_and_freezes_first(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """With no rollups or healthy geo to occupy a slot, nothing is worth waiting for: the bad run goes
-    in at once, and the receipts and quotes stall behind it."""
-    events: list[str] = []
-    _install_slot_fakes(monkeypatch, events, baseline_free=2)
-    args = build_parser().parse_args(
-        ["--mode", "block", "--block-seconds", "30", "--bad", "1", "--receipts", "1", "--quotes", "1"]
-    )
-
-    await starter._submit_freeze_scenario(cast("Client", _FakeClient(events)), fleet_from_args(args))
-
-    assert events == ["geo:bad", "receipt", "quote"]
 
 
 @pytest.mark.parametrize(("bad_count", "expected_target"), [(1, 1), (2, 0), (3, 0)])
