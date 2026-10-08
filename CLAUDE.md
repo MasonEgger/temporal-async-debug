@@ -83,13 +83,14 @@ The modules are:
   The saturation path waits for the bad runs to hold their slots first.
   It exits with `os._exit(0)`.
 
-The core teaching mechanism: the Temporal Python worker runs its pollers, heartbeat sender, workflow task processing, and every `async def` activity on **one** asyncio event loop.
+The core teaching mechanism: every `async def` activity, the Python side of workflow task handling, heartbeat recording, and the Python tasks that hand poll results to user code share **one** asyncio event loop, so a single blocking call freezes them together.
+The Rust core's network polling and the Prometheus endpoint run on their own threads and keep going, which is why the server keeps dispatching tasks that then time out and why the metrics endpoint still answers during a freeze.
 The four workflow types are unrelated, yet they share that loop and the same two activity slots.
 A misbehaving geo activity therefore fails the rollups, receipts, and quotes too, even though their code is correct (the cross-type blast radius).
 
 The two root causes look alike from a workflow's point of view and differ in the tooling:
 
-- Frozen loop (`block`, `cpu`): a single blocking or CPU-bound call starves everything at once.
+- Frozen loop (`block`, `cpu`): a single blocking or CPU-bound call starves everything on the loop at once.
   `python -m asyncio ps` and `pstree` show the shape with zero instrumentation: the wedged task dead-ends at the SDK handler `_ActivityWorker._handle_start_activity_task` with no await beneath it, and the other tasks sit parked at awaits.
   They do not name the blocking line, because a task stuck in synchronous code is not suspended at an await.
   `py-spy dump` reads the OS thread stack and names the exact line.
@@ -100,7 +101,8 @@ The two root causes look alike from a workflow's point of view and differ in the
   The pollers live in the Rust core and keep long-polling through a freeze, so poller `LastAccessTime` is not a freeze signal either.
 - Saturated worker (`slow`, `slow_heartbeat`): the loop is healthy but every activity slot is full.
   Every task is parked at an await with a complete stack, and `temporal_worker_task_slots_available` reads 0.
-  The live tell is the task-queue backlog age in `temporal task-queue describe`, which keeps climbing.
+  The tell is the task-queue backlog age in `temporal task-queue describe`, which keeps climbing, read together with that healthy `asyncio ps` shape.
+  A freeze also shows a backlog while no permit is free (the rollup's retry, 8.9 seconds old at t+20 of a `block` run), so a backlog under a dead-ended task is the freeze.
   The activity poller's `LastAccessTime` grows only while no activity permit is free, and idle values already cycle up to about 59 seconds, so it is at most a weak hint.
   The starved receipts, rollup, and quote fail with the `ScheduleToStart` label, even the ones that only set `schedule_to_close`.
   The healthy geo queues behind the hold and completes late (about 60 seconds), because its `schedule_to_close` is 150 seconds.

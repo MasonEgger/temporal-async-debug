@@ -8,8 +8,8 @@
 
 ## Goal Context
 
-- **Condition**: build the temporal-async-debug demo through the plan's steps
-- **Mode**: step (Step 6 of the plan, dispatched by `/bpe:goal`)
+- **Condition**: Every item in todo.md is checked off; pytest -q exits 0 with no failing tests; git status --short is empty; all commits are pushed to origin/scaffold; .ai-sessions/lessons.md contains any new lessons captured during the run.
+- **Mode**: full
 - **Outcome**: converged (validator clean on iter 1, one info finding)
 - **Turn count**: 1 finalize dispatch
 - **Subagent dispatches**: implement, validator, finalize for this step

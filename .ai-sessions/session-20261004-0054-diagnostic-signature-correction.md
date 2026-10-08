@@ -4,7 +4,7 @@
 **Duration**: One investigation-and-correction detour inside the catalog goal loop
 **Conversation Turns**: Step 9 implement surfaced a spec contradiction; this is the investigation plus the spec/plan fix
 **Estimated Cost**: Moderate; a live reproduction (server + worker + freeze) plus docs-MCP queries and spec/plan edits
-**Model**: Fable 5 orchestrating; Opus 4.8 step-executor for the Step 9 capture
+**Model**: Fable 5 orchestrating; Sonnet 5 step-executor for the Step 9 capture (the agent definition default; the profile's model was never passed on dispatch)
 
 ## Goal Context
 

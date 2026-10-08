@@ -8,8 +8,8 @@
 
 ## Goal Context
 
-- **Condition**: `/bpe:goal` step loop, plan.md Section 4 Step 7
-- **Mode**: step
+- **Condition**: Every item in todo.md is checked off; pytest -q exits 0 with no failing tests; git status --short is empty; all commits are pushed to origin/scaffold; .ai-sessions/lessons.md contains any new lessons captured during the run.
+- **Mode**: full
 - **Outcome**: converged (this dispatch)
 - **Turn count**: n/a
 - **Subagent dispatches**: 1 (this finalize dispatch; implement and validation ran in prior dispatches)
@@ -20,8 +20,8 @@
 - Ran `just check` (ruff check, ruff format --check, mypy strict, pytest) end to end: exit 0, 74 tests passed.
 - Confirmed `src/temporal_async_debug/starter.py` now exposes `--mode` over the full `shared.VALID_MODES` set (five modes) plus `--rollups` and `--quotes` flags, with `rollup_inputs_from_args`/`quote_inputs_from_args` construction helpers building distinct-period and distinct-sku inputs.
 - Confirmed the submission-ordering split: `_submit_freeze_scenario` (bystanders first, then the freezing bad geo run, once a slot is confirmed occupied) for `FREEZE_MODES = {"block", "cpu"}`, versus `_submit_saturation_scenario` (bad geo run first, then bystanders, once the slot gauge reads zero) for `SATURATION_MODES = {"slow", "slow_heartbeat", "stuck_no_heartbeat"}`. This is the load-bearing fix: a frozen event loop never schedules new activity tasks, so freeze-mode bystanders have to already be in flight before the freeze lands, while saturation-mode bystanders have to arrive after every slot is taken so they starve instead of racing the bad run for a slot.
-- Confirmed `os._exit(0)` is unchanged (still the antipattern-adjacent forced-exit workaround for the demo's process lifecycle).
-- Extended `tests/test_starter.py` to cover the five-mode parse, the two new flags, the new construction helpers, and the ordering arithmetic for both scenario families.
+- Confirmed `os._exit(0)` is unchanged; it is correct code carrying a WORKAROUND comment for temporalio/sdk-python#300 (not an ANTIPATTERN marker), forcing exit so the starter does not hang.
+- Extended `tests/test_starter.py` to cover the five-mode parse, the two new flags, and the new construction helpers; the submission ordering was verified by the validator's code reading, not by a test, at that time (ordering tests came later in dd1b6c4).
 - Checked off all 8 sub-steps of Step 7 in `todo.md`.
 - No `.ai-sessions/implementation-notes.md` existed at finalize time; no deviations this step.
 - Wrote this session summary and the commit message, then made the single finalize commit and pushed.
@@ -35,7 +35,7 @@
 ## Efficiency Insights
 
 **What went well:**
-- The implement and validation work landed cleanly (validator verdict: clean at iteration 1, ordering arithmetic explicitly verified); finalize needed no fixups, just the standard gate re-run.
+- The implement and validation work landed cleanly (validator verdict: clean at iteration 1; the validator verified the ordering by code reading, since the tests covered only the parser, flags, and construction helpers at that time); finalize needed no fixups, just the standard gate re-run.
 
 **What could improve:**
 - Nothing notable this dispatch; it was a clean handoff.

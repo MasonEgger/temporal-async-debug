@@ -8,8 +8,8 @@
 
 ## Goal Context
 
-- **Condition**: build the temporal-async-debug demo through plan.md; this dispatch finalizes Step 10 (CI Workflow, pip-audit, Dependabot), the last plan step.
-- **Mode**: step
+- **Condition**: Every item in todo.md is checked off; pytest -q exits 0 with no failing tests; git status --short is empty; all commits are pushed to origin/scaffold; .ai-sessions/lessons.md contains any new lessons captured during the run.
+- **Mode**: full
 - **Outcome**: converged (Section 5 Tools were none, so no validator ran; finalize committed and pushed)
 - **Turn count**: 1 finalize dispatch (preceded by an implement dispatch)
 - **Subagent dispatches**: this session, 1 finalize; Step 10 overall ran implement then finalize (no validator, no fix loop).

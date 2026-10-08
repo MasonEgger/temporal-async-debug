@@ -4,7 +4,7 @@
 
 A deliberately misbehaving Temporal Python demo application for a tutorial on diagnosing blocking and saturation failures in `async def` activities.
 The app runs several unrelated workflow types on one worker and can drive activities into a range of misbehavior modes.
-It is a catalog of the ways a single asyncio event loop, shared by a Temporal worker's poller, heartbeat sender, workflow-task processing, and every async activity, gets wedged, and of how each failure looks from outside the process.
+It is a catalog of the ways a single asyncio event loop, shared by a Temporal worker's heartbeat recording, the Python side of workflow-task handling, the hand-off of poll results to user code, and every async activity, gets wedged, and of how each failure looks from outside the process.
 
 Nothing in the code is named "victim" or "villain", because the whole point is that the fleet looks normal and then goes sideways, and the reader has to find the cause from the tooling rather than from a label.
 The headline lesson is the cross-type blast radius: a problem in one workflow type takes down a completely unrelated workflow type, purely because they share a worker.
@@ -18,7 +18,9 @@ It is a teaching artifact, not a maintained tool, and will never be published to
 ## Starting context
 
 This repo replaces a demo referenced by an unpublished 2026 tutorial draft that was never actually built.
-Research (August 2026) established the mechanism this demo must exhibit: the Temporal Python worker runs its poller, heartbeat sender, and every `async def` activity on one asyncio event loop, so a single blocking call starves all of them.
+Research (August 2026) established the mechanism this demo must exhibit, and October 2026 captures measured exactly what it reaches.
+Every `async def` activity, the Python side of workflow task handling, heartbeat recording, and the Python tasks that hand poll results to user code share one asyncio event loop, so a single blocking call freezes all of them together.
+The Rust core's network polling and the Prometheus endpoint run on their own threads and keep going, which is why the server keeps dispatching tasks that then time out and why the metrics endpoint still answers during a freeze.
 The Python 3.14 introspection commands read the target process memory without executing code in it, so they work while the loop is fully frozen.
 The diagnostic signature (live-verified October 2026 against temporalio 1.33.0 on Python 3.14.3): `asyncio ps` and `pstree` show the frozen-loop shape, not the blocking line.
 Every healthy or merely-stalled task sits at a real await suspension point, so its coroutine stack bottoms out at `asyncio.sleep`, `wait`, or `Queue.get`, while the wedged activity task dead-ends at the SDK frame `_ActivityWorker._handle_start_activity_task` with no await beneath it and no progress.
@@ -38,7 +40,8 @@ The worker never left the Pollers list in any capture, including one taken 75 se
 `temporal_worker_task_slots_available` reads 0 in both families: during a freeze at t+8 and t+20, while the frozen `get_ip` and the in-flight rollup hold both slots, and during saturation.
 It reads 1 at t+40 of a freeze, because the rollup's slot is reclaimed at the first thaw and only the frozen `get_location` holds one.
 So zero free slots says the slot pool is full, not which family you have; the `asyncio ps` shape and CPU tell them apart.
-The live saturation tell is the activity backlog age in `task-queue describe`.
+The saturation tell is the activity backlog age in `task-queue describe` read together with a healthy `asyncio ps` shape: every task parked at an await, none dead-ended.
+A freeze also shows a backlog while no permit is free (one task, 8.9 seconds old, the rollup's retry, at t+20 of a `block` run), so a backlog under a dead-ended task is the freeze.
 `temporal_activity_schedule_to_start_latency` records only when a queued task finally starts, so it is a lagging confirmation, not a live tell.
 Under `just slow` its sum moved from 3464 to 63530 ms (count 27 to 33), because the late healthy geo recorded two waits of about 30 seconds once it finally started.
 Under `just slow-heartbeat` it barely moved (63530 to 63543 ms), because nothing queued ever started.
@@ -210,7 +213,7 @@ Exact durations and timeout values are tuned against live runs; the required beh
   `asyncio ps` shows the same frozen shape as `block` (the wedged task dead-ended at the SDK frame).
   The CPU contrast, near-zero for `block` versus 100 percent for `cpu`, is the diagnostic that separates them.
 - Slot exhaustion (`slow`): the event loop stays healthy but both activity slots are held for the full duration.
-  `temporal_worker_task_slots_available` reads 0 and the activity backlog age in `task-queue describe` climbs; backlog age is the live tell.
+  `temporal_worker_task_slots_available` reads 0 and the activity backlog age in `task-queue describe` climbs; backlog age read together with that healthy `asyncio ps` shape (every task parked at an await, none dead-ended) is the saturation tell, while a backlog under a dead-ended task is a freeze.
   `temporal_activity_schedule_to_start_latency` lags: it records only when a queued task finally starts (under `just slow` its sum jumped from 3464 to 63530 ms once the late healthy geo started; under `just slow-heartbeat`, where nothing queued ever starts, it moved from 63530 to 63543 ms).
   The starved receipts, rollup, and quote fail with the `ScheduleToStart` label and no cause (the quote at 5 seconds, receipts at 10, the rollup at 20).
   The healthy geo submitted after the hold queues behind it and completes late (59.88 seconds in the October 2026 capture, with about 30 seconds of schedule-to-start wait on each of its two activities), because its `schedule_to_close` is 150 seconds.
@@ -258,7 +261,7 @@ Tests must not require a running Temporal server unless using the SDK's own test
 - The two-tool framing stated plainly: `asyncio ps` / `pstree` identify the frozen loop and which task is wedged with zero instrumentation; `py-spy dump` names the exact file and line, because a task stuck in synchronous code is not at an await and so its frames are off the asyncio stack.
 - A summary table or section mapping each mode to the timeout it trips and the tool signature that identifies it.
 - `maximum_attempts=1` documented correctly: set only on the geo activities, with the at-most-one-dispatch versus idempotency lesson.
-- Platform gotchas (including that `py-spy` and `asyncio ps` both need `ptrace_scope=0` or sudo on Linux), the realistic-timeouts framing (`start_to_close` / `schedule_to_close` as the SLA, the `task-queue describe` backlog age as the saturation tell, with `temporal_activity_schedule_to_start_latency` as a lagging confirmation), and a tutorial link placeholder.
+- Platform gotchas (including that `py-spy` and `asyncio ps` both need `ptrace_scope=0` or sudo on Linux), the realistic-timeouts framing (`start_to_close` / `schedule_to_close` as the SLA, the `task-queue describe` backlog age, read together with a healthy `asyncio ps` shape, as the saturation tell, with `temporal_activity_schedule_to_start_latency` as a lagging confirmation), and a tutorial link placeholder.
 - README prose follows the repo owner's writing rules: no em-dashes, one sentence per line in committed Markdown.
 - Update CLAUDE.md's architecture section to the catalog's module and mode layout.
 - MIT license (already present).

@@ -8,12 +8,12 @@
 
 ## Goal Context
 
-- **Condition**: plan.md Step 1, "Extend The Mode Set (cpu, slow_heartbeat, stuck_no_heartbeat)"
-- **Mode**: step
+- **Condition**: Every item in todo.md is checked off; pytest -q exits 0 with no failing tests; git status --short is empty; all commits are pushed to origin/scaffold; .ai-sessions/lessons.md contains any new lessons captured during the run.
+- **Mode**: full
 - **Outcome**: converged (validator verdict: clean after two docstring fix rounds)
 - **Turn count**: unknown (finalize-only dispatch; implement and fix ran in prior dispatches)
 - **Subagent dispatches**: 1 (this finalize dispatch)
-- **Steps completed**: 1 of 8 sub-steps in todo.md's Step 1 (all 8 checked)
+- **Steps completed**: Step 1 complete (all 8 of its sub-steps checked in todo.md)
 
 ## Key Actions
 

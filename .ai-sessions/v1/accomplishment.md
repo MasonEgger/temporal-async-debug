@@ -1,7 +1,7 @@
 # Accomplishment: The Two-Lesson Greeting/Victim Demo
 
 **Archived**: 2026-09-21
-**Convergence**: converged (66 of 66 items checked), then substantially superseded by the two-workflow redesign
+**Convergence**: converged (86 of 86 items checked), then substantially superseded by the two-workflow redesign
 
 ## Spec Slice
 

@@ -8,8 +8,8 @@
 
 ## Goal Context
 
-- **Condition**: `/bpe:goal` step loop, plan.md Section 2 Step 3
-- **Mode**: step
+- **Condition**: Every item in todo.md is checked off; pytest -q exits 0 with no failing tests; git status --short is empty; all commits are pushed to origin/scaffold; .ai-sessions/lessons.md contains any new lessons captured during the run.
+- **Mode**: full
 - **Outcome**: converged (this dispatch)
 - **Turn count**: n/a
 - **Subagent dispatches**: 1 (this finalize dispatch; implement and validation ran in prior dispatches)
@@ -21,7 +21,7 @@
 - Confirmed `src/temporal_async_debug/rollup.py` adds `roll_up_sales` (a cooperative, no-network activity that sums an in-memory tuple of sales figures after a short `asyncio.sleep`) and `SalesRollupWorkflow`, an ordinary, correct workflow with no antipattern marker.
 - Confirmed `SalesRollupInput`/`SalesRollupOutput` frozen dataclasses landed in `shared.py`.
 - Confirmed `tests/test_rollup.py` covers the activity in isolation (`ActivityEnvironment`), the happy path under `WorkflowEnvironment.start_time_skipping()`, and three concurrent executions with distinct periods, all behind a `forbid_network` fixture that fails the test if `httpx.AsyncClient.request` is ever called.
-- Checked off all 4 sub-steps of Step 3 in `todo.md`.
+- Checked off all 8 sub-steps of Step 3 in `todo.md`.
 - Absorbed the Step 3 deviation from `.ai-sessions/implementation-notes.md` (below) and deleted that now-empty file.
 - Wrote this session summary and the commit message, then made the single finalize commit and pushed.
 

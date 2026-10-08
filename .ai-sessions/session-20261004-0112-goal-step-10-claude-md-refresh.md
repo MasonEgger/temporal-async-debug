@@ -4,7 +4,7 @@
 **Duration**: One implement and finalize pass, the last step of the catalog goal loop
 **Conversation Turns**: Step 10 implement (docs only), finalize
 **Estimated Cost**: Low; no live runs
-**Model**: Fable 5 orchestrating; step-executor for implement and finalize
+**Model**: Fable 5 orchestrating; Sonnet 5 step-executor (agent default) for implement and finalize
 
 ## Goal Context
 

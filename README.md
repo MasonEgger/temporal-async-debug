@@ -392,7 +392,9 @@ Task Queue Statistics:
 
 That task is the rollup's retry, which the server scheduled after the first attempt timed out and which no slot could take.
 A backlog appears whenever no Activity slot is free, in a freeze or in saturation.
-It is the live saturation tell in Lesson 4, and here it is one more sign that the slots are full, not that the loop is frozen.
+So the backlog alone does not name the failure.
+Read together with a healthy `asyncio ps` shape (every task parked at an await, none dead-ended), backlog age is the saturation tell in Lesson 4.
+Here the backlog sits under a dead-ended task, so it is a freeze, not saturation.
 
 Together the tools give the full answer.
 `asyncio ps` says the loop is frozen and which task is wedged.
@@ -601,7 +603,7 @@ tid  task id  task name  coroutine stack  awaiter chain  awaiter name  awaiter i
 This is the contrast with Lessons 2 and 3.
 Here the stacks are complete and end on `sleep`, and no task is dead-ended at the SDK handler.
 
-### The backlog is the live tell
+### The backlog under healthy stacks is the live tell
 
 The Worker does not take new Activity tasks while every slot is full, so work queues on the server.
 `temporal task-queue describe --task-queue async-debug-task-queue` showed the backlog 25 seconds into the hold:
@@ -620,12 +622,13 @@ Pollers:
 Across snapshots at 8, 15, and 25 seconds, the Activity backlog read 5 tasks at 7.1 seconds, 3 at 14.1 seconds, and 3 at 24.0 seconds.
 The age keeps climbing for as long as every slot stays full.
 The count is approximate and lags, because expired tasks stay in the matching backlog until a poller drains them, so do not read each drop as one timeout.
-That climbing backlog age is the live saturation tell.
+That climbing backlog age, read together with the healthy `asyncio ps` shape above (every task parked at an await, none dead-ended), is the live saturation tell.
+The same backlog under a dead-ended task is a freeze: the Lesson 2 capture showed 1 task at 8.9 seconds, the rollup's retry.
 
 The poller ages in the same snapshots read 7, 14, and 24 seconds.
 The Activity poller's age grows here because the Worker does not ask for another Activity task while zero slots are free.
 An idle Worker's age also climbs to about 59 seconds on every long poll, so a growing age is at most a weak hint.
-Read the backlog age instead.
+Read the backlog age with the `asyncio ps` shape instead.
 
 ### What fails
 
@@ -715,7 +718,7 @@ after:  temporal_activity_schedule_to_start_latency_count{...} 33
 
 Snapshots at 8, 15, and 25 seconds into the hold all read 3472, so the metric said nothing while the jam was live.
 Under `just slow-heartbeat` (Lesson 5), which has no healthy geo, nothing queued ever starts, and the sum barely moved, from 63530 to 63543.
-Read the backlog age first, because it is live.
+Read the backlog age first, together with a healthy `asyncio ps` shape, because it is live.
 The latency metric confirms the saturation afterward, and only for work that eventually got a slot.
 
 The fix is different from Lessons 2 and 3.
@@ -907,7 +910,8 @@ The timeouts in this repository follow the shape real code uses:
   It appears once, in the quote sample, because failing a late start is a decision most code should not make.
 - `heartbeat_timeout` appears only on the long-running modes, because a quick Activity would not heartbeat.
 
-The backlog age in `temporal task-queue describe` is the live saturation tell.
+The backlog age in `temporal task-queue describe`, read together with a healthy `asyncio ps` shape (every task parked at an await, none dead-ended), is the live saturation tell.
+A backlog under a dead-ended task is a freeze instead.
 `temporal_activity_schedule_to_start_latency` is a lagging confirmation, because it only records once a queued task starts.
 Watch both in production instead of relying on a `schedule_to_start_timeout`.
 

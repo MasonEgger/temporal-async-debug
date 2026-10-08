@@ -8,8 +8,8 @@
 
 ## Goal Context
 
-- **Condition**: build the async-debug demo by working plan.md top to bottom
-- **Mode**: step (Step 1 of 10)
+- **Condition**: Every item in todo.md is checked off; pytest -q exits 0 with no failing tests; git status --short is empty; all commits are pushed to origin/scaffold; .ai-sessions/lessons.md contains any new lessons captured during the run.
+- **Mode**: full
 - **Outcome**: converged for this step
 - **Turn count**: 2 orchestrator turns
 - **Subagent dispatches**: 2 `bpe:step-executor` invocations (mode=implement, mode=finalize)

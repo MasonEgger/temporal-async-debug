@@ -4,7 +4,7 @@
 **Duration**: One implement, validate, copy-edit, finalize pass inside the catalog goal loop
 **Conversation Turns**: Step 9 implement (live captures plus README rewrite), validator pass (clean at iteration 1), finalize
 **Estimated Cost**: Moderate; live server and worker runs for captures, one py-spy capture, Vale pass
-**Model**: Fable 5 orchestrating; step-executor for implement and finalize
+**Model**: Fable 5 orchestrating; Sonnet 5 step-executor (agent default) for implement and finalize
 
 ## Goal Context
 
@@ -18,7 +18,7 @@
 - Rewrote README.md as the in-repo tutorial home for the catalog: one lesson per scenario, each built from real captured output (`asyncio ps`, `pstree`, `py-spy dump`, CPU state, Prometheus metrics, `temporal task-queue describe`).
 - Taught the corrected two-tool diagnosis: `asyncio ps` / `pstree` show the frozen-loop shape (the wedged task dead-ends at the SDK handler while every other task sits at a real await), and `py-spy dump` names the exact blocking line. CPU separates `block` (low, GIL released) from `cpu` (busy).
 - Took one new live py-spy capture for the `cpu` mode (activities.py:124, thread active and holding the GIL), since none existed.
-- Left three CLAUDE_HELP flags as HTML comments in README.md for claims that could not be verified live.
+- Resolved and removed the three CLAUDE_HELP flags from the first pass before commit: the user-frame question was answered by the two-tool story, the poller claim was rewritten, and the Yama/macOS text was stated as documented behavior.
 - Checked off the Step 9 items in todo.md.
 - Full gate (`just check`) green: 74 passed.
 
@@ -40,9 +40,8 @@
 - Impact: freeze scenarios: only the rollup (in-flight) fails (ScheduleToClose caused by StartToClose); geo bystanders complete because geo start_to_close is 120s. The starter's freeze scenario does not report receipts.
 - Plan said: verify metric names and poller-vanishing via the temporal-docs MCP.
 - Deviated: the MCP tool was not callable from the subagent; metric names verified against live /metrics output and the temporal skill's go observability reference. Poller-vanishing in the Web UI not verified (CLI capture inconclusive); README does not claim it as fact. Yama/macOS error text not reproduced (ptrace_scope is 0 here).
-- Impact: three CLAUDE_HELP flags left as HTML comments in README.md.
 - Plan said: review-content runs Vale plus copy-editor agent.
-- Deviated: no Agent tool in that context, so Vale and the keyboard-characters check ran, and the copy-editor pass was done by hand. Remaining Vale warnings: CodeLineLength on verbatim captured output, heading capitalization (sentence case is required for this doc), 'deliberately' weasel word (spec phrase), Flesch score.
+- Deviated: no Agent tool in that context, so Vale and the keyboard-characters check ran, and the copy-editor pass was done by hand; a full content-design:copy-editor agent pass then ran from the parent session (one numeral change; Vale warnings triaged). Remaining Vale warnings: CodeLineLength on verbatim captured output, heading capitalization (sentence case is required for this doc), 'deliberately' weasel word (spec phrase), Flesch score.
 - Impact: known, accepted Vale warnings on the README.
 - Plan said: reuse scratchpad captures; recapture only if missing.
 - Deviated: no py-spy capture existed for cpu mode (earlier py-spy attempts were permission denied), so one was taken live (server + worker, then torn down, ports freed): `pyspy-cpu.txt` in the scratchpad showing activities.py:124, thread active+gil.

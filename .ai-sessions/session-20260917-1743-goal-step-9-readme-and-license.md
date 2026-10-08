@@ -8,8 +8,8 @@
 
 ## Goal Context
 
-- **Condition**: build the temporal-async-debug demo through plan.md; this dispatch finalizes Step 9 (README And License).
-- **Mode**: step
+- **Condition**: Every item in todo.md is checked off; pytest -q exits 0 with no failing tests; git status --short is empty; all commits are pushed to origin/scaffold; .ai-sessions/lessons.md contains any new lessons captured during the run.
+- **Mode**: full
 - **Outcome**: converged (validator verdict clean at iter 3; finalize committed and pushed)
 - **Turn count**: 1 finalize dispatch (preceded by implement + two fix passes)
 - **Subagent dispatches**: this session, 1 finalize; Step 9 overall ran implement, fix iter 1, fix iter 2, validator to iter 3, finalize.

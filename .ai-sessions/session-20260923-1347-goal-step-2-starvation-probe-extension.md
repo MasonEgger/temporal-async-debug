@@ -8,8 +8,8 @@
 
 ## Goal Context
 
-- **Condition**: `/bpe:goal` step loop, plan.md Section 1 Step 2
-- **Mode**: step
+- **Condition**: Every item in todo.md is checked off; pytest -q exits 0 with no failing tests; git status --short is empty; all commits are pushed to origin/scaffold; .ai-sessions/lessons.md contains any new lessons captured during the run.
+- **Mode**: full
 - **Outcome**: converged (this dispatch)
 - **Turn count**: n/a
 - **Subagent dispatches**: 1 (this finalize dispatch; implement and validation ran in prior dispatches)
@@ -46,7 +46,7 @@
 
 ## Observations
 
-- The `cpu` mode's teaching value depends on the busy loop genuinely pinning the GIL; the plan's Step 2.8 verification (confirm the comparative assertion fails if `cpu` were swapped to a cooperative await) is satisfied by construction since `cpu` reuses the same `_apply_mode` branch proven in the prior activities-level tests.
+- The `cpu` mode's teaching value depends on the busy loop genuinely pinning the GIL; the plan's Step 2.8 verification (confirm the comparative assertion fails if `cpu` were swapped to a cooperative await) was performed empirically: the `cpu` branch was swapped to a cooperative await, both cpu assertions failed, and the swap was reverted with a zero diff.
 
 ## Suggested Skills for Next Session
 

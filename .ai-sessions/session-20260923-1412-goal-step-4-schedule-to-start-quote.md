@@ -8,8 +8,8 @@
 
 ## Goal Context
 
-- **Condition**: `/bpe:goal` step loop, plan.md Section 2 Step 4
-- **Mode**: step
+- **Condition**: Every item in todo.md is checked off; pytest -q exits 0 with no failing tests; git status --short is empty; all commits are pushed to origin/scaffold; .ai-sessions/lessons.md contains any new lessons captured during the run.
+- **Mode**: full
 - **Outcome**: converged (this dispatch)
 - **Turn count**: n/a
 - **Subagent dispatches**: 1 (this finalize dispatch; implement and validation ran in prior dispatches)
