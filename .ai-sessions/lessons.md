@@ -2,6 +2,7 @@
 
 ## Recent
 
+- A tutorial that promises verbatim captured output needs a validator step that DIFFS every quoted block against its capture file and checks that every trim is disclosed; internal-consistency and line-number checks are not enough (an altered value, inserted punctuation, and four reconstructed blocks got through the first time) (2026-10-07)
 - A spec correction is only as good as the capture behind it: a claim "corrected" from reasoning rather than a fresh capture can introduce a new falsehood (two did here: starved bystanders failing schedule_to_close, and the poller LastAccessTime going stale in a freeze); after any code change a claim depends on, re-run the scenario and re-capture, then quote the capture file next to the figure in the record (2026-10-07)
 - When a demo workflow runs several activities that each block the loop, the loop is live for only ~100ms between them, so anything released at an intermediate thaw can race the re-freeze; gate on the LAST freezing activity reporting STARTED (describe()'s pending_activities carries activity_type and state), not the first (2026-10-07)
 - To gate on "the Worker has started running Activity X" from outside the Worker, poll the Workflow handle's describe() for a pending activity in PendingActivityState.STARTED; temporal_worker_task_slots_available cannot identify which Activity holds a permit, and a frozen Worker cannot block a client-to-server describe() call (2026-10-07)
@@ -11,7 +12,6 @@
 - Concurrent `execute_workflow` calls (`asyncio.gather`) under `WorkflowEnvironment.start_time_skipping()` can race the server's automatic clock advance against real workflow-task dispatch, producing spurious `START_TO_CLOSE` timeouts; wrap the `gather` in `env.auto_time_skipping_disabled()` (synchronous context manager) to remove the race (2026-09-23)
 - In a justfile, the FIRST recipe is what bare `just` runs; when a plan step adds recipes, instruct the executor to keep the `default: @just --list` recipe first and verify bare `just` prints the help, or an insertion above it silently changes the CLI's front door (2026-09-21)
 - On a BPE plugin upgrade, do not reflexively run `/bpe:retrofit`; read the new plan skill first. 0.7.0's `/bpe:plan` states its new spec sections (`## Invariants`, `## Roadmap / phase log`) are optional for older specs, so a legacy spec plans fine. `--replace` discards a hand-written spec and `--resync` corrects drift, so neither fits a spec that is intentionally ahead of the code; a targeted in-place edit adding the fence sections is the right move (2026-09-20)
-- BPE 0.7.0 `/bpe:plan` honors three scope fences: `## Invariants`, `## Non-goals`, and `**Deferred:**` under `## Roadmap / phase log`; keep out-of-scope work under one of those exact headings (not a custom "Future work" section) or the plan writer will not treat it as a mechanical fence (2026-09-20)
 
 ## Testing
 
@@ -43,8 +43,13 @@
 - Generated fleet code must be emitted as real per-workflow source files, not factory closures, or every culprit shows the same file:line in `asyncio pstree` and the diagnostic hunt collapses (2026-09-16)
 - Antipattern demos need a fixed, greppable line-level marker (`# ANTIPATTERN (deliberate, for teaching): ...`); README-level warnings do not survive snippet extraction by scrapers, completion tools, or training pipelines (2026-09-16)
 
+## Documentation
+
+- A tutorial that promises verbatim captured output needs a validator step that DIFFS every quoted block against its capture file and checks that every trim is disclosed; internal-consistency and line-number checks are not enough (an altered value, inserted punctuation, and four reconstructed blocks got through the first time) (2026-10-07)
+
 ## Workflow
 
+- BPE 0.7.0 `/bpe:plan` honors three scope fences: `## Invariants`, `## Non-goals`, and `**Deferred:**` under `## Roadmap / phase log`; keep out-of-scope work under one of those exact headings (not a custom "Future work" section) or the plan writer will not treat it as a mechanical fence (2026-09-20)
 - A spec correction is only as good as the capture behind it: a claim "corrected" from reasoning rather than a fresh capture can introduce a new falsehood (two did here: starved bystanders failing schedule_to_close, and the poller LastAccessTime going stale in a freeze); after any code change a claim depends on, re-run the scenario and re-capture, then quote the capture file next to the figure in the record (2026-10-07)
 - Commit a plan or spec immediately after a `/bpe:review` outcome that needs no `/bpe:apply-review` changes; letting it ride uncommitted into `/bpe:goal` trips the pre-flight dirty-tree refusal (2026-09-17)
 - When a BPE slash command's arguments don't parse as one of its documented mode keywords, check whether the text is actually a different valid request (a config change, a clarification) before defaulting to the command's default mode (2026-09-17)
