@@ -2,6 +2,8 @@
 
 ## Recent
 
+- Before outlining a tutorial, confirm the deliverable's shape with the author: whether every part must end with the reader changing code, and where the fixed code lives (here, the Temporal 101/102 `practice/` and `solution/` layout); an outline built on observe-and-read was discarded whole once the author said a part with nothing to fix is not a tutorial (2026-10-31)
+- In a merge-mode brainstorm, decide low-stakes values (ports, slot counts, branch names, gitignore lines) and record them as `confirm at review` instead of asking; four rounds of batched forks read as the work being hard, and the author stopped the session to ask what was going on (2026-10-31)
 - The bpe.local.md model profile applies only to skills, through the UserPromptSubmit hook; Agent dispatches of bpe:step-executor and bpe:validator run on the agent file defaults (sonnet, claude-opus-4-8) unless the orchestrator passes model: explicitly, and the Agent tool accepts only family aliases, so a session record must state which model actually ran, not the pinned one (2026-10-07)
 - A tutorial that promises verbatim captured output needs a validator step that DIFFS every quoted block against its capture file and checks that every trim is disclosed; internal-consistency and line-number checks are not enough (an altered value, inserted punctuation, and four reconstructed blocks got through the first time) (2026-10-07)
 - A spec correction is only as good as the capture behind it: a claim "corrected" from reasoning rather than a fresh capture can introduce a new falsehood (two did here: starved bystanders failing schedule_to_close, and the poller LastAccessTime going stale in a freeze); after any code change a claim depends on, re-run the scenario and re-capture, then quote the capture file next to the figure in the record (2026-10-07)
@@ -10,8 +12,6 @@
 - `maximum_attempts=1` gives at-most-one dispatch, not exactly-once: a transient failure before the call means the operation never runs, and a Worker that finishes the side effect but crashes before recording it leaves the effect done while the Workflow sees failure; effectively-once comes from keeping retries plus an idempotent Activity keyed on workflow_run_id + activity_id (per docs.temporal.io fixed-count-retries and the multi-cluster guide) (2026-10-04)
 - Do not set non_retryable on an ApplicationError raised inside Workflow code; any ApplicationError from the Workflow already fails the run, and a plain ValueError there only fails the workflow task, which the server retries forever (the run stalls instead of failing) (2026-10-04)
 - Python 3.14 `asyncio ps` / `pstree` do NOT show the blocking line of an async activity wedged in synchronous code (e.g. `time.sleep` or a CPU loop): that task truncates at the SDK frame `_ActivityWorker._handle_start_activity_task` with no await beneath it, because asyncio introspection walks the await chain and synchronous code is not an await, so those frames live on the OS thread stack. Use `py-spy dump` (or faulthandler) for the exact line; use asyncio ps / pstree for the frozen-loop SHAPE (the wedged task dead-ended at the SDK handler while every other task sits parked at a real await) (2026-10-04)
-- Concurrent `execute_workflow` calls (`asyncio.gather`) under `WorkflowEnvironment.start_time_skipping()` can race the server's automatic clock advance against real workflow-task dispatch, producing spurious `START_TO_CLOSE` timeouts; wrap the `gather` in `env.auto_time_skipping_disabled()` (synchronous context manager) to remove the race (2026-09-23)
-- In a justfile, the FIRST recipe is what bare `just` runs; when a plan step adds recipes, instruct the executor to keep the `default: @just --list` recipe first and verify bare `just` prints the help, or an insertion above it silently changes the CLI's front door (2026-09-21)
 
 ## Testing
 
@@ -46,8 +46,12 @@
 ## Documentation
 
 - A tutorial that promises verbatim captured output needs a validator step that DIFFS every quoted block against its capture file and checks that every trim is disclosed; internal-consistency and line-number checks are not enough (an altered value, inserted punctuation, and four reconstructed blocks got through the first time) (2026-10-07)
+- Before outlining a tutorial, confirm the deliverable's shape with the author: whether every part must end with the reader changing code, and where the fixed code lives (here, the Temporal 101/102 `practice/` and `solution/` layout); an outline built on observe-and-read was discarded whole once the author said a part with nothing to fix is not a tutorial (2026-10-31)
 
 ## Workflow
+
+- In a merge-mode brainstorm, decide low-stakes values (ports, slot counts, branch names, gitignore lines) and record them as `confirm at review` instead of asking; four rounds of batched forks read as the work being hard, and the author stopped the session to ask what was going on (2026-10-31)
+- In a justfile, the FIRST recipe is what bare `just` runs; when a plan step adds recipes, instruct the executor to keep the `default: @just --list` recipe first and verify bare `just` prints the help, or an insertion above it silently changes the CLI's front door (2026-09-21)
 
 - The bpe.local.md model profile applies only to skills, through the UserPromptSubmit hook; Agent dispatches of bpe:step-executor and bpe:validator run on the agent file defaults (sonnet, claude-opus-4-8) unless the orchestrator passes model: explicitly, and the Agent tool accepts only family aliases, so a session record must state which model actually ran, not the pinned one (2026-10-07)
 - On a BPE plugin upgrade, do not reflexively run `/bpe:retrofit`; read the new plan skill first. 0.7.0's `/bpe:plan` states its new spec sections (`## Invariants`, `## Roadmap / phase log`) are optional for older specs, so a legacy spec plans fine. `--replace` discards a hand-written spec and `--resync` corrects drift, so neither fits a spec that is intentionally ahead of the code; a targeted in-place edit adding the fence sections is the right move (2026-09-20)

@@ -12,7 +12,12 @@ The headline lesson is the cross-type blast radius: a problem in one workflow ty
 Readers reproduce each failure and diagnose it from outside the process with Python 3.14+ native tooling (`python -m asyncio ps` / `pstree`) with zero instrumentation, plus the SDK's Prometheus metrics, and use `py-spy dump` to read the exact blocking line.
 The two root diagnostic families are a frozen event loop (a blocking or CPU-bound call) versus an undersized or saturated worker (slot exhaustion, heartbeat loss, queue timeouts).
 They can look the same to the workflows that suffer them but have different signatures in the tooling and different fixes.
-The repo is the companion to a tutorial and a longer blog post on masonegger.com.
+
+The repo has three layers.
+The root package under `src/temporal_async_debug/` is the full failure-mode catalog, documented lesson by lesson in `README.md`.
+`exercises/` holds five hands-on exercises in the Temporal 101/102 course layout (a `README.md`, a `practice/` copy with the bug, a `solution/` copy with the fix), one per failure family, so the reader observes the failure, finds it with the tooling, fixes the code, and verifies the fix.
+`observability/` holds a Prometheus and Grafana stack that graphs the SDK and dev-server metrics over time, so the slot gauges and the Task Queue backlog are visible as they move instead of only as one-off `curl` readings.
+The repo is the companion to a six-part tutorial series, "Debugging blocking calls in Temporal async Activities" (part 1 is the setup and healthy baseline, parts 2 to 6 are the five exercises); the publication venue is not yet chosen.
 It is a teaching artifact, not a maintained tool, and will never be published to PyPI.
 
 ## Starting context
@@ -61,16 +66,30 @@ Live testing (September 2026) established the exact timeout mechanics the catalo
 - The metrics endpoint is served by the Rust core off the event loop, so it stays reachable during a freeze and is not the frozen-loop signal (verified: scrapes answered in a few milliseconds throughout both 30-second freezes of a `block` run).
 - The SDK's default Core runtime has no public shutdown (temporalio/sdk-python#300); a short-lived starter flushes and `os._exit(0)` to avoid an intermittent teardown hang.
 
+The exercises phase (decided October 31, 2026) started from the owner's definition of the deliverable, in his words:
+"If there's nothing to be done, then it's not actually a section. We're not here just teaching and talking. Every single tutorial should have something for the user to do. That is what defines a tutorial. Is that there is actually an achievable goal. So the process of observing the bug, finding the bug, and then fixing the bug should be in every single tutorial present. It actually might even be important for us to set up temporal metrics and use Grafana so we can actually see what's going on."
+On how the fixes live in the repo: "Look at our old course content, which has `practice` and `solution` directories per exercise. Temporal 101 and Temporal 102 show this. We should continue to follow this methodology."
+The local reference for that layout is `~/Code/Temporal/edu-102-python-code/exercises/debug-activity/`: an exercise `README.md` that opens with "During this exercise, you will" bullets, tells the reader to edit `practice` and peek at `solution`, runs Parts A through E of numbered steps, and ends with "### This is the end of the exercise."; `practice/` is a full standalone copy of the app with `# TODO PART X:` comments at the edit points; `solution/` is the same copy completed.
+On the server: "be sure you're using the temporal dev server single binary CLI, not standing up an ENTIRE temporal self hosted cluster."
+Temporal's own guidance for the fixes, from the Python SDK sync-versus-async page: Activities should be synchronous (`def`) by default and run on the Worker's `activity_executor` (a `ThreadPoolExecutor`), because the OS preempts threads where the event loop coordinator does not; `async def` is for call stacks that are async-safe end to end.
+A `ProcessPoolExecutor` is possible but discouraged (pickling, no cancellation), and true CPU parallelism comes from more Worker processes.
+`temporal server start-dev` accepts `--metrics-port`, so the dev server's own metrics (including Task Queue backlog) can be scraped next to the SDK's.
+The capture machine has `docker` and `docker-compose` v1 (no `docker compose` v2 plugin) and `ptrace_scope` set to 0.
+
 ## Invariants
 
 Rules that hold across every phase of this repo.
 
-- paths: src/temporal_async_debug/**, tests/**, justfile, README.md, CLAUDE.md
+- paths: src/temporal_async_debug/**, tests/**, exercises/**, observability/**, docs/**, justfile, pyproject.toml, README.md, CLAUDE.md, .github/workflows/ci.yml
 - Python 3.14+ only; toolchain is uv + ruff + mypy (strict) + pytest, run through `just`; src layout with the hatchling build backend.
 - Temporal Python SDK (temporalio) is the only workflow engine; no second orchestration framework.
+- The Temporal server is always `temporal server start-dev` (the single-binary CLI); never a self-hosted cluster, never a Temporal server container, never Temporal Cloud. The compose stack under `observability/` holds Prometheus and Grafana and nothing else, and stays `docker-compose` v1 compatible.
 - Python: per the python:python skill (strict typing, Google docstrings, no single-letter names, canonical ruff/mypy/pytest config verbatim).
-- Prose (README, CLAUDE.md, comments, commit messages): per the writing hard rules (no em-dash or en-dash, no banned AI-tell vocabulary, straight quotes, one sentence per line in committed Markdown).
-- Every deliberate bug, mistuning, or antipattern carries the fixed greppable marker on or immediately above the offending line: `# ANTIPATTERN (deliberate, for teaching): <why it is wrong>. Correct: <the right approach>. Do not copy.` Do not "fix" a marked antipattern; it is the demo.
+- Prose (README, CLAUDE.md, exercise READMEs, tutorial drafts, comments, commit messages): per the writing hard rules (no em-dash or en-dash, no banned AI-tell vocabulary, straight quotes, one sentence per line in committed Markdown).
+- Every deliberate bug, mistuning, or antipattern carries the fixed greppable marker on or immediately above the offending line: `# ANTIPATTERN (deliberate, for teaching): <why it is wrong>. Correct: <the right approach>. Do not copy.` Do not "fix" a marked antipattern in the root package or in a `practice/` copy; it is the demo. A `solution/` copy carries no antipattern and no marker.
+- Exercises follow the Temporal 101/102 layout: `exercises/<NN-name>/README.md`, `practice/`, `solution/`; each copy is standalone and runs from its own directory; the edit points in `practice/` carry `# TODO PART X:` comments.
+- Every output block in an exercise README or tutorial draft is a capture of that exercise's own copy (or of the root package for part 1); no reconstructed output, and no edits beyond the trims the root README already discloses.
+- No new Python runtime dependency in this phase: the fixes use the standard library and the httpx already present, `py-spy` stays `uvx`, and Prometheus and Grafana run in containers.
 - No workflow, activity, or module is named with a role label (victim, villain, culprit). The fleet must read as ordinary so the reader diagnoses from the tooling.
 - Tests never require a running Temporal server except through the SDK's own facilities (`temporalio.testing.ActivityEnvironment`, `WorkflowEnvironment.start_time_skipping()`); all network calls are mocked.
 
@@ -86,13 +105,14 @@ Tooling available to the validator and executor during autonomous runs.
 
 - python:python (project standards: strict typing, canonical ruff/mypy/pytest config, uv workflows)
 - temporal:temporal-developer (Temporal SDK APIs, worker configuration, testing helpers)
-- content-design:tutorial-writing (procedural documentation style for the README quickstart and lessons)
+- content-design:tutorial-writing (procedural documentation style for the README, the exercise READMEs, and the tutorial drafts)
 - content-design:review-content (Vale run plus copy-editor agent; prose review against the writing hard rules)
 
 **Notes:** All Python code follows the python:python skill without exception (type hints everywhere, Google docstrings on public interfaces, no single-letter names, canonical config blocks verbatim).
 Demo code must stay small and readable; it will be excerpted line-by-line in a tutorial.
 Comment density should serve a reader learning the failure mode, not the maintainer.
-Every deliberately wrong line, setting, or pattern carries an inline comment on or immediately above the offending line using the fixed marker format below; the validator should flag any mistuning or antipattern that lacks one.
+Every deliberately wrong line, setting, or pattern carries an inline comment on or immediately above the offending line using the fixed marker format below; the validator should flag any mistuning or antipattern that lacks one, and should flag any marker or antipattern that appears inside a `solution/` copy.
+No session skill covers Prometheus or Grafana; the compose file, scrape config, and dashboard JSON are validated by the executor's own config tests (see Test requirements) and by the validator checking that the compose file defines no Temporal server service.
 
 ## External tool candidates
 
@@ -116,11 +136,12 @@ These are candidates only, not tools declared in the session pool; fold one into
 
 - v1: the two-lesson Greeting/Victim demo (frozen loop plus slot exhaustion), converged then superseded by the two-workflow redesign (.ai-sessions/v1/).
 - two-workflow-foundation: the neutrally-named GeoEnrichmentWorkflow and OrderReceiptWorkflow foundation on one worker, with round-robin providers, block/slow modes, and the os._exit teardown workaround (commits 04dec90, 29d68b8; not yet archived under .ai-sessions/).
+- failure-mode-catalog: the cpu, slow_heartbeat, and stuck_no_heartbeat modes, the rollup and quote bystanders, the deterministic freeze and saturation orderings in the starter, every activity timeout shown firing, the seven-lesson README with captured output, and the seven-pass adversarial review and correction (commits through 1ed2541; open as PR #4 against main; plan.md and todo.md at the root belong to this phase and are archived by the next `/bpe:plan --archive`).
 
 **Upcoming:**
 
-- The failure-mode catalog: adds the cpu, slow_heartbeat, and stuck_no_heartbeat modes, a short-work bystander shape, a schedule-to-start sample, every activity timeout shown firing, retuned timeouts, and the full README plus CLAUDE.md refresh.
-  This is the current arc (see Architecture, Behavior requirements, and Documentation requirements below).
+- exercises-and-observability: the five practice/solution exercises, the Prometheus and Grafana stack, fresh before-and-after captures, the root README and CLAUDE.md refresh, and the six-part tutorial series drafts.
+  This is the current arc (see Architecture, Exercise requirements, Observability requirements, Test requirements, and Documentation requirements below).
 
 **Deferred:** (a lab mode turning the demo into a whodunit; decisions recorded September 2026, build deferred until after the tutorial publishes)
 
@@ -128,6 +149,16 @@ These are candidates only, not tools declared in the session pool; fold one into
 - Seeded culprit selection: a `--seed` picks which generated activity misbehaves and how without announcing it; a `reveal` command checks the learner's answer. Trigger: the lab build.
 - FastAPI game-master app (async, fully typed): starts and stops scenarios, shows a live fleet status board and symptom feed, and accepts the learner's guess for the reveal flow. Trigger: the lab build; the tutorial-facing v1 stays CLI plus Temporal UI plus metrics.
 - Intermittent and load-dependent variants (a mode that only misbehaves under concurrency, or every Nth call): candidates for the lab, not this arc.
+
+**Deferred:** (adjacent to the exercises phase; sorted October 31, 2026)
+
+- Alert rules or Alertmanager on the dashboard. Trigger: a reader asks for paging, not graphs.
+- An isolation exercise: a second Task Queue and a dedicated Worker for the long geo Activities, the structural alternative to resizing. Trigger: a seventh part after the series publishes.
+- A `ProcessPoolExecutor` plus `SharedStateManager` exercise for CPU-bound work. Trigger: demand; the cpu exercise names it in prose and Temporal's docs discourage it.
+- Codespaces or devcontainer setup like the 102 repo. Trigger: the series is taught live.
+- A committed capture script under `scripts/` that reproduces the before-and-after runs and their disclosed trims. Trigger: the captures need re-taking after a dependency bump.
+- Temporal Web UI screenshots in the drafts. Trigger: a venue that prefers screenshots to CLI output; the tool story is CLI plus Grafana.
+- Publication venue and frontmatter for the drafts. Trigger: the venue decision; drafts carry no frontmatter and `TODO` cross-links until then.
 
 ## Design principles
 
@@ -144,52 +175,100 @@ These are candidates only, not tools declared in the session pool; fold one into
   The catalog covers the realistic failure modes of this one mechanism (a shared asyncio event loop under blocking and saturation), each shown firing its real timeout and diagnosed from the tooling.
   It is not a catalog of every Temporal failure.
 - Deliberately broken lines carry the greppable antipattern marker, a source-hygiene device that does not spoon-feed the runtime diagnosis.
+- Observe, find, fix, verify.
+  Every exercise and every tutorial part after the first ends with the reader changing code in `practice/` and re-running the same recipe to see the failure gone.
+  A part with nothing for the reader to change is not a part.
+- The fix is the one Temporal recommends.
+  Blocking and CPU-bound work moves into plain `def` Activities on the Worker's `activity_executor`; saturation is fixed by Worker sizing; silent hangs are fixed by heartbeats and a `heartbeat_timeout`; at-most-once retry policies are replaced by retries plus idempotency.
+  No fix introduces a dependency or a pattern the docs discourage.
+- Each exercise copy is small.
+  A `practice/` copy carries only the modes its exercise needs and the full bystander fleet, so the reader reads one failure, not the whole catalog.
 
 ## Foundation already in place
 
-The two-workflow foundation is built and committed; the catalog extends it.
-In place:
+The failure-mode catalog is built, reviewed, and open as PR #4; the exercises phase builds beside it and leaves it as the reference.
+In place under `src/temporal_async_debug/`:
 
-- `shared.py`: frozen dataclasses (`GeoEnrichmentInput` with `block_seconds` and `mode`, `GeoEnrichmentOutput`, `OrderReceiptInput`, `OrderReceiptOutput`) and `TASK_QUEUE`.
-- `activities.py`: `get_ip` and `get_location` over async httpx with round-robin plus failover across five IP providers and three geo providers; `_apply_mode` handling `block` (time.sleep) and `slow` (asyncio.sleep); no heartbeats.
-- `receipt.py`: `OrderReceiptWorkflow` and `validate_order` / `compute_total` / `format_receipt`, fast and no network.
-- `workflow.py`: `GeoEnrichmentWorkflow` running get_ip then get_location, `start_to_close` plus `schedule_to_close`, `maximum_attempts=1` (marked).
-- `worker.py`: both workflow types and all activities on one queue; `max_concurrent_activities=2` (marked); Prometheus metrics on 127.0.0.1:9464; PID banner.
-- `starter.py`: fleet CLI (`--mode block|slow`, `--block-seconds`, `--bad`, `--geo`, `--receipts`) that sequences slot exhaustion; `os._exit(0)` teardown workaround.
-- Tests for all of the above; `just check` green.
+- `shared.py`: frozen dataclasses for every workflow's input and output, `VALID_MODES` (`block`, `cpu`, `slow`, `slow_heartbeat`, `stuck_no_heartbeat`), and `TASK_QUEUE`.
+- `activities.py`: `get_ip` and `get_location` over async httpx with round-robin plus failover; `_apply_mode` with the five modes (`time.sleep` at line 142 and the busy loop at line 148 marked; `stuck_no_heartbeat` marked; `slow_heartbeat` correct); `HTTP_TIMEOUT_SECONDS` of 4.0.
+- `workflow.py`: `GeoEnrichmentWorkflow` and `geo_activity_options(mode)` (120-second `start_to_close`, 150-second `schedule_to_close`, 10-second `heartbeat_timeout` for the two heartbeating modes, `maximum_attempts=1` marked).
+- `receipt.py`, `rollup.py`, `quote.py`: the instant, short-work, and schedule-to-start bystanders (the quote's 5-second `schedule_to_start_timeout` marked).
+- `worker.py`: `build_worker(client)` with `max_concurrent_activities=2` (marked), Prometheus on 127.0.0.1:9464, the PID banner.
+- `starter.py`: the fleet CLI with the deterministic freeze ordering (gate on `get_location` STARTED plus 1 second) and saturation ordering; `os._exit(0)` teardown.
+- 128 tests; `just check` green; CI on actions/checkout v7, setup-uv v7, setup-just v4, with pip-audit clean.
+- `README.md`: seven lessons with captured output and a disclosure of every trim; `CLAUDE.md` current.
+- `docs/drafts/tutorial-original-draft.md`: the January 2026 draft kept as provenance, with `docs/drafts/README.md` listing its wrong claims.
 
-## Architecture (target for the catalog)
+## Architecture
 
-The catalog adds misbehavior modes, bystander shapes, a schedule-to-start sample, and one scenario per failure, retuning timeouts against live behavior.
-Package layout under `src/temporal_async_debug/`:
+### Root catalog package (unchanged in this phase)
 
-- `shared.py`: extend the mode set to `block`, `cpu`, `slow`, `slow_heartbeat`, `stuck_no_heartbeat`.
-  Add any inputs the new bystander shapes and the schedule-to-start sample need.
-- `activities.py`: `_apply_mode` gains:
-  - `cpu`: a CPU-bound loop that spins for `block_seconds`, pinning the GIL and freezing the loop (uncancellable).
-    Marked antipattern.
-  - `slow_heartbeat`: awaits `asyncio.sleep` in short steps and heartbeats between them, the correct way to hold a slot for legit long work (not an antipattern).
-  - `stuck_no_heartbeat`: awaits a long `asyncio.sleep` while the workflow sets a `heartbeat_timeout` it never satisfies, so it trips the heartbeat timeout.
-    Marked antipattern (claims long-running work without heartbeating).
-  - `block` and `slow` carry over.
-- Bystander (unrelated) workflows sharing the worker, both correct and neither labeled:
-  - `OrderReceiptWorkflow` (exists): instant, no network.
-    Stalls during a freeze, starves during exhaustion.
-  - A short-work, no-network bystander (about five seconds of cooperative `asyncio.sleep` simulating in-memory work): caught in-flight by a freeze (trips `start_to_close`, then fails with `ScheduleToClose` caused by `StartToClose`) and starved during exhaustion.
-    A starved run reports the `ScheduleToStart` label, because with `schedule_to_start` unset the server copies `schedule_to_close` into it and the two timers share one deadline.
-    This bystander is what makes a freeze produce cross-type activity-timeout failures rather than only stalls.
-- A schedule-to-start sample: one workflow or scenario whose activity sets a short `schedule_to_start_timeout` (marked antipattern, the rare routing use case) so that specific timeout fires and the `temporal_activity_schedule_to_start_latency` metric is shown climbing.
-- `workflow.py`: the geo workflow drives every mode; where a mode needs a `heartbeat_timeout` (slow_heartbeat, stuck_no_heartbeat), the workflow sets it per that mode.
-  Geo activity `start_to_close` is tuned generous enough that the `slow` and `slow_heartbeat` hoggers hold their slots for the full duration (live-verified), while the freeze modes still trip an in-flight short-work bystander's `start_to_close` (the freeze recipes' healthy geo finishes before the bad run is submitted, so the short-work bystander is what carries the cross-type blast radius).
-- `worker.py`: register all workflow types and activities; the `max_concurrent_activities=2` mistuning and the metrics endpoint stay.
-- `starter.py`: extend `--mode` to the full set; ensure the fleet mix (bad geo plus instant and short-work bystanders) and submission ordering make each scenario's timeouts fire deterministically.
-  A `Fleet` value and `select_scenario` route every bystander kind (healthy geo, receipts, rollups, quotes) into the freeze or saturation ordering, so no requested run is dropped.
-  The freeze path submits rollups and the healthy geo first and awaits the healthy geo, so the rollups are in flight when the freeze lands and the healthy geo has already finished.
-  It then submits the bad run, waits until the server reports the bad run's second activity (`get_location`) STARTED plus a 1-second guard, and only then submits the instant bystanders, so they stall through the final freeze.
-  Keep the `os._exit(0)` workaround.
-- `justfile`: one recipe per scenario (below).
+The package layout under `src/temporal_async_debug/` is the one described under Foundation.
+This phase does not change its behavior.
+It is what part 1 of the series baselines, what the root README's lessons quote, and the source each `practice/` copy is trimmed from.
 
-No web UI; the CLI starter plus the Temporal Web UI (localhost:8233) and the metrics endpoint cover the interaction surface.
+### Exercises
+
+```text
+exercises/
+  01-blocking-call/          README.md  practice/  solution/
+  02-cpu-bound/              README.md  practice/  solution/
+  03-slot-exhaustion/        README.md  practice/  solution/
+  04-missing-heartbeat/      README.md  practice/  solution/
+  05-timeouts-and-retries/   README.md  practice/  solution/
+```
+
+Each `practice/` and `solution/` directory is a flat, standalone copy in the 102 shape: `shared.py`, `activities.py`, `workflow.py`, `receipt.py`, `rollup.py`, `quote.py`, `worker.py`, `starter.py`, and `tests/`.
+It runs from its own directory with `uv run python worker.py` and `uv run python starter.py ...`, using the root project's virtual environment (the root `pyproject.toml` is the only one; copies are scripts, not packages).
+A copy carries only the modes its exercise uses (decision: 01 `block`; 02 `cpu`; 03 `slow` and `slow_heartbeat`; 04 `stuck_no_heartbeat`; 05 `stuck_no_heartbeat` plus the quote; confirm at review), the full bystander fleet, and the starter's freeze or saturation ordering for those modes.
+`practice/` keeps the antipattern markers for its bug and adds `# TODO PART X:` comments at every line the README asks the reader to change, including a `TODO` test stub in `tests/`.
+`solution/` is the completed copy: no antipattern, no marker, the reader's test implemented and green.
+
+The per-exercise fixes, following Temporal's sync-versus-async guidance:
+
+- 01-blocking-call: `get_ip` and `get_location` become plain `def` Activities using httpx's synchronous client; `worker.py` passes `activity_executor=ThreadPoolExecutor(max_workers=...)` sized to `max_concurrent_activities`; the `time.sleep` stand-in stays in place and no longer freezes the loop because it runs on a pool thread.
+- 02-cpu-bound: the same `def` plus executor change; the busy loop runs on a pool thread, so the loop stays live while `top` still shows the process near 100 percent (the GIL bounds throughput).
+  The exercise's last part starts a second Worker process and re-runs the fleet, showing CPU-bound work scaling by Worker processes (decision: confirm at review once captured).
+- 03-slot-exhaustion: `worker.py` raises `max_concurrent_activities` from 2 to 8 (decision: 8 covers the seven concurrent Activities of the `slow` fleet with headroom; confirm at review); the Activity code is untouched, and the exercise's rule-out part runs `slow_heartbeat` first to show that correct code saturates the undersized Worker the same way.
+- 04-missing-heartbeat: the stuck branch gains the stepped `asyncio.sleep` plus `activity.heartbeat` loop (the shape the root package's `slow_heartbeat` already has), under the existing 10-second `heartbeat_timeout`.
+- 05-timeouts-and-retries: `workflow.py` drops `RetryPolicy(maximum_attempts=1)` so the geo Activities keep the default retry policy; the quote's `schedule_to_start_timeout` stays, explained as the legitimate case.
+  Verification is a `stuck`-mode run that shows attempt 2, 3, and onward in the history after each `Heartbeat` timeout, ending in the `ScheduleToClose` failure when the 150-second `schedule_to_close` runs out (about 150 seconds of wall time), together with the quote behaving as in the root catalog.
+
+### Observability
+
+```text
+observability/
+  docker-compose.yml         Prometheus and Grafana only, docker-compose v1 syntax, host networking on Linux
+  prometheus.yml             scrapes 127.0.0.1:9464 (SDK) and 127.0.0.1:9465 (dev server)
+  grafana/provisioning/      datasource (Prometheus) and dashboard provider
+  grafana/dashboards/        one provisioned dashboard JSON
+```
+
+`just server` becomes `temporal server start-dev --metrics-port 9465` (decision: 9465 sits next to the SDK's 9464 and collides with nothing the demo uses; confirm at review).
+`just metrics` runs `docker-compose -f observability/docker-compose.yml up -d`; `just metrics-down` tears it down.
+Grafana serves on `localhost:3000` with anonymous viewer access and the dashboard provisioned at startup; Prometheus serves on `localhost:9090`.
+The dashboard's panels: `temporal_worker_task_slots_available` and `temporal_worker_task_slots_used` by `worker_type`, `temporal_activity_schedule_to_start_latency` (sum and count, and the rate), `temporal_activity_execution_latency`, and the dev server's Task Queue backlog count and age by task queue (metric names confirmed against the live `/metrics` output during the build; the assumption is that `start-dev` exports the matching-service backlog gauges, and if it does not, the backlog panel is dropped and the README says so).
+The compose file defines exactly two services, `prometheus` and `grafana`; a test asserts that.
+
+### Documentation
+
+```text
+docs/
+  drafts/
+    README.md                    what each file is, the venue note, the provenance of the original draft
+    tutorial-original-draft.md   unchanged, provenance only
+    part-1-healthy-worker.md
+    part-2-blocking-call.md
+    part-3-cpu-bound.md
+    part-4-slot-exhaustion.md
+    part-5-missing-heartbeat.md
+    part-6-timeouts-and-retries.md
+    output/                      the tutorial-writing skill's working files (outline, sections), gitignored
+  images/                        Grafana screenshots (PNG), named <exercise>-<state>-<panel>.png
+```
+
+The root `README.md` keeps its lessons and gains an "Exercises" table in the 102 root-README shape (directory, exercise link) and an "Observability" section (what `just metrics` starts, the dashboard, the dev server port).
+`CLAUDE.md` gains the exercises and observability layout and the solution-copy carve-out.
 
 ## Behavior requirements (scenario catalog)
 
@@ -239,6 +318,33 @@ Exact durations and timeout values are tuned against live runs; the required beh
   The marker string is fixed and greppable; the tutorial references it, and it labels the bad pattern for any human or automated system that ingests the file without the README.
   The README and the GitHub repo description both state that the repo contains deliberately broken code for educational purposes.
 
+## Exercise requirements
+
+Each exercise's `practice/` copy reproduces the catalog behavior for its modes exactly as the Behavior requirements describe it, from its own directory.
+Each `solution/` copy produces the after-state below, and both states are captured fresh from the copy (tool output, starter output, `temporal workflow show` histories, and Grafana screenshots), so every quoted block in the exercise README and the tutorial draft traces to a file for that exercise.
+
+- 01-blocking-call, after the fix: the `block` fleet completes with no timeouts and no stalls; the rollup completes; `asyncio ps` shows the Activity poller and housekeeping tasks parked and no task dead-ended; `py-spy dump` shows the main thread idle in `select` and the `time.sleep` frame on an executor thread; the process stays in state `S`; the slots gauge returns to 2 when the run ends.
+- 02-cpu-bound, after the fix: the `cpu` fleet completes with no timeouts; the loop stays live (bystanders complete while the busy loop runs); `py-spy dump` shows the busy loop on an executor thread holding the GIL and the main thread idle; `top` still shows the process near 100 percent.
+  With a second Worker process started, two `cpu` runs progress at the same time with the combined CPU above 100 percent (decision: confirm at review from the capture).
+- 03-slot-exhaustion, after the fix: the `slow` fleet completes with no `ScheduleToStart` failures; the quote, receipts, and rollup finish in their normal times; the backlog age stays near zero; the slots gauge reads 6 free of 8 while the two hogging runs hold their slots.
+  The rule-out part (run before the fix, with `slow_heartbeat`) reproduces the catalog's `slow_heartbeat` behavior.
+- 04-missing-heartbeat, after the fix: the formerly stuck run completes after its full delay with heartbeats recorded; no `Heartbeat` timeout; the healthy geo alongside completes; the history shows a single attempt.
+- 05-timeouts-and-retries, after the fix: a `stuck` run shows the retry policy at work in `temporal workflow show` (attempt counter rising, one `Heartbeat` timeout per attempt, backoff between attempts) and fails at the 150-second `schedule_to_close` with a `ScheduleToClose` failure whose cause is the last attempt's `Heartbeat` timeout; the exercise text names this as the retry policy doing its job on an Activity that can never succeed, and points back to 04 for the fix that makes it succeed.
+  The quote's behavior is unchanged from the catalog: it fails first under saturation and completes under a freeze.
+- Each exercise README follows the 102 structure: title "Exercise N: <Doing the thing>", "During this exercise, you will" bullets, the `practice`/`solution` note, a prerequisites section pointing at the root README's setup and at `just metrics`, Parts A through E (run it; read the failure in the tooling and the dashboard; find the bug; write the test and fix it; redeploy and verify), and the closing "### This is the end of the exercise." line.
+- Each reader-written test in Part D is one of: for 01 and 02, the probe test pattern from the root suite (a 50 ms ticker beside the Activity is not starved); for 03, a `build_worker` assertion on the new slot count; for 04, an `ActivityEnvironment` run asserting more than one heartbeat; for 05, a history-based assertion that `ActivityTaskScheduled` carries no `maximumAttempts` of 1.
+  `practice/tests/` holds the stub with a `TODO PART D` comment; `solution/tests/` holds it implemented.
+
+## Observability requirements
+
+- `just metrics` brings up Prometheus and Grafana with one command on a machine that has `docker` and `docker-compose` v1; `just metrics-down` removes them.
+  The compose file defines exactly the two services and no Temporal server.
+- Prometheus scrapes the SDK endpoint on 127.0.0.1:9464 and the dev server endpoint on 127.0.0.1:9465 every 5 seconds, so a 30-second scenario produces at least six points per series.
+- The dashboard is provisioned from the repo at Grafana startup; no manual import.
+  Its panels are the ones listed under Architecture, and each exercise README and tutorial part names the panel the reader looks at and what it shows for the before and after states.
+- `just server` passes `--metrics-port 9465`; the root README's quickstart says so and says why.
+- Screenshots under `docs/images/` are PNG, with descriptive alt text where they are embedded, one per exercise state at minimum (before and after) plus the healthy baseline.
+
 ## Test requirements
 
 Tests must not require a running Temporal server unless using the SDK's own test facilities.
@@ -252,24 +358,64 @@ Tests must not require a running Temporal server unless using the SDK's own test
 - `build_worker(client)` coverage: a test builds the worker and asserts the `max_concurrent_activities=2` mistuning and the full workflow and activity registration.
 - Constant pins: tests pin the timeout constants and their relationships (for example the rollup's 5-second default work fits inside its `start_to_close` with a freeze margin, and `HTTP_TIMEOUT_SECONDS` of 4.0 fits inside the heartbeat timeout).
 - Starter tests cover `fleet_from_args` and `select_scenario` routing every bystander kind into its mode family, and the freeze and saturation submission orders.
-- The live failure signatures (cross-type blast radius, slot timing, CPU pinning, heartbeat and schedule-to-start timeouts) are demonstrated live in the tutorial and verified during the build, not asserted in CI.
-- The full gate is `just check` (ruff check, ruff format --check, mypy strict, pytest); pytest alone is the autonomous-run verification command.
+- Exercise gate: every `exercises/*/solution/` copy passes ruff, ruff format, mypy strict, and its own `tests/` under `just check`, run per directory so the near-identical module names in different copies never share one mypy or pytest invocation (decision: a `just` loop over the solution directories with `uv run mypy <dir>` and `uv run pytest <dir>/tests`, and the root pytest configuration excludes `exercises/`; confirm at review).
+  `practice/` copies are excluded from the gate because they carry the deliberate bug and the reader's unimplemented test; a lighter `just check-practice` runs ruff and mypy on them so they at least parse and type-check.
+- Solution-copy tests include the reader's Part D test for that exercise and the probe test for 01 and 02 showing the `def` Activities on the executor do not starve the loop.
+- Observability config tests: `prometheus.yml` parses and names exactly the two scrape targets on ports 9464 and 9465; the compose file parses and defines exactly the services `prometheus` and `grafana` with no image whose name contains `temporal`; the dashboard JSON parses and every panel expression references a metric from the allowed list.
+- The live failure signatures (cross-type blast radius, slot timing, CPU pinning, heartbeat and schedule-to-start timeouts) and the after-fix states are demonstrated live and captured during the build, not asserted in CI.
+- The full gate is `just check` (ruff check, ruff format --check, mypy strict, pytest, the solution-copy loop, the observability config tests); pytest alone is the autonomous-run verification command.
 
 ## Documentation requirements
 
-- README: what the repo demonstrates, quickstart (three terminals: `just server`, `just worker`, then a scenario recipe), and one lesson per scenario in the catalog (frozen loop blocking, frozen loop CPU, slot exhaustion, correct long activity, heartbeat timeout, schedule-to-start), each with the expected healthy-versus-broken shapes for `asyncio ps` / `pstree` (the frozen-loop shape: one task dead-ended at the SDK handler, the rest parked at awaits), CPU, `py-spy dump` (the exact blocking line), and the metrics, with the cross-type blast radius called out.
+- README: what the repo demonstrates, quickstart (three terminals: `just server`, `just worker`, then a scenario recipe, plus `just metrics` for the dashboard), and one lesson per scenario in the catalog (frozen loop blocking, frozen loop CPU, slot exhaustion, correct long activity, heartbeat timeout, schedule-to-start), each with the expected healthy-versus-broken shapes for `asyncio ps` / `pstree` (the frozen-loop shape: one task dead-ended at the SDK handler, the rest parked at awaits), CPU, `py-spy dump` (the exact blocking line), and the metrics, with the cross-type blast radius called out.
+- README additions for this phase: an "Exercises" table in the 102 root-README shape linking each `exercises/<NN-name>/README.md`, an "Observability" section (what `just metrics` starts, where the dashboard is, the dev server metrics port and why `just server` sets it), and the series title with a `TODO` link.
 - The two-tool framing stated plainly: `asyncio ps` / `pstree` identify the frozen loop and which task is wedged with zero instrumentation; `py-spy dump` names the exact file and line, because a task stuck in synchronous code is not at an await and so its frames are off the asyncio stack.
 - A summary table or section mapping each mode to the timeout it trips and the tool signature that identifies it.
 - `maximum_attempts=1` documented correctly: set only on the geo activities, with the at-most-one-dispatch versus idempotency lesson.
 - Platform gotchas (including that `py-spy` and `asyncio ps` both need `ptrace_scope=0` or sudo on Linux), the realistic-timeouts framing (`start_to_close` / `schedule_to_close` as the SLA, the `task-queue describe` backlog age, read together with a healthy `asyncio ps` shape, as the saturation tell, with `temporal_activity_schedule_to_start_latency` as a lagging confirmation), and a tutorial link placeholder.
-- README prose follows the repo owner's writing rules: no em-dashes, one sentence per line in committed Markdown.
-- Update CLAUDE.md's architecture section to the catalog's module and mode layout.
+- Exercise READMEs: five, in the 102 structure described under Exercise requirements, quoting only that exercise's captures, with the Grafana panel named in the observe and verify parts.
+- Tutorial drafts: six, under `docs/drafts/`, written with the content-design:tutorial-writing skill from the exercise READMEs and the captures (Title H1, Introduction H3, Prerequisites H2, "Step N: Gerund phrase" H2, Conclusion H2; sentence case; second person; code sandwich; Temporal primitives capitalized), each linking the previous and next parts with `TODO` placeholders, each Vale-clean (MasonBase plus MasonTechnical) and passed through `/review-content`.
+  Part 1 covers install, `ptrace_scope`, `just server`, `just worker`, `just metrics`, `just healthy`, and the baseline readings including the dashboard; parts 2 to 6 follow exercises 01 to 05 and end with the reader's fix and its verification.
+  The series title is "Debugging blocking calls in Temporal async Activities".
+  Drafts carry no frontmatter.
+- `docs/drafts/README.md` lists the six drafts, keeps the provenance note on the original draft, and keeps the venue as not yet chosen.
+- README and draft prose follows the repo owner's writing rules: no em-dashes, one sentence per line in committed Markdown.
+- Update CLAUDE.md to the three-layer layout (root catalog, exercises, observability), the solution-copy carve-out, and the new `just` recipes.
 - MIT license (already present).
 
 ## Non-goals
 
-- No detection library, watchdog, linter, or any maintained tooling; diagnosis uses read-only introspection the reader runs (native `asyncio ps` / `pstree`, plus `py-spy dump` to reveal the exact line), never tooling this repo builds or ships.
-- No Flask or web front end; the Temporal Web UI and the metrics endpoint are the visual layer.
-- No CI beyond the canonical application CI workflow (single pinned Python 3.14, `just check`, pip-audit, dependabot); no Docker (the metrics endpoint is served in-process by the SDK).
+- No detection library, watchdog, linter, or any maintained tooling; diagnosis uses read-only introspection the reader runs (native `asyncio ps` / `pstree`, plus `py-spy dump` to reveal the exact line) and the Prometheus and Grafana stack, never tooling this repo builds or ships.
+- No Flask or web front end; the Temporal Web UI, the metrics endpoint, and the Grafana dashboard are the visual layer.
+- No CI beyond the canonical application CI workflow (single pinned Python 3.14, `just check`, pip-audit, dependabot); CI does not start containers, run the dev server, or take captures.
+- No Temporal server in a container, no self-hosted cluster, and no Temporal Cloud; `temporal server start-dev` is the only server.
+- No log shipping or tracing (Loki, OpenTelemetry); the stack is metrics only.
+- No `fixed` modes, flags, or patch files in the root package; the fixed code lives only in `solution/` copies.
 - No support for Python older than 3.14.
 - No lab mode in this arc (see the Deferred list under Roadmap / phase log).
+
+## Component boundaries
+
+- Exercise copies (`exercises/<NN-name>/{practice,solution}/`): input is the root package at the start of the phase; output is a standalone flat copy trimmed to the exercise's modes, with `TODO PART X` markers in `practice/` and the fix in `solution/`.
+  Owns its own `tests/`.
+  Depends on nothing outside the root virtual environment.
+- Exercise READMEs (`exercises/<NN-name>/README.md`): input is the exercise's captures; output is the 102-structure instructions.
+  Depends on the captures existing.
+- Observability stack (`observability/`): input is the two metrics endpoints; output is a provisioned dashboard.
+  Owns the compose file, scrape config, provisioning, and dashboard JSON, plus their config tests.
+  Depends on `just server` exposing port 9465.
+- Captures (scratchpad during the build, trimmed into the READMEs, drafts, and `docs/images/`): input is each copy's before and after runs with the stack up; output is the quoted blocks and screenshots, with the trims disclosed in the root README's "About the captured output" section.
+  Depends on the exercise copies and the stack.
+- Tutorial drafts (`docs/drafts/part-N-*.md`): input is the exercise READMEs and the captures; output is the six drafts and the Vale and copy-editor passes.
+  Depends on every capture and README being final.
+- Root docs (`README.md`, `CLAUDE.md`, `docs/drafts/README.md`): input is the finished layout; output is the exercises table, observability section, and architecture refresh.
+- Gate (`justfile`, `pyproject.toml`): input is the solution copies and config files; output is `just check` covering them and `just check-practice` covering the practice copies lightly.
+
+## Success criteria
+
+- `just check` is green with the solution-copy loop and the observability config tests included, and `just check-practice` is green.
+- Each exercise runs from its own directory: the `practice/` copy reproduces its catalog failure, and the `solution/` copy produces its after-state, both captured and quoted.
+- `just metrics` brings up the dashboard on a machine with `docker-compose` v1, with both scrape targets up and every panel populated during a scenario.
+- Five exercise READMEs and six tutorial drafts exist, quote only captures of their own exercise, pass Vale, and have been through `/review-content`.
+- The root README and CLAUDE.md describe the three-layer layout, and `grep -rn "ANTIPATTERN (deliberate, for teaching)" exercises/*/solution` returns nothing.
+- The phase ships as commits on a feature branch against `main`, with a session summary per commit.
