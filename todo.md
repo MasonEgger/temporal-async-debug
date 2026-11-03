@@ -106,14 +106,14 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 9: Exercise 05 Catching Blockers Early
 
-- [ ] 1. RED: create solution/ flat copy; async def get_location with a synchronous JSON round trip of a generated payload (200-500 ms) on the loop, the starter submitting receipts during the serialization so their delay is reproducible; solution/tests/test_probe_all_activities.py parametrized over every registered async def activity, failing against the on-loop serialization
-- [ ] 2. Document: module docstring on solution activities.py (serialization off the loop; probe test as the regression guard)
-- [ ] 3. GREEN: move the serialization off the loop (to_thread or def+executor, whichever keeps the probe green); no marker; grep clean
-- [ ] 4. Create practice/: synchronous serialization on the loop (marker kept), `# TODO PART C:` at the serialization line, test_probe_all_activities.py stub with `# TODO PART D:`
-- [ ] 5. Integrate into the gate: solution green (incl. parametrized probe), practice green
-- [ ] 6. REFACTOR: keep the diff to the serialization line and the TODO comment
-- [ ] 7. Docs: none
-- [ ] 8. Verify: parametrized probe fails if the serialization moves back onto the loop, revert; `grep -rn "ANTIPATTERN (deliberate, for teaching)" exercises/*/solution` empty across all five; run `just check` and `just check-practice`
+- [x] 1. RED: create solution/ flat copy; async def get_location with a synchronous JSON round trip of a generated payload (200-500 ms) on the loop, the starter submitting receipts during the serialization so their delay is reproducible; solution/tests/test_probe_all_activities.py parametrized over every registered async def activity, failing against the on-loop serialization
+- [x] 2. Document: module docstring on solution activities.py (serialization off the loop; probe test as the regression guard)
+- [x] 3. GREEN: move the serialization off the loop (to_thread or def+executor, whichever keeps the probe green); no marker; grep clean
+- [x] 4. Create practice/: synchronous serialization on the loop (marker kept), `# TODO PART C:` at the serialization line, test_probe_all_activities.py stub with `# TODO PART D:`
+- [x] 5. Integrate into the gate: solution green (incl. parametrized probe), practice green
+- [x] 6. REFACTOR: keep the diff to the serialization line and the TODO comment
+- [x] 7. Docs: none
+- [x] 8. Verify: parametrized probe fails if the serialization moves back onto the loop, revert; `grep -rn "ANTIPATTERN (deliberate, for teaching)" exercises/*/solution` empty across all five; run `just check` and `just check-practice`
 
 ## Section 5: Live Captures
 
