@@ -27,12 +27,14 @@ packages = ["src/temporal_async_debug"]
 
 [tool.ruff]
 line-length = 120
+extend-exclude = ["exercises"]
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "N", "UP", "B", "SIM", "C4", "TC"]
 
 [tool.mypy]
 strict = true
+exclude = ["(^|/)exercises/"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

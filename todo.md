@@ -52,11 +52,11 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 4: The Per-Directory Solution Gate And Practice Lint Pass (task)
 
-- [ ] 1. Scope defined (justfile + pyproject edit; root gate excludes exercises/, per-dir loops, no-op when empty)
-- [ ] 2. Tooling: python:python (pyproject config shape)
-- [ ] 3. Do: exclude exercises/ from root ruff/mypy/pytest; `just check` loops solution dirs (ruff, ruff format, mypy, pytest) fail-fast and no-op when empty; `just check-practice` loops practice dirs (ruff, mypy)
-- [ ] 4. Verify: `just check` exit 0 with no exercises present; `just check-practice` exit 0; check-practice in `just --list`
-- [ ] 5. Document: none (CLAUDE.md gate description is Step 13)
+- [x] 1. Scope defined (justfile + pyproject edit; root gate excludes exercises/, per-dir loops, no-op when empty)
+- [x] 2. Tooling: python:python (pyproject config shape)
+- [x] 3. Do: exclude exercises/ from root ruff/mypy/pytest; `just check` loops solution dirs (ruff, ruff format, mypy, pytest) fail-fast and no-op when empty; `just check-practice` loops practice dirs (ruff, mypy)
+- [x] 4. Verify: `just check` exit 0 with no exercises present; `just check-practice` exit 0; check-practice in `just --list`
+- [x] 5. Document: none (CLAUDE.md gate description is Step 13)
 
 ## Section 4: The Five Exercises
 

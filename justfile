@@ -9,6 +9,34 @@ check:
     uv run ruff format --check .
     uv run mypy .
     uv run pytest
+    just check-solutions
+
+# Gate every exercises/*/solution copy in its own directory (flat imports, shared module names), failing fast; no-op when none exist
+# Isolation: each check runs from inside the copy, so the copy's own directory is first on sys.path (python -m prepends the cwd; pythonpath is pinned to that same absolute directory because a relative value would resolve against the repo-root config file)
+check-solutions:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    root=$(pwd)
+    for dir in exercises/*/solution; do
+        [ -d "$dir" ] || continue
+        echo "== solution gate: $dir"
+        uv run ruff check "$dir"
+        uv run ruff format --check "$dir"
+        (cd "$dir" && uv run --project "$root" mypy --config-file "$root/pyproject.toml" .)
+        (cd "$dir" && uv run --project "$root" python -m pytest -o pythonpath="$PWD" -o testpaths=tests --rootdir . tests)
+    done
+
+# Lint and type-check every exercises/*/practice copy (ruff and mypy only; practice carries the bug and an unimplemented test); no-op when none exist
+check-practice:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    root=$(pwd)
+    for dir in exercises/*/practice; do
+        [ -d "$dir" ] || continue
+        echo "== practice gate: $dir"
+        uv run ruff check "$dir"
+        (cd "$dir" && uv run --project "$root" mypy --config-file "$root/pyproject.toml" .)
+    done
 
 fmt:
     uv run ruff format .
