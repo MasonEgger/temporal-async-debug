@@ -2,6 +2,7 @@
 
 ## Recent
 
+- An `async def` activity that `time.sleep`s in a loop without ever awaiting produces one Heartbeat timeout plus a zombie that holds the loop until it finishes, not a retry storm, because the retry cannot run Python until the loop thaws; reasoning about retry timing on a frozen loop needs a live capture (it was wrong here in spec.md and plan.md) (2026-11-03)
 - For exercise copies, an optional info finding forwarded to a fix pass can widen a deliberately minimal practice-to-solution diff (an executor-lifecycle change touched the Part D lines); keep info findings out of fix passes unless they protect that diff (2026-11-03)
 - pytest resolves a relative `pythonpath` ini value against the config file's directory, not the cwd, so a per-directory run from a subdirectory with `-o pythonpath=.` put the repo root on every copy's sys.path; pass an absolute path (`-o pythonpath="$PWD"`) inside the cd subshell to keep the repo root off it. Proved with throwaway two-copy probes (2026-11-03)
 - A config test that must assert "exactly these values and nothing else" should scan for every token of the value's shape across the whole file rather than parse structure with regexes; structural regex parsing failed open across two validator rounds (2026-11-03)
@@ -28,6 +29,7 @@
 
 ## Temporal
 
+- An `async def` activity that `time.sleep`s in a loop without ever awaiting produces one Heartbeat timeout plus a zombie that holds the loop until it finishes, not a retry storm, because the retry cannot run Python until the loop thaws; reasoning about retry timing on a frozen loop needs a live capture (it was wrong here in spec.md and plan.md) (2026-11-03)
 - In the Python SDK, `activity.heartbeat()` inside an `async def` Activity schedules an asyncio task to send the heartbeat, so a heartbeat recorded right before `time.sleep` cannot leave the Worker until the sleep ends; the "time.sleep between heartbeats" bug therefore only trips the heartbeat timeout when one sleep exceeds it, and the one-line `await asyncio.sleep(same_interval)` is not a fix (still no heartbeat for that long). The fix is awaited short ticks with a heartbeat per tick. Reasoned from the SDK, to be confirmed by the Step 10 capture (2026-11-03)
 - When a demo workflow runs several activities that each block the loop, the loop is live for only ~100ms between them, so anything released at an intermediate thaw can race the re-freeze; gate on the LAST freezing activity reporting STARTED (describe()'s pending_activities carries activity_type and state), not the first (2026-10-07)
 - To demo slot exhaustion without a race, fill the slots first and confirm it: submit the slot-holders, poll temporal_worker_task_slots_available until the ActivityWorker gauge reads 0, then submit the work that should starve, so it fails on schedule_to_start every run (2026-09-18)

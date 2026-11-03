@@ -73,14 +73,14 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 6: Exercise 02 Sleep Between Heartbeats
 
-- [ ] 1. RED: create solution/ flat copy; poll loop over a slow job keyed on the workflow run id, waiting in awaited 1-second ticks with activity.heartbeat() per tick, under a fixed heartbeat_timeout (5 s) shorter than the poll interval (8 s); solution/tests/test_heartbeat.py asserting heartbeat count >= 2 within one poll wait AND an unstarved probe, failing against the time.sleep loop
-- [ ] 2. Document: module docstring on solution activities.py (awaited short-tick wait with a heartbeat per tick, so heartbeats flush and cancellation lands)
-- [ ] 3. GREEN: replace the single time.sleep(poll_interval) with the awaited tick loop; keep activity async; remove marker; grep clean
-- [ ] 4. Create practice/: one heartbeat then time.sleep(poll_interval) per poll (marker kept, explaining the frozen heartbeat task and the uncancellable sleep), `# TODO PART C:` at the time.sleep line, test_heartbeat.py stub with `# TODO PART D:`
-- [ ] 5. Integrate into the gate: solution green (incl. heartbeat+probe), practice green
-- [ ] 6. REFACTOR: keep the diff to the wait (one sleep line becomes the tick loop) and the TODO comment
-- [ ] 7. Docs: none
-- [ ] 8. Verify: test fails if reverted to the single time.sleep, revert, run `just check` and `just check-practice`
+- [x] 1. RED: create solution/ flat copy; poll loop over a slow job keyed on the workflow run id, waiting in awaited 1-second ticks with activity.heartbeat() per tick, under a fixed heartbeat_timeout (5 s) shorter than the poll interval (8 s); solution/tests/test_heartbeat.py asserting heartbeat count >= 2 within one poll wait AND an unstarved probe, failing against the time.sleep loop
+- [x] 2. Document: module docstring on solution activities.py (awaited short-tick wait with a heartbeat per tick, so heartbeats flush and cancellation lands)
+- [x] 3. GREEN: replace the single time.sleep(poll_interval) with the awaited tick loop; keep activity async; remove marker; grep clean
+- [x] 4. Create practice/: one heartbeat then time.sleep(poll_interval) per poll (marker kept, explaining the frozen heartbeat task and the uncancellable sleep), `# TODO PART C:` at the time.sleep line, test_heartbeat.py stub with `# TODO PART D:`
+- [x] 5. Integrate into the gate: solution green (incl. heartbeat+probe), practice green
+- [x] 6. REFACTOR: keep the diff to the wait (one sleep line becomes the tick loop) and the TODO comment
+- [x] 7. Docs: none
+- [x] 8. Verify: test fails if reverted to the single time.sleep, revert, run `just check` and `just check-practice`
 
 ### Step 7: Exercise 03 CPU Bound
 
