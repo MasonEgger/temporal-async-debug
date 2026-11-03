@@ -78,7 +78,15 @@ lint-keyboard *files:
 
 # Start the local Temporal dev server (leave running in its own terminal)
 server:
-    temporal server start-dev
+    temporal server start-dev --metrics-port 9465
+
+# Bring up the Prometheus and Grafana stack in the background (docker-compose v1)
+metrics:
+    docker-compose -f observability/docker-compose.yml up -d
+
+# Tear down the Prometheus and Grafana stack
+metrics-down:
+    docker-compose -f observability/docker-compose.yml down
 
 # Start the demo worker (prints its PID for asyncio introspection)
 worker:

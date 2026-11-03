@@ -42,11 +42,11 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 3: Metrics And Server Just Recipes (task)
 
-- [ ] 1. Scope defined (justfile edit: server --metrics-port 9465, metrics, metrics-down)
-- [ ] 2. Tooling: none (just, docker-compose v1)
-- [ ] 3. Do: server appends --metrics-port 9465; metrics up -d; metrics-down down; default stays first
-- [ ] 4. Verify: bare `just` lists recipes, `just --list` shows the three, `just check` exits 0
-- [ ] 5. Document: none (README section is Step 13)
+- [x] 1. Scope defined (justfile edit: server --metrics-port 9465, metrics, metrics-down)
+- [x] 2. Tooling: none (just, docker-compose v1)
+- [x] 3. Do: server appends --metrics-port 9465; metrics up -d; metrics-down down; default stays first
+- [x] 4. Verify: bare `just` lists recipes, `just --list` shows the three, `just check` exits 0
+- [x] 5. Document: none (README section is Step 13)
 
 ## Section 3: Exercise Gate Harness
 
