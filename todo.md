@@ -95,14 +95,14 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 8: Exercise 04 Zombie Thread
 
-- [ ] 1. RED: create exercises/04-zombie-thread/solution/ flat copy; solution/tests/test_cancel_stops_work.py (ActivityEnvironment cancel: work stops at next heartbeat) + build_worker assertion that executor max_workers >= max_concurrent_activities; failing against the to_thread-no-heartbeat shape and unsized executor
-- [ ] 2. Document: module docstrings on solution activities.py and worker.py (def activity + sized executor + heartbeat-from-thread so cancel reaches the work)
-- [ ] 3. GREEN: def geo activities that heartbeat from their own thread and catch CancelledError; worker activity_executor sized to max_concurrent_activities; no marker; grep clean
-- [ ] 4. Create practice/: the shipped-first state (async def + asyncio.to_thread, heartbeat_timeout, no heartbeat; marker kept, explaining why the cancel never reaches the thread so the work finishes after the failure and the retry runs it twice), `# TODO PART C:` at the to_thread line + worker executor arg, test_cancel_stops_work.py stub with `# TODO PART D:`
-- [ ] 5. Integrate into the gate: solution green (incl. cancel + executor-size), practice green
-- [ ] 6. REFACTOR: keep the diff to the activity body, the worker executor arg, and the TODO comments
-- [ ] 7. Docs: none
-- [ ] 8. Verify: cancel test fails if reverted to async to_thread no-heartbeat, revert, run `just check` and `just check-practice`
+- [x] 1. RED: create exercises/04-zombie-thread/solution/ flat copy; solution/tests/test_cancel_stops_work.py (ActivityEnvironment cancel: work stops at next heartbeat) + build_worker assertion that executor max_workers >= max_concurrent_activities; failing against the to_thread-no-heartbeat shape and unsized executor
+- [x] 2. Document: module docstrings on solution activities.py and worker.py (def activity + sized executor + heartbeat-from-thread so cancel reaches the work)
+- [x] 3. GREEN: def geo activities that heartbeat from their own thread and catch CancelledError; worker activity_executor sized to max_concurrent_activities; no marker; grep clean
+- [x] 4. Create practice/: the shipped-first state (async def + asyncio.to_thread, heartbeat_timeout, no heartbeat; marker kept, explaining why the cancel never reaches the thread so the work finishes after the failure and the retry runs it twice), `# TODO PART C:` at the to_thread line + worker executor arg, test_cancel_stops_work.py stub with `# TODO PART D:`
+- [x] 5. Integrate into the gate: solution green (incl. cancel + executor-size), practice green
+- [x] 6. REFACTOR: keep the diff to the activity body, the worker executor arg, and the TODO comments
+- [x] 7. Docs: none
+- [x] 8. Verify: cancel test fails if reverted to async to_thread no-heartbeat, revert, run `just check` and `just check-practice`
 
 ### Step 9: Exercise 05 Catching Blockers Early
 
