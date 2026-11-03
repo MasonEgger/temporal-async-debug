@@ -1,43 +1,66 @@
-# temporal-async-debug Implementation Plan (Failure-Mode Catalog)
+# temporal-async-debug Implementation Plan (Event-Loop Exercises)
 
-This plan turns the catalog target in `spec.md` into an executable, test-driven build sequence on top of the committed two-workflow foundation.
+This plan turns the `event-loop-exercises` arc in `spec.md` into an executable, test-driven build sequence.
 Each step is a literal prompt for a code-generation LLM.
 Feature steps follow RED/GREEN/REFACTOR; Task steps follow Scope/Tooling/Do/Verify/Document.
 Steps build strictly on their predecessors with no orphaned code.
 
-Read `spec.md` in full before starting; the `## Starting context` live-verified mechanics and the `## Architecture (target for the catalog)` and `## Behavior requirements (scenario catalog)` sections are the source of truth. Honor the `## Invariants`, `## Non-goals`, and `**Deferred:**` fences: no new dependencies, no role-labeled names, no lab mode / generator / game master, changes only under src/, tests/, justfile, README.md, CLAUDE.md.
+Read `spec.md` in full before starting.
+The source of truth is the `## Architecture` (Root package trim, Exercises, Observability, Documentation), `## Behavior requirements`, `## Exercise requirements`, `## Observability requirements`, `## Test requirements`, and `## Documentation requirements` sections, with the live mechanics in `## Starting context`.
+Honor the fences in `## Invariants`, `## Non-goals`, and both `**Deferred:**` lists: the whole arc is about ONE mechanism, blocking the shared asyncio event loop; no slot-exhaustion, heartbeat-tuning, timeout-tuning, schedule-to-start, or retry-policy lesson, not even as a contrast case; `temporal server start-dev` only (never a cluster, a server container, or Cloud); the compose stack holds only Prometheus and Grafana; no new Python runtime dependency; the 102 `practice`/`solution` layout; a `solution/` copy carries no antipattern and no marker; every quoted block is a capture of its own exercise; no role-labeled names; no lab mode, no alert rules, no ProcessPoolExecutor exercise, no blocking-in-Workflow exercise, no Codespaces, no committed capture script, no Web UI screenshots, no venue or frontmatter.
+
+The arc TRIMS the shipped failure-mode catalog first (Section 1), then builds the observability stack and the gate harness, then the five exercises, then captures and prose.
+The root package after the trim is what part 1 baselines and the source each exercise copy starts from.
 
 ## Current Status
 
-- [ ] Section 1: Misbehavior Modes And The Starvation Probe
-  - [ ] Step 1: Extend The Mode Set (cpu, slow_heartbeat, stuck_no_heartbeat)
-  - [ ] Step 2: Extend The Starvation Probe To cpu And slow_heartbeat
-- [ ] Section 2: Bystander Workflows
-  - [ ] Step 3: Short-Work Bystander (SalesRollupWorkflow)
-  - [ ] Step 4: Schedule-To-Start Sample (PriceQuoteWorkflow)
-- [ ] Section 3: Workflow Timeout Selection Per Mode
-  - [ ] Step 5: Per-Mode Activity Options In The Geo Workflow
-- [ ] Section 4: Worker, Starter, And Recipes
-  - [ ] Step 6: Register The Full Fleet On The Worker (task)
-  - [ ] Step 7: Extend The Starter To The Full Scenario Set
-  - [ ] Step 8: One Just Recipe Per Scenario (task)
-- [ ] Section 5: Documentation
-  - [ ] Step 9: Full README Catalog (task)
-  - [ ] Step 10: Refresh CLAUDE.md Architecture (task)
+- [ ] Section 0: Prose Tooling Pre-flight
+  - [ ] Step 0: Vale Config, Prose Lint Recipes, And The Pre-flight Gate
+- [ ] Section 1: Root Package Trim
+  - [ ] Step 1: Trim The Root Package To The Frozen-Loop Reference
+- [ ] Section 2: Observability Stack
+  - [ ] Step 2: Observability Config And Its Tests
+  - [ ] Step 3: Metrics And Server Just Recipes
+- [ ] Section 3: Exercise Gate Harness
+  - [ ] Step 4: The Per-Directory Solution Gate And Practice Lint Pass
+- [ ] Section 4: The Five Exercises
+  - [ ] Step 5: Exercise 01 Sync HTTP Client
+  - [ ] Step 6: Exercise 02 Sleep Between Heartbeats
+  - [ ] Step 7: Exercise 03 CPU Bound
+  - [ ] Step 8: Exercise 04 Zombie Thread
+  - [ ] Step 9: Exercise 05 Catching Blockers Early
+- [ ] Section 5: Live Captures
+  - [ ] Step 10: Capture Before And After For Every Exercise Plus The Baseline
+- [ ] Section 6: Exercise READMEs
+  - [ ] Step 11: Write The Five Exercise READMEs From The Captures
+- [ ] Section 7: Tutorial Series Drafts
+  - [ ] Step 12: Write The Six-Part Series Drafts
+- [ ] Section 8: Root Documentation Refresh
+  - [ ] Step 13: Root README, CLAUDE.md, And docs/drafts/README Refresh
 
-## Architecture Recap (target)
+## Architecture Recap (target for this arc)
 
-Package `src/temporal_async_debug/` (src layout, hatchling, Python 3.14+). The foundation (GeoEnrichmentWorkflow, OrderReceiptWorkflow, block/slow modes, mistuned worker, fleet starter) is committed; this plan adds the delta.
+One mechanism: blocking the shared asyncio event loop from an `async def` Activity.
+Three layers, with the root package trimmed in place and the other two new:
 
-- `shared.py`: add `VALID_MODES` (block, cpu, slow, slow_heartbeat, stuck_no_heartbeat) and the input/output dataclasses for the two new bystander workflow types.
-- `activities.py`: `_apply_mode` gains cpu (GIL-pinning busy loop, marked), slow_heartbeat (awaits in steps and heartbeats, correct, unmarked), stuck_no_heartbeat (awaits long, never heartbeats, marked). block and slow carry over.
-- `rollup.py` (new): `SalesRollupWorkflow` and `roll_up_sales`, a short (~2s) cooperative in-memory activity, correct and no network. The short-work bystander that a freeze catches in-flight.
-- `quote.py` (new): `PriceQuoteWorkflow` and `compute_quote`, a near-instant in-memory activity whose options set a short `schedule_to_start_timeout` (marked). The sample that shows schedule_to_start firing under saturation.
-- `receipt.py` (exists): `OrderReceiptWorkflow`, the instant bystander. Unchanged except worker registration.
-- `workflow.py`: `GeoEnrichmentWorkflow` selects per-mode activity options via a pure `geo_activity_options(mode)` helper: generous `start_to_close` so slow / slow_heartbeat hold their slots the full duration, `heartbeat_timeout` for slow_heartbeat and stuck_no_heartbeat, `maximum_attempts=1` (marked) throughout.
-- `worker.py`: register all four workflow types and every activity; keep `max_concurrent_activities=2` (marked) and the metrics endpoint.
-- `starter.py`: extend `--mode` to the full set, add flags for the new bystanders, and sequence submissions so each scenario's timeouts fire deterministically live.
-- `justfile`: one recipe per scenario.
+- Root package (`src/temporal_async_debug/`): trimmed to the frozen-loop reference. `block` and `cpu` modes, the healthy path, the bystander fleet (receipt, rollup), the freeze ordering with the `get_location` STARTED gate, the `os._exit(0)` teardown, the Prometheus endpoint on 127.0.0.1:9464. Everything about saturation, heartbeats, schedule-to-start, the quote, and `maximum_attempts=1` is removed. Baselined by part 1 and quoted by the root README's three lessons.
+- Exercises (`exercises/NN-name/{README.md,practice/,solution/}`): five standalone flat copies in the 102 shape, one per common way developers block the loop. A copy holds `shared.py`, `activities.py`, `workflow.py`, `receipt.py`, `rollup.py`, `worker.py`, `starter.py`, and `tests/`, plus any exercise-named file, runs from its own directory with `uv run python worker.py` and `uv run python starter.py ...` under the root virtual environment, and imports its siblings as flat top-level modules (`import shared`, resolved because the copy's own directory is on `sys.path` when run from there). `practice/` keeps the antipattern and its marker and adds `# TODO PART X:` comments at every edit point plus a `TODO PART D` test stub; `solution/` has the fix, no antipattern, no marker, and the reader's test implemented and green.
+- Observability (`observability/`): a `docker-compose` v1 stack of Prometheus and Grafana only, scraping the SDK endpoint on 127.0.0.1:9464 and the dev server endpoint on 127.0.0.1:9465, with a provisioned datasource and one provisioned dashboard.
+
+The five exercises, in order of how often Temporal users hit them (from spec Architecture; confirm the per-exercise decisions at review).
+Every exercise clears the same bar: the code's execution misbehaves in a way the reader sees without a dashboard (bystanders fail, attempts fail and retry, the same work runs twice, a bystander is visibly delayed on every run), and the Python tooling the reader runs (`python -m asyncio ps`, `pstree`, `py-spy dump`, the CPU reading, asyncio debug mode) names the cause.
+A metrics blip alone does not qualify as the bug; Grafana corroborates what the tooling found and is never the lesson.
+Each exercise presents as a mystery the reader debugs: Part A makes it misbehave, Part B reaches for the tool, and the tool points at the line.
+
+| Exercise | The bug (kept in practice, marked) | The failure the reader sees, and the tool that names it | The fix (solution, no marker) | Part D test |
+|---|---|---|---|---|
+| 01-sync-http-client | `async def` `get_ip`/`get_location` calling a synchronous `httpx.Client`; the bad run's input points at a local slow endpoint | The healthy fleet hits fast providers and completes, so nothing looks wrong (the bug hides); pointed at the local slow endpoint, the loop freezes, the in-flight rollup fails its timeout, and receipts stall until the thaw. `asyncio ps` shows one task dead-ended at the SDK handler, `py-spy dump` names the `httpx.Client` call, CPU sits near zero. | plain `def` activities on the same sync client; `worker.py` passes `activity_executor=ThreadPoolExecutor(max_workers=max_concurrent_activities)` | probe: a 50 ms ticker beside the activity is not starved |
+| 02-sleep-between-heartbeats | `async def` activity polling a slow job: `activity.heartbeat()` then `time.sleep(poll_interval)` once per poll, with `poll_interval` longer than the fixed `heartbeat_timeout` | A retry storm. The heartbeat recorded before the sleep is an asyncio task that cannot run while the loop is frozen, so the server fails the attempt on Heartbeat timeout; the cancel then has no await to land on, so the attempt keeps polling as a zombie while the default retry policy starts the next attempt beside it, which freezes the loop again. `temporal workflow show` lists attempt after attempt ending in Heartbeat timeout, the Worker log keeps printing the dead attempt's poll lines, bystanders fail in the same windows, and `py-spy dump` names the `time.sleep` line. | wait in awaited 1-second ticks with a heartbeat each tick (`activity.heartbeat()` then `await asyncio.sleep(1)` until the next poll is due), so heartbeats flush on the loop more often than the timeout and cancellation lands at the await | `ActivityEnvironment` run asserts more than one heartbeat reaches the environment during a single poll wait, and an unstarved probe beside it |
+| 03-cpu-bound | `async def` activity doing pure-Python computation that holds the GIL and pins CPU | The frozen-loop shape of 01 (dead-ended task, bystanders fail) with the one reading that separates the two causes: `top` at about 100 percent on one core where 01 sat near zero; `py-spy dump` shows the compute loop on the main thread. The work is bounded by the input's size, so a run pins one core for a fixed stretch and nothing more. | the `def` plus executor change from 01; work runs on a pool thread | probe: the 50 ms ticker is not starved |
+| 04-zombie-thread | an `async def` activity that wraps the blocker in `asyncio.to_thread(...)` under a `heartbeat_timeout` with no heartbeat, the fix most users ship first because it looks right: the loop is live and the bystanders are fine | The activity runs twice. When the server times the attempt out, the coroutine is cancelled but the detached thread keeps running to completion, and the retry starts the same work beside it; the Worker log shows the first thread finishing after its attempt already failed and the retry's work overlapping it (duplicate side effects), and `py-spy dump` shows the orphaned thread still inside the blocker after the failure. | a `def` activity on a `ThreadPoolExecutor` sized to `max_concurrent_activities` that heartbeats from its own thread, so a timeout or cancel arrives as `CancelledError` inside the thread and the work stops | `ActivityEnvironment` cancel of the `def` activity asserts the work stops at the next heartbeat; plus a `build_worker` assertion that `max_workers` >= `max_concurrent_activities` |
+| 05-catching-blockers-early | a short synchronous serialization in an `async def` activity that stalls the loop a few hundred ms on every run | Nothing times out, which is the point of this one: the blocker that has not taken anything down yet. The execution still misbehaves: every bystander dispatched into the stall waits it out, so a receipt that completes in a few milliseconds in the healthy fleet takes a few hundred on every run here, visible in `temporal workflow show` timestamps; asyncio debug mode logs the slow-callback warning naming the activity task, and `py-spy dump` confirms the serialization line. The one detection lesson in the series. | move the work off the loop | the probe test parametrized over every registered `async def` activity |
+
+All five copies carry the bystander fleet (receipt, rollup) and the starter's freeze ordering, so the cross-type blast radius reads the same way in every exercise.
 
 Antipattern marker convention (fixed, greppable), on or immediately above each offending line:
 
@@ -45,424 +68,658 @@ Antipattern marker convention (fixed, greppable), on or immediately above each o
 # ANTIPATTERN (deliberate, for teaching): <why it is wrong>. Correct: <the right approach>. Do not copy.
 ```
 
-New marked lines this arc: the cpu busy loop (Step 1), the stuck_no_heartbeat missing-heartbeat branch (Step 1), and the PriceQuote `schedule_to_start_timeout` (Step 4). Carried over from the foundation: the `time.sleep` block call, the `maximum_attempts=1` retry policy, and `max_concurrent_activities=2`. `slow_heartbeat` is correct code and carries no marker.
+`grep -rn "ANTIPATTERN (deliberate, for teaching)" exercises/*/solution` must return nothing.
 
-Proposed new workflow names (neutral, adjustable at review): `SalesRollupWorkflow` (short-work bystander) and `PriceQuoteWorkflow` (schedule-to-start sample). Both are realistic and carry no role label.
-
-## Section 1: Misbehavior Modes And The Starvation Probe
+## Section 0: Prose Tooling Pre-flight
 
 **Tools:**
-- Skills: python:python, temporal:temporal-developer
-- MCPs: mcp__temporal-docs__search_temporal_knowledge_sources
-- Linters: uv run ruff check --output-format=json ., uv run mypy .
+- Skills: content-design:style-linting
+- MCPs: none
+- Linters: just preflight
 
-### Step 1: Extend The Mode Set (cpu, slow_heartbeat, stuck_no_heartbeat)
+### Step 0: Vale Config, Prose Lint Recipes, And The Pre-flight Gate (task)
 
-**NOTE**: The foundation's `activities.py` has `_apply_mode(mode, block_seconds)` handling `block` (time.sleep, marked) and `slow` (asyncio.sleep).
-This step adds three modes.
-`slow_heartbeat` must call `activity.heartbeat` but `_apply_mode` is also called from the Temporal-free starvation probe test, so guard every heartbeat with `activity.in_activity()` (a captured lesson).
-cpu must NOT await and must NOT call time.sleep; it busy-loops on `time.monotonic()`.
-Keep the mode branch a plain, obvious `if`/`elif` chain as the spec requires.
-
-```text
-1. RED: Extend the activity-behavior tests (via temporalio.testing.ActivityEnvironment, httpx mocked with the existing respx fixtures and deterministic_rotation autouse):
-   - Modify tests/test_activities.py:
-     - Test that mode "cpu" with block_seconds > 0 busy-loops: monkeypatch time.sleep and asyncio.sleep to record calls, run get_ip with a tiny block_seconds (for example 0.05), and assert neither time.sleep nor asyncio.sleep was called with a positive delay (cpu neither sleeps nor awaits its delay) while wall-clock elapsed is at least block_seconds.
-     - Test that mode "slow_heartbeat" awaits asyncio.sleep and heartbeats more than once: set ActivityEnvironment.on_heartbeat to count calls, run get_ip with block_seconds = 0.09 (or a value that yields at least 2 steps given the step size chosen in GREEN), and assert the heartbeat count is >= 2 and asyncio.sleep was awaited.
-     - Test that mode "stuck_no_heartbeat" awaits asyncio.sleep once and never heartbeats: on_heartbeat counter stays 0, asyncio.sleep recorded with block_seconds, time.sleep never called.
-     - Test that VALID_MODES in shared.py equals the exact set {"block", "cpu", "slow", "slow_heartbeat", "stuck_no_heartbeat"}.
-   - These test our mode branching and heartbeat behavior, not asyncio or Temporal internals.
-
-2. Document component:
-   - In src/temporal_async_debug/shared.py add a module-level VALID_MODES: tuple[str, ...] (or frozenset) constant with all five mode strings and a one-line Google-style comment naming what each mode demonstrates.
-   - In src/temporal_async_debug/activities.py extend the _apply_mode docstring to describe cpu, slow_heartbeat, and stuck_no_heartbeat alongside block and slow.
-
-3. GREEN: Write MINIMAL code to make tests pass:
-   - Add VALID_MODES to shared.py.
-   - Extend _apply_mode in activities.py with three new branches (keep block and slow unchanged):
-     - cpu: compute deadline = time.monotonic() + block_seconds, then `while time.monotonic() < deadline: pass`. No await, no time.sleep. Marker on the loop line:
-       # ANTIPATTERN (deliberate, for teaching): a CPU-bound loop pins the GIL and freezes the single worker event loop; it is uncancellable so the SDK cannot reclaim the slot. Correct: run CPU-bound work in a ProcessPoolExecutor off the event loop. Do not copy.
-     - slow_heartbeat: loop the total block_seconds in fixed steps (step = 3.0 seconds, or the remaining time if smaller), awaiting asyncio.sleep(step) each iteration and, guarded by `if activity.in_activity():`, calling activity.heartbeat("slow_heartbeat progress") after each step. This is correct code; no marker.
-     - stuck_no_heartbeat: await asyncio.sleep(block_seconds) once and never heartbeat. Marker immediately above the await:
-       # ANTIPATTERN (deliberate, for teaching): this awaits long-running work but never heartbeats, so a workflow that sets heartbeat_timeout has the server cancel it mid-flight. Correct: heartbeat periodically during long work, as slow_heartbeat does. Do not copy.
-   - Ensure _apply_mode stays async and the block/slow branches are untouched.
-
-4. RED: Add an integration test:
-   - In tests/test_activities.py, run get_ip end to end under ActivityEnvironment in mode "slow_heartbeat" with a small block_seconds and assert both the mocked IP result returns AND heartbeats fired, confirming the mode composes with the real activity body.
-
-5. GREEN: Wire the branch so the integration test passes; adjust the step size only if needed to yield the asserted heartbeat count.
-
-6. REFACTOR: Keep the five-way branch flat and readable for tutorial excerpting; no behavior change to block or slow.
-
-7. Update documentation:
-   - none (README is Step 9); confirm VALID_MODES and the extended docstrings are present.
-
-8. Verify meaningful coverage of the three new mode branches, then run `just check`.
-```
-
-### Step 2: Extend The Starvation Probe To cpu And slow_heartbeat
-
-**NOTE**: The foundation's tests/test_starvation_probe.py proves block starves a 50 ms probe and slow does not.
-This step adds cpu (starves, like block) and slow_heartbeat (does not starve, like slow).
-Reuse the same probe helper.
-Pick thresholds with wide slack in one pass (a captured lesson): block/cpu against a floor well above 0.05 s, slow/slow_heartbeat well below.
-
-```text
-1. RED: Extend the probe test:
-   - Modify tests/test_starvation_probe.py:
-     - Add a cpu-mode case: run _apply_mode(mode="cpu", block_seconds=0.5) concurrently with the 50 ms probe and assert the probe misses ticks during the spin (a consecutive gap > 0.4 s).
-     - Add a slow_heartbeat case: run _apply_mode(mode="slow_heartbeat", block_seconds=0.5) concurrently with the probe and assert the probe does NOT miss ticks (every consecutive gap < 0.2 s), proving cooperative awaits keep the loop scheduling even while heartbeating.
-     - Parametrize the starving cases over ["block", "cpu"] and the non-starving cases over ["slow", "slow_heartbeat"] if it reads cleanly; otherwise keep them explicit.
-   - These assert our starvation behavior, the exact teaching claim, not asyncio scheduling in the abstract.
-
-2. Document component:
-   - Update the module docstring in tests/test_starvation_probe.py to note the two families it now proves: uncancellable freezes (block, cpu) versus cooperative waits (slow, slow_heartbeat).
-
-3. GREEN: Make the cases pass by calling the real _apply_mode from Step 1; add no new product code (slow_heartbeat's heartbeat is skipped outside an activity via the in_activity guard, so the probe test needs no worker).
-
-4. RED: Add a comparative assertion:
-   - Assert that cpu records strictly fewer probe ticks than slow_heartbeat over the same wall-clock window, making the freeze-vs-cooperative contrast a single comparison for the new pair.
-
-5. GREEN: Adjust tick counts or thresholds minimally so both new assertions hold reliably; avoid tight bounds.
-
-6. REFACTOR: Fold the four modes into the shared probe helper so block/cpu/slow/slow_heartbeat run through one code path; no product behavior change.
-
-7. Update documentation:
-   - none (README is Step 9).
-
-8. Verify the cpu case fails if the cpu branch is switched to asyncio.sleep (sanity-check the assertion has teeth), revert, then run `just check`.
-```
-
-## Section 2: Bystander Workflows
-
-**Tools:**
-- Skills: python:python, temporal:temporal-developer
-- MCPs: mcp__temporal-docs__search_temporal_knowledge_sources
-- Linters: uv run ruff check --output-format=json ., uv run mypy .
-
-### Step 3: Short-Work Bystander (SalesRollupWorkflow)
-
-**NOTE**: This is the bystander a freeze catches in-flight.
-Its one activity does a few seconds of cooperative in-memory work (no network) so that, when a freeze lands while it is running, it trips start_to_close, producing cross-type activity-timeout damage rather than only a stall.
-It is correct code and carries no marker.
-Name is neutral and adjustable; `roll_up_sales` sums an in-memory list with a short cooperative pause.
-Keep it obviously correct so the tutorial can contrast it with the geo misbehaver.
-Mirror the shape of the existing receipt.py.
-
-```text
-1. RED: Write the happy-path workflow test first (via temporalio.testing.WorkflowEnvironment.start_time_skipping):
-   - Create tests/test_rollup.py:
-     - Start a time-skipping WorkflowEnvironment, register SalesRollupWorkflow and roll_up_sales, run a Worker on shared.TASK_QUEUE, and execute SalesRollupWorkflow with SalesRollupInput(period="2026-09").
-     - Assert the returned SalesRollupOutput.summary is a non-empty string that includes the period "2026-09".
-     - Assert roll_up_sales performs no network: add an autouse forbid_network fixture (mirror tests/test_receipt.py) that monkeypatches httpx.AsyncClient.request to raise, so any accidental network call fails the test.
-   - Add a unit test that roll_up_sales, run under ActivityEnvironment with a block/pause parameter of 0.0, returns the expected computed summary for a known input, so the aggregation logic is tested directly.
-   - These test our rollup orchestration and computation, not Temporal or asyncio.
-
-2. Document component:
-   - Add a Google-style module docstring to src/temporal_async_debug/rollup.py naming this as a correct, unrelated bystander that shares the worker; docstrings on SalesRollupWorkflow and roll_up_sales.
-
-3. GREEN: Write MINIMAL code to make tests pass:
-   - Add SalesRollupInput(period: str) and SalesRollupOutput(summary: str) frozen dataclasses to src/temporal_async_debug/shared.py.
-   - Create src/temporal_async_debug/rollup.py:
-     - @activity.defn async def roll_up_sales(period: str, work_seconds: float = 2.0) -> str: compute a summary from an in-memory list of figures (a small module-level constant), awaiting asyncio.sleep(work_seconds) once to simulate the short cooperative work, then return a summary string mentioning the period and the computed total. No network, no time.sleep, no marker.
-     - @workflow.defn class SalesRollupWorkflow with @workflow.run async def run(self, args: SalesRollupInput) -> SalesRollupOutput, executing roll_up_sales with start_to_close_timeout=timedelta(seconds=10) and schedule_to_close_timeout=timedelta(seconds=20) and the default retry policy, returning SalesRollupOutput(summary=...).
-     - Use `with workflow.unsafe.imports_passed_through():` for the shared import, matching the foundation's workflow modules.
-
-4. RED: Add a concurrent integration test:
-   - In tests/test_rollup.py, run several SalesRollupWorkflow executions concurrently under one time-skipping environment and assert all complete with their distinct periods reflected, confirming the bystander path is independent and correct.
-
-5. GREEN: Wire the workflow so the concurrent test passes; change nothing else.
-
-6. REFACTOR: Keep rollup.py minimal and obviously correct; no behavior change.
-
-7. Update documentation:
-   - none (README is Step 9).
-
-8. Verify meaningful coverage of the rollup computation and orchestration, then run `just check`.
-```
-
-### Step 4: Schedule-To-Start Sample (PriceQuoteWorkflow)
-
-**NOTE**: This is the one place schedule_to_start_timeout appears, since setting it is rare.
-The workflow models a task that is worthless if it does not start promptly (a late price quote is out of date), which is the legitimate routing/staleness use case, so the short schedule_to_start_timeout is realistic here yet still carries the marker because it is normally an antipattern.
-The activity is near-instant in-memory; the timeout fires only because the worker is saturated when it is submitted.
-Name is neutral and adjustable.
-
-```text
-1. RED: Write the happy-path workflow test first (via WorkflowEnvironment.start_time_skipping):
-   - Create tests/test_quote.py:
-     - Start a time-skipping WorkflowEnvironment, register PriceQuoteWorkflow and compute_quote, run a Worker on shared.TASK_QUEUE, and execute PriceQuoteWorkflow with PriceQuoteInput(sku="WIDGET-1", quantity=3).
-     - Assert the returned PriceQuoteOutput.quote is a non-empty string including the sku "WIDGET-1".
-     - Assert compute_quote performs no network (autouse forbid_network fixture as in Step 3).
-   - Add a unit test asserting the workflow configures a schedule_to_start_timeout: expose the activity options via a small pure helper quote_activity_options() -> a mapping/params object in quote.py and assert it includes schedule_to_start_timeout == timedelta(seconds=5) and start_to_close_timeout set. This tests our timeout configuration, the teaching point, directly rather than trying to trip the timeout under time-skipping (which is flaky, a captured lesson).
-   - These test our quote computation and its deliberate schedule_to_start configuration, not the Temporal runtime.
-
-2. Document component:
-   - Add a Google-style module docstring to src/temporal_async_debug/quote.py explaining the staleness rationale and that the short schedule_to_start_timeout is deliberately set to make saturation fail fast and visibly; docstrings on PriceQuoteWorkflow and compute_quote.
-
-3. GREEN: Write MINIMAL code to make tests pass:
-   - Add PriceQuoteInput(sku: str, quantity: int = 1) and PriceQuoteOutput(quote: str) frozen dataclasses to src/temporal_async_debug/shared.py.
-   - Create src/temporal_async_debug/quote.py:
-     - @activity.defn async def compute_quote(sku: str, quantity: int) -> str: compute a price from an in-memory price table (module constant) and return a quote string; near-instant, no sleep, no network.
-     - A pure helper quote_activity_options() returning the activity options (start_to_close_timeout=timedelta(seconds=5), schedule_to_start_timeout=timedelta(seconds=5)) so the value is unit-testable and the workflow and the test share one source.
-     - @workflow.defn class PriceQuoteWorkflow executing compute_quote with those options, returning PriceQuoteOutput(quote=...). Marker on the schedule_to_start_timeout in quote_activity_options:
-       # ANTIPATTERN (deliberate, for teaching): a short schedule_to_start_timeout is normally an antipattern; it is set here only because a stale quote is worthless, and to make worker saturation fail fast and visibly. Correct: usually leave schedule_to_start unset and size the worker to demand. Do not copy.
-
-4. RED: Add an integration assertion:
-   - In tests/test_quote.py, run PriceQuoteWorkflow for several skus concurrently under time-skipping and assert each quote reflects its sku and quantity, confirming the sample path is correct when the worker is not saturated.
-
-5. GREEN: Wire the workflow so the concurrent test passes; change nothing else.
-
-6. REFACTOR: Keep quote.py minimal; no behavior change.
-
-7. Update documentation:
-   - none (README is Step 9).
-
-8. Verify meaningful coverage of the quote computation and the options helper, then run `just check`.
-```
-
-## Section 3: Workflow Timeout Selection Per Mode
-
-**Tools:**
-- Skills: python:python, temporal:temporal-developer
-- MCPs: mcp__temporal-docs__search_temporal_knowledge_sources
-- Linters: uv run ruff check --output-format=json ., uv run mypy .
-
-### Step 5: Per-Mode Activity Options In The Geo Workflow
-
-**NOTE**: The foundation's workflow.py runs get_ip then get_location with fixed start_to_close (10s) plus schedule_to_close (15s) and maximum_attempts=1.
-The catalog needs the geo activity options to depend on the mode: generous start_to_close so slow and slow_heartbeat hold their slots the full block duration (live-verified: an awaiting activity is cancelled at start_to_close), and a heartbeat_timeout for slow_heartbeat (which it satisfies) and stuck_no_heartbeat (which it does not, so it fails).
-block and cpu keep a generous start_to_close and no heartbeat_timeout; they are detected from the frozen-loop stack, not from a timeout.
-Extract the selection into a pure helper so it is unit-testable without a server.
-Keep maximum_attempts=1 (marked) for every mode.
-
-```text
-1. RED: Write per-mode options tests first:
-   - Create tests/test_geo_options.py (or extend tests/test_workflow.py):
-     - Test a pure helper geo_activity_options(mode: str) -> an options object/params covering all five modes:
-       - For "block" and "cpu": start_to_close_timeout is generous (== timedelta(seconds=120)), no heartbeat_timeout (None), maximum_attempts == 1.
-       - For "slow" and "slow_heartbeat": start_to_close_timeout is generous (== timedelta(seconds=120)) so the awaiting activity holds its slot the full duration; for "slow_heartbeat" heartbeat_timeout == timedelta(seconds=10); for "slow" heartbeat_timeout is None.
-       - For "stuck_no_heartbeat": heartbeat_timeout == timedelta(seconds=10) and start_to_close_timeout generous, so the missing heartbeat (not start_to_close) is what fails it.
-       - Every mode: schedule_to_close_timeout set (== timedelta(seconds=150)) and retry_policy has maximum_attempts == 1.
-     - Test that geo_activity_options rejects an unknown mode (raises ValueError) so a typo cannot silently produce default options.
-   - This tests our timeout-selection logic, the catalog's teaching contract, not Temporal timeout enforcement.
-
-2. Document component:
-   - Add a Google-style docstring to geo_activity_options in src/temporal_async_debug/workflow.py mapping each mode to why its timeouts are set that way, referencing the live-verified mechanics in spec.md's Starting context.
-
-3. GREEN: Write MINIMAL code to make tests pass:
-   - In src/temporal_async_debug/workflow.py, add geo_activity_options(mode) returning the per-mode options (start_to_close_timeout, schedule_to_close_timeout, heartbeat_timeout or None, retry_policy=RetryPolicy(maximum_attempts=1)). Keep the maximum_attempts=1 antipattern marker on the retry policy line:
-     # ANTIPATTERN (deliberate, for teaching): maximum_attempts=1 disables retries so the demo surfaces the first failure instead of masking it. Correct: allow retries with sensible backoff in production. Do not copy.
-   - Rewrite GreetingWorkflow/GeoEnrichmentWorkflow's activity executions to build their kwargs from geo_activity_options(args.mode), passing heartbeat_timeout only when it is not None. Keep get_ip then get_location ordering and the returned output shape unchanged.
-
-4. RED: Confirm the existing happy-path and error-path workflow tests still pass and, if needed, add one test that GeoEnrichmentWorkflow with mode "slow_heartbeat" runs to completion under start_time_skipping with stubbed activities (options applied without error).
-
-5. GREEN: Adjust the execution wiring so all workflow tests pass; do not change get_ip/get_location signatures beyond passing block_seconds and mode through as before.
-
-6. REFACTOR: Keep the activity-execution calls readable for excerpting; the per-mode branching lives only in geo_activity_options, not scattered in run().
-
-7. Update documentation:
-   - none (README is Step 9).
-
-8. Verify meaningful coverage of every mode's options and the unknown-mode guard, then run `just check`.
-```
-
-## Section 4: Worker, Starter, And Recipes
-
-### Step 6: Register The Full Fleet On The Worker (task)
-
-**Tools:**
-- Skills: python:python, temporal:temporal-developer
-- MCPs: mcp__temporal-docs__search_temporal_knowledge_sources
-- Linters: uv run ruff check --output-format=json ., uv run mypy .
-
-**NOTE**: Wiring, so Task template.
-The worker already registers GeoEnrichmentWorkflow and OrderReceiptWorkflow with max_concurrent_activities=2 (marked) and metrics on 127.0.0.1:9464.
-This step adds the two new workflow types and their activities.
-Keep the mistuning and the metrics endpoint; verified by import, not a unit test.
+**NOTE**: Sections 6, 7, and 8 write prose that must be Vale-clean under MasonBase plus MasonTechnical, and their validators run Vale as a declared linter.
+The repo has no `.vale.ini`, so Vale falls back to `~/.vale.ini`, whose MasonTechnical glob (`{tutorials,tutorial,technical,how-to,howto}/**`) matches nothing in this tree; `docs/drafts/*.md` and `exercises/*/README.md` would get MasonBase only.
+A validator whose declared linter cannot run records a note instead of a finding (validator-protocol.md, "Linter-sourced findings"), so a missing or wrong Vale setup fails silently.
+This step runs first so the prose gate exists and is proven before any code step, and long before a prose step depends on it.
+The config below was verified on 2026-11-03 with Vale 3.21.0, `StylesPath = /home/mmegger/Code/MasonEgger/vale-styles/styles`, and Std already synced: it fires `MasonTechnical.StepHeadings`, `MasonTechnical.Emoji`, and `MasonTechnical.SentenceLength` on `docs/drafts/tutorial-original-draft.md`, and `--output=JSON` parses.
+Both plugin roots are resolved by glob at run time (`content-design/*/`, `voice/*/`, newest version wins), never pinned to a version number.
 
 ```text
 1. Scope:
-   - Artifact(s): src/temporal_async_debug/worker.py (edit)
-   - Desired end state: `uv run python -c "import temporal_async_debug.worker"` succeeds; `uv run mypy .` passes; the Worker registers workflows=[GeoEnrichmentWorkflow, OrderReceiptWorkflow, SalesRollupWorkflow, PriceQuoteWorkflow] and activities=[get_ip, get_location, and the receipt, rollup, and quote activities], keeping max_concurrent_activities=2 (marker intact) and the Prometheus endpoint on 127.0.0.1:9464.
+   - Artifact(s): .vale.ini (new, repo root), justfile (three new recipes: preflight, lint-prose, lint-keyboard)
+   - Desired end state: `just preflight` exits 0 on this machine and prints one `ok ...` line per check; `just lint-prose` runs Vale with JSON output over the files named as arguments, or with no arguments over every committed prose file this arc produces (existing files only, never docs/drafts/tutorial-original-draft.md); `just lint-keyboard` runs the content-design keyboard-characters check the same way; `vale ls-config` from the repo root shows MasonTechnical applied to docs/drafts/** and exercises/**; `just check` is unchanged and still exits 0.
 
 2. Tooling:
-   - Skills: python:python, temporal:temporal-developer
-   - MCPs: mcp__temporal-docs__search_temporal_knowledge_sources (only if a Worker keyword argument needs confirming)
-   - External: uv, mypy, ruff
+   - Skills: content-design:style-linting (the .vale.ini shape, the Std sync rule, and how to read Vale output)
+   - MCPs: none
+   - External: vale 3.20 or newer; the content-design plugin's scripts/normalize-keyboard-chars.py and skills/tutorial-writing/scripts/wordcount; the voice plugin's skills/teaching/SKILL.md and skills/voice/references/profile.md; uv
 
 3. Do the work:
-   - Import SalesRollupWorkflow and roll_up_sales from temporal_async_debug.rollup, and PriceQuoteWorkflow and compute_quote from temporal_async_debug.quote.
-   - Add both workflows to the workflows= list and both activities to the activities= list on the existing Worker construction.
-   - Leave max_concurrent_activities=2 and its antipattern marker unchanged; leave the Runtime/Prometheus config and the PID banner unchanged.
+   - Create .vale.ini at the repo root with exactly this content (it mirrors the global template's StylesPath, Packages, ignores, and the technical-writing section, with the globs this tree actually uses):
+
+     StylesPath = /home/mmegger/Code/MasonEgger/vale-styles/styles
+     Packages = Std
+
+     # error | warning | suggestion
+     MinAlertLevel = suggestion
+
+     # --- Defaults: root README, CLAUDE.md, anything not matched below ------
+     [*.{md,rst}]
+     BasedOnStyles = MasonBase
+     BlockIgnores = (?s) *(```.*?```)
+     TokenIgnores = (\x60[^\n\x60]+\x60)
+
+     # --- Technical writing: exercise READMEs and the tutorial drafts ------
+     # Same layer as ~/.vale.ini's tutorials section; the globs name this tree.
+     [{docs/drafts,exercises}/**/*.md]
+     BasedOnStyles = MasonBase, MasonTechnical
+     MasonBase.We = suggestion
+     MasonTechnical.SentenceLength[max] = 25
+     BlockIgnores = (?s) *(```.*?```)
+     TokenIgnores = (\x60[^\n\x60]+\x60)
+
+   - Add these three recipes to the justfile directly after the `test` recipe (shebang recipes, so each body runs as one bash script):
+
+     # Verify the prose toolchain Sections 6 to 8 depend on: Vale, the Mason styles, Std, the content-design and voice plugin files
+     preflight:
+         #!/usr/bin/env bash
+         set -euo pipefail
+         fail() { echo "preflight: $1" >&2; exit 1; }
+         command -v vale >/dev/null || fail "vale is not on PATH"
+         ver=$(vale --version | awk '{print $3}')
+         python3 -c "import sys; v=tuple(int(x) for x in '$ver'.split('.')[:2]); sys.exit(0 if v >= (3, 20) else 1)" || fail "vale $ver is older than 3.20"
+         echo "ok vale $ver"
+         [ -f .vale.ini ] || fail ".vale.ini missing at the repo root"
+         styles=$(awk -F' = ' '/^StylesPath/ {print $2}' .vale.ini)
+         [ -d "$styles" ] || fail "StylesPath $styles does not exist"
+         for style in MasonBase MasonTechnical; do
+             [ -d "$styles/$style" ] || fail "style $style missing under $styles"
+             echo "ok style $style"
+         done
+         [ -d "$styles/Std" ] || vale sync
+         [ -d "$styles/Std" ] || fail "Std not present after vale sync"
+         echo "ok Std"
+         vale ls-config | grep -q MasonTechnical || fail ".vale.ini does not apply MasonTechnical"
+         echo "ok .vale.ini applies MasonTechnical"
+         vale --no-exit --output=JSON docs/drafts/README.md | python3 -c 'import json, sys; json.load(sys.stdin)' || fail "vale JSON output did not parse"
+         echo "ok vale JSON output"
+         cd_root=$(ls -d "$HOME"/.claude/plugins/cache/mmegger-private-plugins/content-design/*/ 2>/dev/null | sort -V | tail -1)
+         [ -n "$cd_root" ] || fail "content-design plugin not found under ~/.claude/plugins/cache"
+         [ -f "$cd_root/skills/tutorial-writing/SKILL.md" ] || fail "tutorial-writing skill missing"
+         [ -f "$cd_root/commands/review-content.md" ] || fail "review-content command missing"
+         echo "ok content-design skills"
+         rc=0; uv run "$cd_root/scripts/normalize-keyboard-chars.py" --check docs/drafts/README.md >/dev/null || rc=$?
+         [ "$rc" -le 1 ] || fail "normalize-keyboard-chars.py did not run (exit $rc)"
+         echo "ok keyboard-characters script"
+         "$cd_root/skills/tutorial-writing/scripts/wordcount" docs/drafts/README.md >/dev/null || fail "wordcount script did not run"
+         echo "ok wordcount script"
+         voice_root=$(ls -d "$HOME"/.claude/plugins/cache/mmegger-private-plugins/voice/*/ 2>/dev/null | sort -V | tail -1)
+         [ -n "$voice_root" ] || fail "voice plugin not found under ~/.claude/plugins/cache"
+         [ -f "$voice_root/skills/teaching/SKILL.md" ] || fail "voice:teaching skill missing"
+         [ -f "$voice_root/skills/voice/references/profile.md" ] || fail "voice profile missing"
+         echo "ok voice:teaching skill and profile"
+         echo "preflight: all checks passed"
+
+     # Lint prose with Vale as JSON for the validator: the named files, or every committed prose file this arc produces (never the provenance draft)
+     lint-prose *files:
+         #!/usr/bin/env bash
+         set -uo pipefail
+         files="{{files}}"
+         [ -n "$files" ] || files=$(ls README.md CLAUDE.md docs/drafts/README.md docs/drafts/part-*.md exercises/*/README.md 2>/dev/null || true)
+         [ -n "$files" ] || { echo '{}'; exit 0; }
+         vale --no-exit --output=JSON $files
+
+     # Flag non-keyboard characters (em-dashes, smart quotes, arrows, emoji): the named files, or the same default set
+     lint-keyboard *files:
+         #!/usr/bin/env bash
+         set -uo pipefail
+         files="{{files}}"
+         [ -n "$files" ] || files=$(ls README.md CLAUDE.md docs/drafts/README.md docs/drafts/part-*.md exercises/*/README.md 2>/dev/null || true)
+         [ -n "$files" ] || { echo "no prose files yet"; exit 0; }
+         cd_root=$(ls -d "$HOME"/.claude/plugins/cache/mmegger-private-plugins/content-design/*/ | sort -V | tail -1)
+         uv run "$cd_root/scripts/normalize-keyboard-chars.py" --check $files
+
+   - Run `just preflight` and fix whatever it reports until it exits 0. Never weaken a check to make it pass; a missing style directory, an unsynced Std, or a missing plugin file is a Failure for this step, not something to route around.
 
 4. Verify:
-   - Run `uv run python -c "import temporal_async_debug.worker"` and confirm exit 0, then run `just check` and confirm exit 0. (A live run against `temporal server start-dev` is a manual smoke test in the README, not part of this step.)
+   - `just preflight` exits 0 and prints every `ok` line; `vale ls-config` from the repo root lists MasonTechnical under the `{docs/drafts,exercises}/**/*.md` glob; `just lint-prose` exits 0 and emits JSON (with no arguments it covers README.md, CLAUDE.md, and docs/drafts/README.md today, since no part or exercise README exists yet); `just lint-prose docs/drafts/README.md` emits JSON for that one file; `just lint-keyboard` exits 0 both ways; bare `just` lists the three new recipes; `just check` exits 0 unchanged.
 
 5. Document:
-   - none here; the fleet is documented in the README in Step 9.
+   - Recipe comments only. The README and CLAUDE.md recipe tables are refreshed in Step 13 and must list preflight, lint-prose, and lint-keyboard there.
 ```
 
-### Step 7: Extend The Starter To The Full Scenario Set
+## Section 1: Root Package Trim
 
 **Tools:**
 - Skills: python:python, temporal:temporal-developer
 - MCPs: mcp__temporal-docs__search_temporal_knowledge_sources
 - Linters: uv run ruff check --output-format=json ., uv run mypy .
 
-**NOTE**: The foundation's starter.py has a fleet CLI (--mode block|slow, --block-seconds, --bad, --geo, --receipts), a metrics parser (parse_activity_slots_available matching worker_type="ActivityWorker"), wait_for_free_activity_slots, and the os._exit(0) teardown workaround.
-This step widens --mode to all five, adds flags for the two new bystanders, and sequences submissions so each scenario's timeouts fire deterministically live.
-Argument parsing and input construction are our logic and are unit-testable without a server; the live submission ordering is thin and exercised manually.
-Respect the live-verified mechanic (spec Starting context): to make a freeze trip a bystander's activity timeout, that bystander's activity must already be in-flight or scheduled BEFORE the freeze lands, because a frozen loop stops scheduling new activity tasks.
+The trim changes behavior (modes and timeouts removed), so the validator should confirm the surviving `block`/`cpu` behavior and freeze ordering still match the Behavior requirements and that no saturation, heartbeat, or retry-policy code survives.
+
+### Step 1: Trim The Root Package To The Frozen-Loop Reference
+
+**NOTE**: This step removes everything that is not the frozen loop from the shipped catalog package, and deletes the tests for the removed code rather than skipping them.
+The surviving behavior is exactly the `block` and `cpu` scenarios plus the healthy baseline in `## Behavior requirements`, with the bystander fleet (receipt, rollup), the freeze ordering gated on `get_location` STARTED plus 1 second, and the `os._exit(0)` teardown.
+Confirm the sync-versus-async and default-retry-policy behavior against the temporal-docs MCP before changing `workflow.py`.
+The `max_concurrent_activities=2` setting STAYS (so the freeze-lesson slot readings stay small and readable) but is no longer an antipattern: remove its marker and replace it with a plain comment saying the small size is deliberate for a single-machine demo (decision: keep 2 and drop the marker; confirm at review).
 
 ```text
-1. RED: Extend argument-parsing and input-construction tests first:
-   - Modify tests/test_starter.py:
-     - Test that --mode accepts exactly the five VALID_MODES values (argparse choices sourced from shared.VALID_MODES) and rejects an invalid value with SystemExit.
-     - Test that new flags --rollups (type int, default 0) and --quotes (type int, default 0) parse as ints and default to 0.
-     - Test input-construction helpers: rollup_inputs_from_args(args) -> list[SalesRollupInput] produces --rollups items with distinct periods; quote_inputs_from_args(args) -> list[PriceQuoteInput] produces --quotes items with distinct skus.
-     - Test that parsing a full flag set (--mode stuck_no_heartbeat --block-seconds 30 --bad 1 --geo 1 --rollups 2 --receipts 2 --quotes 1) yields exactly those typed values.
-   - These test our CLI contract and input construction, not argparse itself.
+1. RED: Update the root test suite to the trimmed surface first:
+   - In tests/test_shared.py, change the VALID_MODES assertion to expect exactly {"block", "cpu"} (drop slow, slow_heartbeat, stuck_no_heartbeat), and remove any assertions about quote dataclasses.
+   - In tests/test_activities.py, keep the block and cpu and healthy and failover cases; DELETE the test cases for slow, slow_heartbeat, and stuck_no_heartbeat (not skip, delete).
+   - In tests/test_starvation_probe.py, keep the block and cpu starve-the-probe cases and the healthy does-not-starve case; DELETE the slow and slow_heartbeat cases.
+   - In tests/test_workflow.py, change the geo_activity_options expectations to a single fixed set (start_to_close 120s, schedule_to_close 150s, no heartbeat_timeout, no RetryPolicy maximum_attempts); keep the unknown-mode ApplicationError(type="InvalidMode") case; remove any case asserting maximum_attempts=1 surfaces a failure.
+   - In tests/test_worker.py, change the build_worker assertion to expect max_concurrent_activities == 2 and registration of GeoEnrichmentWorkflow, OrderReceiptWorkflow, SalesRollupWorkflow and their activities only (NO PriceQuoteWorkflow).
+   - In tests/test_starter.py, DELETE the saturation-ordering and SATURATION_MODES and --quotes cases; keep fleet_from_args and the freeze submission-order cases (geo, receipt, rollup only).
+   - DELETE tests/test_quote.py and tests/test_geo_options.py cases that only cover removed timeouts; keep tests/history.py (used again by exercises) and tests/test_rollup.py and tests/test_receipt.py.
+   - These edits assert the trimmed public surface (modes, timeouts, registration, ordering); run `just check` and confirm it now FAILS against the untrimmed source.
 
 2. Document component:
-   - Update the src/temporal_async_debug/starter.py module docstring to describe the full --mode set, the new --rollups and --quotes flags, and, per scenario, what the fleet mix and ordering demonstrate.
+   - Update module docstrings in activities.py, workflow.py, worker.py, and starter.py to describe the frozen-loop reference (block and cpu only) rather than the full catalog.
 
-3. GREEN: Write MINIMAL code to make tests pass:
-   - Source the --mode choices from shared.VALID_MODES.
-   - Add --rollups and --quotes flags (type int, default 0).
-   - Add rollup_inputs_from_args and quote_inputs_from_args mirroring the existing bad_geo/healthy_geo/receipt helpers, with distinct labels (period, sku).
-   - In main(), submit the fleet with ordering that makes the scenario deterministic:
-     - For the freeze modes (block, cpu): submit the short-work bystanders (rollups) and any healthy geo first and wait until at least one activity slot is occupied (reuse the existing slot-polling helper), THEN submit the --bad geo run in the freeze mode, so the bystander is in-flight when the freeze lands and trips start_to_close. (Final, live-verified ordering: await the healthy geo before the bad run; submit receipts and quotes only after the server reports the bad run's second activity, get_location, STARTED plus a 1-second guard, so they stall through the final freeze and complete at the thaw instead of landing in the sub-second thaw between the two freezes, which ran 60 to 570 ms across the 8 final runs depending on get_ip's HTTP call and 138 ms in the run that exposed the race.)
-     - For the saturation modes (slow, slow_heartbeat, stuck_no_heartbeat): submit the --bad geo runs to fill the slots, wait until parse_activity_slots_available reads 0, THEN submit the bystanders (receipts, rollups, quotes) so they starve and trip schedule_to_close (and, for quotes, schedule_to_start).
-     - Keep the os._exit(0) teardown workaround.
-   - Report each result (or failure) as the foundation's _report_results does; extend it to the new workflow types via its existing generic typing.
+3. GREEN: Trim the source to make the updated tests pass:
+   - shared.py: set VALID_MODES to ("block", "cpu"); delete the PriceQuote input/output dataclasses.
+   - activities.py: in _apply_mode keep only the block branch (time.sleep, marker kept) and the cpu branch (busy loop, marker kept); delete the slow, slow_heartbeat, and stuck_no_heartbeat branches and the _heartbeat_before_provider_attempt helper; keep get_ip, get_location, the provider rotation and failover, and HTTP_TIMEOUT_SECONDS.
+   - workflow.py: collapse geo_activity_options to one fixed GeoActivityOptions (start_to_close 120s, schedule_to_close 150s, no heartbeat_timeout); delete the RetryPolicy(maximum_attempts=1) and its marker so the geo activities use the default retry policy; keep the ApplicationError(type="InvalidMode") raise.
+   - quote.py: delete the file.
+   - worker.py: drop PriceQuoteWorkflow from registration; keep max_concurrent_activities=2 but remove its antipattern marker and add a plain comment that the small size is deliberate for a single-machine demo; keep the Prometheus endpoint on 127.0.0.1:9464 and the PID banner.
+   - starter.py: delete SATURATION_MODES, the saturation ordering function, the concurrent fallback that only served saturation modes, the --quotes argument, quote_inputs_from_args, _start_quotes, and quote references in Fleet and reporting; keep fleet_from_args, the freeze ordering with the get_location STARTED gate plus 1-second guard, the geo/receipt/rollup batches, and os._exit(0).
+   - Confirm `grep -rn "slow_heartbeat\|stuck_no_heartbeat\|PriceQuote\|maximum_attempts\|SATURATION" src tests` returns nothing.
 
-4. RED: Add an input-construction edge test:
-   - In tests/test_starter.py, assert --rollups 3 yields three SalesRollupInput with three distinct periods and --quotes 2 yields two PriceQuoteInput with two distinct skus, so the fan-out is exercised without a server.
+4. RED: Add a guard test:
+   - In tests/test_shared.py (or a small tests/test_scope.py), assert that importing temporal_async_debug.quote raises ModuleNotFoundError and that shared.VALID_MODES has length 2, so a regression that re-adds the removed surface fails.
 
-5. GREEN: Wire main() to use the helpers so submission and tests share one construction path.
+5. GREEN: Confirm the guard passes (the quote module is gone, VALID_MODES is {"block","cpu"}).
 
-6. REFACTOR: Keep parsing, input construction, and the per-scenario submission ordering as separate small functions so the tutorial can show the CLI surface cleanly; no behavior change.
+6. REFACTOR: Remove now-dead imports, constants, and helpers left by the trim; keep the block and cpu markers exactly in the fixed format; keep each surviving module small and readable.
 
 7. Update documentation:
-   - none (README is Step 9).
+   - none here; the root README and CLAUDE.md are refreshed in Step 13, and the README's three lessons are recaptured in Step 10.
 
-8. Verify meaningful coverage of parsing and input construction, then run `just check`.
+8. Verify the trimmed suite covers block, cpu, healthy, failover, the fixed timeouts, the registration without the quote, and the freeze ordering; confirm `grep -rn "ANTIPATTERN (deliberate, for teaching)" src` returns exactly the block and cpu markers; run `just check`.
 ```
 
-### Step 8: One Just Recipe Per Scenario (task)
+## Section 2: Observability Stack
+
+**Tools:**
+- Skills: python:python
+- MCPs: none
+- Linters: uv run ruff check --output-format=json ., uv run mypy .
+
+No session skill or MCP covers Prometheus or Grafana, so what the validator can hold onto here is the config tests and the invariant that the compose file defines no Temporal server service; the metric names are verified live in Step 10, not by a tool here.
+
+### Step 2: Observability Config And Its Tests
+
+**NOTE**: This step writes the `observability/` stack and the Python config tests that pin its shape, with no live server involved.
+The dashboard panels show what a frozen loop does to the Worker over time (from spec Architecture): `temporal_activity_execution_latency`, the workflow-task latencies, activity and workflow task failures and timeouts, `temporal_worker_task_slots_used` by `worker_type`, and the dev server's Task Queue backlog.
+The exact metric names and the backlog panel are confirmed or dropped live in Step 10, so the allowlist test must accept the stack with a panel removed too.
+The config tests live under the root `tests/` tree and run in the existing root pytest, so they need no new gate wiring.
+
+```text
+1. RED: Write the observability config tests first, and test only the stack's invariants (never that a file parses or that a library works; parsing is how a test reads the file, not what it asserts):
+   - Create tests/test_observability_config.py:
+     - Test that observability/docker-compose.yml defines exactly the services {"prometheus", "grafana"} and that no service's image string contains the substring "temporal" (the invariant: the compose stack never runs a Temporal server).
+     - Test that observability/prometheus.yml scrapes exactly the two targets "127.0.0.1:9464" and "127.0.0.1:9465" and nothing else (the SDK endpoint and the dev server endpoint the lessons read).
+     - Test that every panel target expression in observability/grafana/dashboards/*.json (walk panels[].targets[].expr) references only metric names from an allowlist = {"temporal_activity_execution_latency", "temporal_workflow_task_schedule_to_start_latency", "temporal_workflow_task_execution_latency", "temporal_worker_task_slots_used", "temporal_activity_execution_failed", "temporal_activity_execution_latency_count"} plus any name beginning "temporal_" that the test treats as the optional dev-server backlog gauge; the test must still pass if the backlog panel is later removed.
+     - Read YAML with a parser already in the dev dependency group if one exists; otherwise a minimal hand-parse of the keys these tests need. Do NOT add a runtime dependency, and do not add a dev dependency only to parse a file.
+   - No test for the scrape interval, the image tags, the Grafana environment variables, the panel count, or that JSON loads: those are configuration choices, not logic. Three tests plus the Step 4 consistency test is the whole file.
+
+2. Document component:
+   - Add a one-paragraph header comment to observability/docker-compose.yml and observability/prometheus.yml stating that the stack is Prometheus and Grafana only, docker-compose v1 syntax, host networking on Linux, and that it scrapes the SDK (9464) and dev server (9465) endpoints.
+
+3. GREEN: Write MINIMAL config to make the tests pass:
+   - Create observability/docker-compose.yml (v1-compatible schema, no "docker compose" v2-only keys): a prometheus service (official prometheus image, mounts ./prometheus.yml, network_mode: host so it reaches 127.0.0.1 endpoints on Linux) and a grafana service (official grafana image, network_mode: host, anonymous viewer access via GF_AUTH_ANONYMOUS_ENABLED and GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer, mounts ./grafana/provisioning and ./grafana/dashboards). No other services.
+   - Create observability/prometheus.yml: global scrape_interval 5s; one scrape_config with two static_configs targets 127.0.0.1:9464 and 127.0.0.1:9465.
+   - Create observability/grafana/provisioning/datasources/prometheus.yml: a Prometheus datasource pointing at http://localhost:9090, set default.
+   - Create observability/grafana/provisioning/dashboards/dashboards.yml: a file provider loading the mounted dashboards path.
+   - Create observability/grafana/dashboards/async-debug.json: a dashboard with panels for activity execution latency, workflow-task schedule-to-start and execution latency, activity and workflow task failures/timeouts, task slots used by worker_type, and a Task Queue backlog panel using the dev server backlog gauge (leave its expr using the expected backlog metric name; Step 10 confirms or drops it). Every panel expr references only allowlisted metrics.
+
+4. RED: Add a cross-file consistency test:
+   - In tests/test_observability_config.py, assert that the dashboards provider path in grafana/provisioning/dashboards/dashboards.yml matches the container path the compose file mounts observability/grafana/dashboards to, so a provisioning path typo fails the gate.
+
+5. GREEN: Align the mount path and provider path so the consistency test passes.
+
+6. REFACTOR: Keep the YAML and JSON minimal and readable; no stray services, no commented-out blocks.
+
+7. Update documentation:
+   - none here (the Observability README section is Step 13).
+
+8. Verify the config tests cover the two-service invariant, the two scrape targets, and the metric allowlist, then run `just check`.
+```
+
+### Step 3: Metrics And Server Just Recipes (task)
 
 **Tools:** none
 
 **NOTE**: Wiring, so Task template.
-The justfile already has server, worker, trigger, and block/slow recipes for the fleet CLI.
-This step adds a recipe per catalog scenario so a reader runs one command per lesson.
-Recipes only compose the starter CLI; no new logic.
+The justfile already has server, worker, and the surviving scenario recipes (healthy, trigger, block, cpu after Step 1).
+This step points `just server` at the dev server metrics port and adds the two compose recipes.
+docker-compose v1 only (no `docker compose` v2 plugin on the capture machine).
 
 ```text
 1. Scope:
    - Artifact(s): justfile (edit)
-   - Desired end state: `just --list` shows one recipe per scenario, each invoking `uv run python -m temporal_async_debug.starter` with the right flags; existing recipes still work.
+   - Desired end state: `just server` runs `temporal server start-dev --metrics-port 9465` (confirm 9465 at review); `just metrics` runs `docker-compose -f observability/docker-compose.yml up -d`; `just metrics-down` runs `docker-compose -f observability/docker-compose.yml down`; the default (`@just --list`) recipe stays first; `just --list` and `just check` both exit 0.
 
 2. Tooling:
    - Skills: none
    - MCPs: none
-   - External: just
+   - External: just, docker-compose (v1)
 
 3. Do the work:
-   - Keep the existing `default` recipe (`@just --list`) as the FIRST recipe in the justfile, so bare `just` prints the help; in just, the first recipe is the default, so new recipes must be added below it, never above it.
-   - Add or update recipes (default seconds="30" where a duration applies), each a thin wrapper over the starter with a fleet mix that makes the scenario legible:
-     - healthy: a fleet of geo + rollups + receipts + quotes, all healthy (block-seconds 0).
-     - block seconds="30": --mode block --block-seconds {{seconds}} --bad 1 --geo 1 --rollups 1 --receipts 2 (freeze; rollup caught in-flight).
-     - cpu seconds="30": --mode cpu --block-seconds {{seconds}} --bad 1 --geo 1 --rollups 1 --receipts 2 (freeze, GIL pinned).
-     - slow seconds="30": --mode slow --block-seconds {{seconds}} --bad 2 --geo 1 --rollups 1 --receipts 2 --quotes 1 (saturation; quote trips schedule_to_start).
-     - slow-heartbeat seconds="30": --mode slow_heartbeat --block-seconds {{seconds}} --bad 2 --receipts 2 --rollups 1 (correct long activity still saturates an undersized worker).
-     - stuck seconds="30": --mode stuck_no_heartbeat --block-seconds {{seconds}} --bad 1 --geo 1 (heartbeat timeout fires).
-   - Keep the recipe names matching the README lesson headings in Step 9.
+   - Edit the existing `server` recipe to append `--metrics-port 9465` to `temporal server start-dev`.
+   - Add `metrics:` running `docker-compose -f observability/docker-compose.yml up -d`.
+   - Add `metrics-down:` running `docker-compose -f observability/docker-compose.yml down`.
+   - Keep `default` (`@just --list`) as the FIRST recipe; add the new recipes below it.
 
 4. Verify:
-   - Run bare `just` and confirm it prints the recipe list (the default recipe survived as first). Run `just --list` and confirm every scenario recipe appears and parses (exit 0). Run `just check` and confirm exit 0. (Live behavior is verified manually while writing the README.)
+   - Run bare `just` and confirm it prints the recipe list; run `just --list` and confirm server, metrics, and metrics-down appear and parse; run `just check` and confirm exit 0. (Bringing the stack up is a live step in Step 10, not here.)
 
 5. Document:
-   - none here; the recipes are documented in the README in Step 9.
+   - none here; the Observability README section is Step 13.
 ```
 
-## Section 5: Documentation
-
-### Step 9: Full README Catalog (task)
+## Section 3: Exercise Gate Harness
 
 **Tools:**
-- Skills: python:python, temporal:temporal-developer, content-design:tutorial-writing, content-design:review-content
-- MCPs: mcp__temporal-docs__search_temporal_knowledge_sources
-- Linters: none
+- Skills: python:python
+- MCPs: none
+- Linters: uv run ruff check --output-format=json ., uv run mypy .
 
-**NOTE**: The current README is stale (it describes the old Greeting/Victim design).
-Rewrite it against the final catalog behavior.
-Prose follows the writing hard rules: no em-dashes or en-dashes, one sentence per line in committed Markdown, straight quotes, sentence-case headings (this is a Temporal education doc).
-Capture real tool output before writing the prose (a captured lesson): run the scenarios live against `temporal server start-dev` and the worker, and paste the genuine `asyncio ps` / `pstree`, `py-spy dump`, CPU, and metrics output rather than inventing it.
-The live-verified diagnostic story (see spec.md Starting context, corrected October 2026) is two-tool: `asyncio ps` / `pstree` show the frozen-loop shape (the wedged task dead-ended at `_ActivityWorker._handle_start_activity_task`, the rest parked at awaits), and `py-spy dump` names the exact blocking line; `asyncio ps` does NOT show the blocking line, so do not claim it does.
-The README and the GitHub repo description both state the repo contains deliberately broken code for educational purposes.
-Invoke content-design:tutorial-writing before drafting and content-design:review-content after.
+### Step 4: The Per-Directory Solution Gate And Practice Lint Pass (task)
+
+**NOTE**: Wiring plus pyproject config, so Task template, but it establishes the gate every exercise step plugs into.
+The near-identical module names across copies must never share one mypy or pytest invocation, so the root gate excludes `exercises/` entirely and each copy is checked in its own directory (confirm the loop shape at review).
+The loop must be a no-op that exits 0 when no exercise directories exist yet, so the gate is green before Step 5 and after.
 
 ```text
 1. Scope:
-   - Artifact(s): README.md (rewrite)
-   - Desired end state: the README is the in-repo tutorial home covering the full catalog: what the repo demonstrates, the three-terminal quickstart, one lesson per scenario, the mode-to-timeout-to-signature table, the two diagnostic families, platform gotchas, the realistic-timeouts framing, and a tutorial link placeholder.
+   - Artifact(s): justfile (edit), pyproject.toml (edit)
+   - Desired end state:
+     - Root ruff, ruff format --check, mypy, and pytest all exclude exercises/ (via ruff extend-exclude, mypy exclude, and pytest testpaths or --ignore).
+     - `just check` runs the root gate (ruff check, ruff format --check, mypy strict, pytest) AND THEN a loop over every exercises/*/solution directory running, per directory, `uv run ruff check <dir>`, `uv run ruff format --check <dir>`, `uv run mypy <dir>`, and `uv run pytest <dir>/tests`; the loop exits 0 when no such directory exists.
+     - `just check-practice` loops over every exercises/*/practice directory running `uv run ruff check <dir>` and `uv run mypy <dir>` only (practice carries the deliberate bug and the reader's unimplemented test, so it is not pytest-gated); it too exits 0 when none exist.
 
 2. Tooling:
-   - Skills: content-design:tutorial-writing (invoke before drafting), content-design:review-content (invoke after drafting: Vale plus copy-editor), temporal:temporal-developer, python:python
-   - MCPs: mcp__temporal-docs__search_temporal_knowledge_sources (verify the exact metric names temporal_worker_task_slots_available and temporal_activity_schedule_to_start_latency, and how the poller LastAccessTime behaves in task-queue describe, before writing them into prose)
-   - External: a running `temporal server start-dev` and worker for capturing real output; `py-spy` via `uvx py-spy dump --pid <worker-pid>` (no project dependency; needs ptrace_scope=0 or sudo); Vale via review-content
+   - Skills: python:python (pyproject config shape)
+   - MCPs: none
+   - External: uv, ruff, mypy, pytest, just
 
 3. Do the work:
-   - Capture real output first: start the server and worker, run each `just` scenario recipe, and save the genuine `asyncio ps` / `pstree` stacks, `py-spy dump` output (via `uvx py-spy dump --pid <worker-pid>`), CPU readings, metrics scrapes, and `temporal task-queue describe` for both healthy and broken states. Reuse any real captures already saved in the scratchpad from the investigation pass rather than recapturing identical output.
-   - Rewrite README.md (sentence-per-line prose, no em-dashes, sentence-case headings) with:
-     - A one-paragraph statement of what the repo demonstrates and a bold warning that it contains deliberately broken code for educational purposes only.
-     - The headline: the cross-type blast radius (one workflow type takes down an unrelated one because they share a worker).
-     - The two-tool diagnostic framing stated up front: `asyncio ps` / `pstree` show the frozen-loop shape with zero instrumentation (the wedged activity task dead-ended at `_ActivityWorker._handle_start_activity_task` with no await beneath it, while every other task is parked at a normal await), and `py-spy dump` names the exact blocking line in `activities.py`; explain that asyncio ps cannot show the line because a task stuck in synchronous code is not suspended at an await.
-     - Quickstart: three terminals, `just server`, `just worker`, then a scenario recipe.
-     - One lesson per scenario: healthy baseline, frozen loop blocking (block), frozen loop CPU (cpu), slot exhaustion (slow), correct long-running activity (slow_heartbeat), heartbeat timeout (stuck_no_heartbeat), and the schedule-to-start sample. Each lesson shows the expected healthy-versus-broken shapes for `asyncio ps` / `pstree` (the shape), `py-spy` (the line, for the freeze lessons), CPU, and the metrics, and names which timeout fires.
-     - A summary table mapping each mode to the timeout it trips (start_to_close, schedule_to_close, schedule_to_start, heartbeat) and the tool signature that identifies it, with the frozen-loop versus saturated-worker split called out: freeze shows one task dead-ended at the SDK handler (block near-zero CPU, cpu at 100 percent, py-spy names the line, metrics reachable); saturation shows every task parked at a healthy await, slots at 0, task-queue backlog age climbing (poller LastAccessTime is not a freeze signal and at most a weak saturation hint).
-     - Platform gotchas: inspector and target both Python 3.14+; `asyncio ps` and `py-spy` both read process memory, so on Linux Yama `ptrace_scope=1` blocks them (asyncio ps presents as "Failed to find the PyRuntime section"), fixed with sudo or `ptrace_scope=0`; macOS requires sudo; and 3.14 asyncio ps can fail transiently so re-run it.
-     - The realistic-timeouts framing: start_to_close and schedule_to_close as the SLA, schedule_to_start as the rare routing case, the `task-queue describe` backlog age as the saturation tell (with `temporal_activity_schedule_to_start_latency` as a lagging confirmation that only moves once queued tasks start); and why workflow timeouts are not used (business logic depends on correctness, not time).
-     - The antipattern marker convention and the grep for "ANTIPATTERN (deliberate, for teaching)".
-     - A tutorial link placeholder pointing at masonegger.com (marked TODO).
+   - In pyproject.toml, exclude exercises/ from ruff (extend-exclude), from mypy (exclude regex), and from pytest collection (set testpaths to the root tests dir, or add --ignore=exercises), keeping the canonical config blocks otherwise verbatim per the python skill.
+   - In the justfile, extend the `check` recipe: after the existing root gate, add a bash loop over exercises/*/solution that runs the four per-directory commands above and fails fast on any non-zero; guard with nullglob or an existence test so zero directories is success.
+   - Add a `check-practice` recipe with the analogous loop over exercises/*/practice running ruff check and mypy only.
+   - Keep the `default` recipe first.
 
 4. Verify:
-   - Invoke content-design:review-content on README.md and address every finding (Vale mechanical checks plus the copy-editor prose pass).
-   - Human-check: read README.md top to bottom and confirm no em-dashes or en-dashes, one sentence per line in prose, sentence-case headings, that every command and metric name matches the code, that the captured output is real (not invented), and that the deliberately-broken-code warning is present.
+   - Run `just check` with no exercises/ directory present and confirm exit 0 (root gate green, loop a no-op). Run `just check-practice` and confirm exit 0. Confirm `just --list` shows check-practice.
 
 5. Document:
-   - This step is the documentation.
+   - none here; CLAUDE.md's gate description is refreshed in Step 13.
 ```
 
-### Step 10: Refresh CLAUDE.md Architecture (task)
+## Section 4: The Five Exercises
+
+**Tools:**
+- Skills: python:python, temporal:temporal-developer
+- MCPs: mcp__temporal-docs__search_temporal_knowledge_sources
+- Linters: uv run ruff check --output-format=json ., uv run mypy .
+
+Each exercise step produces a `practice/` copy (bug kept and marked, `# TODO PART X:` comments, a `TODO PART D` test stub) and a `solution/` copy (fix applied, no marker, Part D test implemented and green), both runnable from their own directory under the root virtual environment.
+The exercise README is NOT written here; it is written from captures in Step 11, so these steps leave only module docstrings and the TODO comments, not prose lessons.
+Consult the temporal-docs MCP to confirm the sync-activity-on-executor pattern (01, 03, 04), the heartbeat-from-a-thread pattern (04), and `asyncio` cancellation semantics (02, 04) before applying each fix.
+
+### Step 5: Exercise 01 Sync HTTP Client
+
+**NOTE**: This is the template copy the later exercises follow.
+The copy is flat: sibling modules import each other as top-level names (`import shared`, `from activities import get_ip`), which resolve because the copy runs from its own directory.
+The bug is an `async def` activity calling a synchronous `httpx.Client`; the healthy runs hit the real providers and are fast, so the bug hides, and the bad run's input points the provider at a local slow endpoint.
+This is the sneaky one, and the README should say so: nothing in the healthy fleet looks wrong, the tests pass, and the Worker ships; the loop only freezes once a provider slows down, which is how this bug reaches production and why it is the first exercise.
+The slow endpoint is a stdlib `http.server` the starter serves on 127.0.0.1 for the run's duration, in `slow_upstream.py` (decision: served by the starter so the reader needs no extra terminal; confirm at review).
+The fix follows Temporal's sync-versus-async guidance: synchronous `def` activities on the Worker's `activity_executor` (a ThreadPoolExecutor sized to max_concurrent_activities).
+
+```text
+1. RED: Create the solution copy and write its failing Part D test first:
+   - Create exercises/01-sync-http-client/solution/ as a flat copy of the trimmed root modules needed for this exercise: shared.py, activities.py, workflow.py, receipt.py, rollup.py, worker.py, starter.py, slow_upstream.py, and tests/ with a conftest.py mirroring the root test fixtures (network mock, deterministic provider rotation).
+     - Rewrite every intra-package import from temporal_async_debug.X to the flat module name X.
+     - Replace the block/cpu mode switch in activities.py with this exercise's shape: get_ip and get_location call a synchronous httpx.Client; the input carries an optional slow-upstream base URL that, when set, routes the provider call at the local slow endpoint.
+     - Create solution/slow_upstream.py: a stdlib http.server handler that sleeps a configured number of seconds before responding, startable and stoppable by the starter on 127.0.0.1.
+     - Trim starter.py to the freeze ordering for this exercise (healthy geo first, then the bad run pointed at the slow endpoint, then receipts gated on get_location STARTED plus 1 second), starting and stopping slow_upstream around the run.
+   - Create exercises/01-sync-http-client/solution/tests/test_probe.py: the 50 ms ticker probe pattern from the root tests/test_starvation_probe.py, asserting that running the geo activity body (pointed at an in-test stdlib slow server, never the network) on the worker's activity_executor does NOT starve a 50 ms probe (every consecutive gap < 0.2 s). Written to fail now, because the activities are still async def calling the sync client on the loop.
+   - This tests our fix (sync activities on the executor keep the loop live), not asyncio internals.
+
+2. Document component:
+   - Add module docstrings to the solution copy's activities.py and worker.py noting this is the 01-sync-http-client exercise copy and that the geo activities run synchronously on the worker's activity_executor.
+
+3. GREEN: Apply the fix in the solution copy so the probe test passes:
+   - In solution/activities.py, convert get_ip and get_location to plain def activities using the synchronous httpx.Client (httpx is already present; no new dependency); NO antipattern marker (the sync client is correct on a pool thread now).
+   - In solution/worker.py, pass activity_executor=concurrent.futures.ThreadPoolExecutor(max_workers=<max_concurrent_activities>) to the Worker, sized to max_concurrent_activities; keep the Prometheus endpoint and the PID banner.
+   - Adjust workflow.py activity execution if the SDK requires it for sync activities (confirm via the temporal-docs MCP); keep get_ip then get_location ordering and the output shape.
+   - Confirm `grep -rn "ANTIPATTERN" exercises/01-sync-http-client/solution` returns nothing.
+
+4. Create the practice copy:
+   - Create exercises/01-sync-http-client/practice/ as the SAME flat copy but BEFORE the fix: async def geo activities calling the synchronous httpx.Client on the loop, carrying the antipattern marker (why a sync client blocks the loop; correct: a def activity on an executor).
+   - Add `# TODO PART C:` and `# TODO PART D:` comments at the lines the reader changes (the async def signatures and the worker's activity_executor argument), each naming what to do without giving the answer.
+   - Create practice/tests/test_probe.py as a stub with a `# TODO PART D:` comment and a failing placeholder, mirroring the solution test's intent but unimplemented.
+
+5. Integrate into the gate:
+   - Run `just check` and confirm the root gate stays green and the solution loop now checks exercises/01-sync-http-client/solution (ruff, ruff format, mypy, pytest including test_probe.py) at exit 0.
+   - Run `just check-practice` and confirm exercises/01-sync-http-client/practice passes ruff and mypy (it parses and type-checks though it carries the bug and the stub).
+
+6. REFACTOR: Keep both copies minimal and the diff between them limited to the fix lines and the TODO comments, so the tutorial can show a small, legible change.
+
+7. Update documentation:
+   - none (the exercise README is Step 11).
+
+8. Verify the solution probe test has teeth (it fails if the activities are reverted to async def calling the sync client on the loop), revert to the fixed form, then run `just check` and `just check-practice`.
+```
+
+### Step 6: Exercise 02 Sleep Between Heartbeats
+
+**NOTE**: Follows the Step 5 template.
+The bug is an `async def` activity that polls a slow job in a loop, calling `activity.heartbeat()` and then `time.sleep(poll_interval)` once per poll, under a fixed `heartbeat_timeout` that is shorter than the poll interval (decision: `heartbeat_timeout` 5 seconds, `poll_interval` 8 seconds, a job that takes about 20 seconds; confirm at review).
+On an `async def` activity, `activity.heartbeat()` schedules an asyncio task to send the heartbeat, so a heartbeat recorded right before `time.sleep` cannot leave the Worker until the sleep ends, and the server fails the attempt on Heartbeat timeout first.
+What the reader sees in Part A is a retry storm: when the loop thaws, the SDK cancels the failed attempt's task, but asyncio cancellation only lands at an await and there is none, so the attempt keeps polling as a zombie (the Worker log keeps printing its poll lines after the failure) while the default retry policy starts the next attempt beside it, which freezes the loop the same way; `temporal workflow show` lists attempt after attempt ending in Heartbeat timeout, and the bystanders fail in the same windows (the cross-type blast radius).
+The simulated slow job is keyed on the workflow run id (a module-level dict), so a retry observes the same job rather than starting a new one; the storm ends when the job finishes and the next attempt completes, which keeps the run bounded (a few failed attempts over roughly half a minute, then success).
+The fix keeps the activity `async` and waits in awaited 1-second ticks with a heartbeat on each tick (`activity.heartbeat()` then `await asyncio.sleep(1)` until the next poll is due), so the heartbeats flush on the loop more often than the timeout and cancellation lands at the await (decision: this replaces the spec's one-line `await asyncio.sleep(poll_interval)`, which would still go 8 seconds without a heartbeat under a 5-second timeout; the `def` route is named in prose only; confirm at review).
+This exercise is about the frozen loop, not heartbeat tuning: the heartbeat_timeout and the poll interval are fixed scenery, not values the reader changes.
+Guard any heartbeat call reachable outside an activity with activity.in_activity() (a captured lesson), so the Part D ActivityEnvironment test can drive the loop.
+
+```text
+1. RED: Create exercises/02-sleep-between-heartbeats/solution/ as a flat copy, with the full bystander fleet, the freeze ordering, and the tests/ conftest mirroring the root fixtures.
+   - Replace the activity body with the poll loop: get_location polls a simulated slow job keyed on the workflow run id, and between polls waits in awaited 1-second ticks, calling activity.heartbeat() (guarded by activity.in_activity()) on every tick, under the fixed heartbeat_timeout in workflow.py.
+   - Create solution/tests/test_heartbeat.py: run the geo activity body under temporalio.testing.ActivityEnvironment with on_heartbeat counting calls and a 50 ms probe ticking beside it, with the job sized so one poll wait spans several ticks; assert the heartbeat count during a single poll wait is >= 2 AND the probe is not starved (every consecutive gap < 0.2 s). Written to fail against the still-time.sleep loop (one heartbeat per poll, and the probe starves).
+
+2. Document component:
+   - Module docstring on solution activities.py noting the 02-sleep-between-heartbeats copy and that the poll wait is awaited in short ticks with a heartbeat per tick, so heartbeats flush and cancellation lands.
+
+3. GREEN: In solution/activities.py, replace the single time.sleep(poll_interval) with the awaited tick loop (activity.heartbeat() then await asyncio.sleep(1) until the next poll is due); keep the activity async def; REMOVE the antipattern marker; keep the fixed heartbeat_timeout in workflow.py; confirm `grep -rn "ANTIPATTERN" exercises/02-sleep-between-heartbeats/solution` returns nothing.
+
+4. Create exercises/02-sleep-between-heartbeats/practice/: the SAME copy before the fix (one activity.heartbeat() then time.sleep(poll_interval) per poll, carrying the antipattern marker that says why the heartbeat cannot leave a frozen loop and why the cancel cannot interrupt the sleep), with a `# TODO PART C:` comment at the time.sleep line and a practice/tests/test_heartbeat.py stub carrying `# TODO PART D:`.
+
+5. Integrate into the gate: `just check` checks the new solution dir green (including the heartbeat-count-and-probe assertion); `just check-practice` passes for the new practice dir.
+
+6. REFACTOR: Keep the solution-versus-practice diff to the wait (one sleep line becomes the short tick loop) and the TODO comment.
+
+7. Update documentation: none (README is Step 11).
+
+8. Verify the test fails if the tick loop is reverted to the single time.sleep, revert to the awaiting form, then run `just check` and `just check-practice`.
+```
+
+### Step 7: Exercise 03 CPU Bound
+
+**NOTE**: Follows the template.
+The bug is pure-Python computation inside `async def` that holds the GIL and pins CPU; the fix is the same def-plus-executor change as 01, which keeps the loop live while the process still pins a core.
+Recast the root cpu busy loop as a realistic transform of the provider response (for example a repeated hash or parse over the payload), not a bare `while True`.
+The second-Worker-process demonstration is a README and capture concern (Steps 10 and 11), not code here; the copy just needs to run the cpu fleet correctly after the fix (confirm at review).
+The CPU work is bounded: the bad run's input sets a fixed work size that pins one core for roughly the `block`-style duration and then returns, so it is safe on a laptop or a shared exercise machine (no unbounded spin, no fork, one core); the transform must take the size from the input, never loop until a wall-clock deadline.
+What the reader sees is 01's frozen-loop shape (the dead-ended task in `asyncio ps`, the in-flight rollup failing, receipts stalling) plus the one reading that separates the two causes: `top` at about 100 percent on one core, where `time.sleep` sat near zero; `py-spy dump` shows the compute loop on the main thread.
+
+```text
+1. RED: Create exercises/03-cpu-bound/solution/ as a flat copy, with the full bystander fleet and the freeze ordering, and the tests/ conftest mirroring the root fixtures.
+   - Replace the activity body with a CPU-bound transform of the provider response (the root cpu loop, recast); the bad run's input sets the work size.
+   - Create solution/tests/test_probe.py: the 50 ms ticker probe asserting the cpu activity body on the executor does NOT starve the probe. Written to fail against the still-async computation on the loop.
+
+2. Document component:
+   - Module docstrings on solution activities.py and worker.py noting the 03-cpu-bound copy and the executor change.
+
+3. GREEN: Convert the geo activities to def on the sync httpx client and pass activity_executor=ThreadPoolExecutor(...) in solution/worker.py, exactly as in Step 5; keep the CPU-bound transform body but with NO marker (it is correct on a pool thread); confirm `grep -rn "ANTIPATTERN" exercises/03-cpu-bound/solution` returns nothing.
+
+4. Create exercises/03-cpu-bound/practice/: the SAME copy before the fix (async def geo activities, the GIL-pinning transform on the loop, carrying the busy-work antipattern marker), with `# TODO PART C:`/`# TODO PART D:` comments at the edit points and a practice/tests/test_probe.py stub.
+
+5. Integrate into the gate: `just check` checks the new solution dir green; `just check-practice` passes for the new practice dir.
+
+6. REFACTOR: Keep the solution-versus-practice diff limited to the fix lines and TODO comments.
+
+7. Update documentation: none (README is Step 11).
+
+8. Verify the probe test fails if the transform is moved back onto the loop, revert, then run `just check` and `just check-practice`.
+```
+
+### Step 8: Exercise 04 Zombie Thread
+
+**NOTE**: Follows the template, but the practice copy starts from the fix most users ship first, and the solution is the correct shape.
+The bug: get_location stays async def and wraps the blocker in asyncio.to_thread(...) under a heartbeat_timeout with no heartbeat. It looks right, which is why people ship it: the loop stays live, the bystanders are fine, and a starvation probe would pass.
+The failure is that the activity runs twice. When the server times the attempt out, the coroutine is cancelled but the detached thread keeps running to completion; the retry then starts the same work beside it, so the Worker log shows the first thread finishing after its attempt already failed and the retry's work overlapping it (duplicate side effects, the thing an Activity must never do unnoticed), and `py-spy dump` shows the orphaned thread still inside the blocker after the failure.
+The fix: a def activity on a ThreadPoolExecutor sized to max_concurrent_activities that heartbeats from its own thread (copy_context then heartbeat on an interval), so a timeout or cancel arrives as temporalio.exceptions.CancelledError inside the thread and the work stops.
+Confirm the sync-heartbeat-from-a-thread pattern and the CancelledError-into-the-thread behavior against the temporal-docs MCP before writing the fix.
+The two startup traps (a def activity with no activity_executor; an executor smaller than max_concurrent_activities) are captured in Step 10, not asserted here, except the Part D build_worker assertion below.
+
+```text
+1. RED: Create exercises/04-zombie-thread/solution/ as a flat copy, with the full bystander fleet, the freeze ordering, and the tests/ conftest mirroring the root fixtures.
+   - Create solution/tests/test_cancel_stops_work.py: run the fixed def activity under temporalio.testing.ActivityEnvironment, start it, request cancel, and assert the work stops at the next heartbeat (a shared flag the activity sets on CancelledError shows the work did not run to completion after cancel). Add a second test that builds the worker via build_worker and asserts the activity_executor's _max_workers is >= max_concurrent_activities. Both written to fail against the to_thread-no-heartbeat practice shape and the unsized executor.
+
+2. Document component:
+   - Module docstrings on solution activities.py and worker.py noting the 04-zombie-thread copy: a def activity on a sized executor that heartbeats from its own thread, so cancellation reaches the work and no attempt's work outlives its attempt.
+
+3. GREEN: In solution/activities.py, make get_ip and get_location def activities that do the blocking work and heartbeat from their own thread (guarded by activity.in_activity()), catching temporalio.exceptions.CancelledError to stop the work; in solution/worker.py pass activity_executor=ThreadPoolExecutor(max_workers=<max_concurrent_activities>); NO marker; confirm `grep -rn "ANTIPATTERN" exercises/04-zombie-thread/solution` returns nothing.
+
+4. Create exercises/04-zombie-thread/practice/: the SAME copy in the shipped-first state (async def get_location wrapping the blocker in asyncio.to_thread under a heartbeat_timeout with no heartbeat, carrying the antipattern marker that explains why the cancel never reaches the thread, so the work finishes after the attempt failed and the retry runs it again), with `# TODO PART C:` at the to_thread line and the worker executor argument, and a practice/tests/test_cancel_stops_work.py stub carrying `# TODO PART D:`.
+
+5. Integrate into the gate: `just check` checks the new solution dir green (including the cancel-stops-work and executor-size assertions); `just check-practice` passes for the new practice dir.
+
+6. REFACTOR: Keep the solution-versus-practice diff to the activity body (to_thread to def-plus-heartbeat) and the worker executor argument and the TODO comments.
+
+7. Update documentation: none (README is Step 11).
+
+8. Verify the cancel test fails if the solution reverts to async def to_thread with no heartbeat, revert to the def-plus-heartbeat form, then run `just check` and `just check-practice`.
+```
+
+### Step 9: Exercise 05 Catching Blockers Early
+
+**NOTE**: Follows the template.
+This is the one detection exercise in the series and the only one allowed to misbehave without failing; keep it that way, and make it land.
+The bug is a short synchronous serialization of a large payload inside an async def activity that stalls the loop a few hundred milliseconds on every run and never times out (decision: a pure-Python JSON round trip of a generated payload sized to take 200 to 500 ms on the capture machine; confirm at review).
+The execution still misbehaves, and the reader must see that before the tool: every bystander dispatched into the stall waits it out, so the receipts, which complete in a few milliseconds in the healthy fleet, take a few hundred milliseconds on every run of this fleet, visible as the gap between the receipt activity's started and completed timestamps in `temporal workflow show` (Part A runs the healthy fleet and then this one and the reader compares the two).
+Then the tool: Part B runs the Worker with asyncio debug mode (`PYTHONASYNCIODEBUG=1`) and captures the slow-callback warning that names the activity task, and `py-spy dump` confirms the serialization line.
+The fix moves the work off the loop; the Part D test is the starvation probe parametrized over every registered async def activity, the regression guard that would have caught it in CI.
+The lesson lands as: the blocker that has not taken anything down yet, the tool that catches it, and the test that keeps it out.
+
+```text
+1. RED: Create exercises/05-catching-blockers-early/solution/ as a flat copy, with the full bystander fleet, the freeze ordering, and the tests/ conftest mirroring the root fixtures.
+   - In the practice-shaped source, get_location serializes a generated large payload synchronously (a pure-Python JSON round trip sized to a few hundred ms) inside async def; the starter's ordering submits the receipts while the serialization is running, so the receipt delay is reproducible on every run.
+   - Create solution/tests/test_probe_all_activities.py: enumerate every async def activity registered on the worker and, for each, run its body under a 50 ms ticker probe (with network and payload inputs mocked), asserting none starves the probe. Written to fail against the still-on-loop serialization.
+
+2. Document component:
+   - Module docstring on solution activities.py noting the 05-catching-blockers-early copy and that the serialization runs off the loop, with the probe test as the regression guard.
+
+3. GREEN: In solution/activities.py, move the serialization off the loop (await asyncio.to_thread(...) for the pure-Python work, or a def activity on the executor; choose the one that keeps the probe green and confirm against the temporal-docs MCP); NO marker; confirm `grep -rn "ANTIPATTERN" exercises/05-catching-blockers-early/solution` returns nothing.
+
+4. Create exercises/05-catching-blockers-early/practice/: the SAME copy before the fix (the synchronous serialization on the loop, carrying the antipattern marker), with a `# TODO PART C:` comment at the serialization line and a practice/tests/test_probe_all_activities.py stub carrying `# TODO PART D:`.
+
+5. Integrate into the gate: `just check` checks the new solution dir green (including the parametrized probe); `just check-practice` passes for the new practice dir.
+
+6. REFACTOR: Keep the solution-versus-practice diff to the serialization line and the TODO comment.
+
+7. Update documentation: none (README is Step 11).
+
+8. Verify the parametrized probe fails if the serialization is moved back onto the loop, revert; then confirm `grep -rn "ANTIPATTERN (deliberate, for teaching)" exercises/*/solution` across ALL five exercises returns nothing, and run `just check` and `just check-practice`.
+```
+
+## Section 5: Live Captures
 
 **Tools:** none
 
-**NOTE**: The current CLAUDE.md architecture section still describes the old Greeting/Victim design, heartbeats, and the old flags.
-Refresh it to the catalog's module and mode layout.
-Same writing rules apply.
-This is a straight documentation update with no code change.
+### Step 10: Capture Before And After For Every Exercise Plus The Baseline (task)
+
+**NOTE**: Live and manual, so Task template, and it produces no committed code (captures land in the scratchpad and, for Grafana, under docs/images/).
+This is where the dashboard metric names, the backlog panel, the second-Worker cpu demonstration, the slow-endpoint-in-the-starter decision, the metrics port 9465, and the asyncio debug-mode warning are confirmed against live output (the "confirm at review" decisions).
+Every quoted block in the exercise READMEs and drafts must trace to a capture taken here, from that exercise's own copy.
+Needs `temporal server start-dev` with `--metrics-port 9465`, the worker, the compose stack up, and ptrace_scope 0 for py-spy and asyncio ps.
 
 ```text
 1. Scope:
-   - Artifact(s): CLAUDE.md (edit the Architecture section and the Commands section)
-   - Desired end state: CLAUDE.md's Architecture section names the real modules (shared.py, activities.py with the five modes, workflow.py with GeoEnrichmentWorkflow and geo_activity_options, receipt.py, rollup.py, quote.py, worker.py, starter.py) and the real demo recipes; no reference to victim.py, GreetingWorkflow, or the old flags remains.
+   - Artifact(s): capture files in the session scratchpad (tool output, starter output, Worker log, temporal workflow show/describe output) and PNG screenshots under docs/images/ named <exercise>-<state>-<panel>.png; no src or exercise code changes except a possible dashboard-panel drop.
+   - Desired end state: for the healthy baseline and for each of the five exercises in both the practice (before) and solution (after) states, a complete set of captures exists per spec Exercise requirements: asyncio ps / pstree, py-spy dump where a freeze is involved, CPU reading, the relevant metrics scrape or Grafana panel, the Worker log where the zombie or cancel is the point (02, 04), and the asyncio debug-mode warning (05). The backlog panel, the cpu second-Worker run, the slow endpoint served by the starter, and port 9465 are confirmed or corrected here.
 
 2. Tooling:
-   - Skills: none
-   - MCPs: none
-   - External: none
+   - Skills: temporal:temporal-developer
+   - MCPs: mcp__temporal-docs__search_temporal_knowledge_sources (confirm exact metric names before quoting them)
+   - External: temporal CLI (start-dev --metrics-port 9465), docker-compose v1 (just metrics), uvx py-spy, PYTHONASYNCIODEBUG for exercise 05, a browser or headless capture for Grafana PNGs
 
 3. Do the work:
-   - Update the Architecture section to the module list above, describing the shared single event loop, the five misbehavior modes, the cross-type blast radius across the four workflow types, and the frozen-loop-versus-saturation diagnostic split (asyncio ps / pstree for the frozen-loop shape, py-spy dump for the exact blocking line, CPU to separate block from cpu, task-queue backlog age for saturation).
-   - Update the Commands section's demo recipes to match the justfile from Step 8 (healthy, block, cpu, slow, slow-heartbeat, stuck).
-   - Keep the antipattern marker convention section; confirm the grep string matches the code.
-   - Apply the writing rules: no em-dashes, one sentence per line in committed Markdown prose.
+   - Start the stack: `just server` (confirm it binds 9465), `just metrics` (confirm Prometheus scrapes both 9464 and 9465 and Grafana serves on 3000 with the dashboard provisioned), `just worker`.
+   - Baseline: run `just healthy` and capture the healthy asyncio ps shape, the activity-execution-latency panel at rest, and the workflow-task-latency panel.
+   - Per exercise, run from the exercise's own directory with `uv run python worker.py` and `uv run python starter.py ...`:
+     - 01 practice (before): the frozen-loop asyncio ps shape (one task dead-ended at _ActivityWorker._handle_start_activity_task), py-spy dump naming the httpx.Client call in get_location, CPU near zero, the cross-type rollup timeout, the workflow-task-latency spike on the dashboard. 01 solution (after): loop live, bystanders complete, py-spy shows the HTTP read on an executor thread, latency flat.
+     - 02 practice (before): temporal workflow show listing attempt after attempt failing on Heartbeat timeout (the retry storm) through to the attempt that succeeds once the job is done, the Worker log still printing a dead attempt's poll lines after its failure (the zombie), bystanders failing in the frozen windows, py-spy naming the time.sleep line in the loop. 02 solution (after): temporal workflow describe shows the last heartbeat time advancing every second, the activity completes on its first attempt, bystanders normal.
+     - 03 practice (before): frozen shape, top at about 100 percent on one core (capture it next to 01's near-zero reading; the README puts the pair side by side), py-spy in the compute loop, the rollup failure. 03 solution (after): loop live, py-spy shows the computation on an executor thread holding the GIL, top near 100 percent; also run a second Worker process and capture two cpu runs progressing with combined CPU above 100 percent.
+     - 04 practice (before): bystanders fine, the first attempt times out, the Worker log shows the detached thread's work finishing after the failure and the retry's work overlapping it (the activity ran twice), py-spy dump showing the orphaned thread still inside the blocker after the attempt failed; capture the two startup traps (def activity with no activity_executor error; executor-smaller-than-max_concurrent_activities warning). 04 solution (after): the Worker log shows CancelledError in the thread and no work after it, no overlap.
+     - 05 practice (before): every run completes, nothing times out; run the healthy fleet and then the practice fleet and capture the receipt activity's started-to-completed gap in temporal workflow show for each (milliseconds against a few hundred milliseconds); then asyncio debug mode's slow-step warning naming the activity task, and py-spy confirming the serialization line. 05 solution (after): the receipt gap back to milliseconds, no slow-step warning for the activity, the parametrized probe passes.
+   - Save Grafana PNGs under docs/images/ as <exercise>-<state>-<panel>.png with the panel each exercise README will reference.
+   - If the dev server does NOT export the Task Queue backlog gauge the dashboard assumes, drop that panel from observability/grafana/dashboards/async-debug.json, update tests/test_observability_config.py's allowlist accordingly, note it for the README, and re-run `just check`. Likewise correct any dashboard metric name that does not match the live /metrics output.
 
 4. Verify:
-   - Grep CLAUDE.md for "victim", "Greeting", and "VictimWorkflow" and confirm no stale references remain. Confirm the module list matches `ls src/temporal_async_debug/`. Run `just check` and confirm exit 0 (no code changed, so this just re-confirms the tree is green).
+   - Confirm every capture file needed by Steps 11 and 12 exists and is from the correct copy and state; confirm docs/images/ holds the baseline plus a before and after screenshot per exercise. Re-run `just check` if the backlog panel or any metric name was changed.
+
+5. Document:
+   - Keep a short scratchpad index mapping each capture file to the exercise, state, and tool, so Steps 11 and 12 can cite the source of every quoted block.
+```
+
+## Section 6: Exercise READMEs
+
+**Tools:**
+- Skills: content-design:tutorial-writing, voice:teaching, content-design:review-content, temporal:temporal-developer
+- MCPs: mcp__temporal-docs__search_temporal_knowledge_sources
+- Linters: just lint-prose exercises/*/README.md, just lint-keyboard exercises/*/README.md
+
+### Step 11: Write The Five Exercise READMEs From The Captures (task)
+
+**NOTE**: Prose from captures, so Task template.
+Each README follows the 102 structure exactly and quotes only that exercise's own captures from Step 10.
+Never invent output; if a capture is missing, flag it with CLAUDE_HELP and stop that README rather than fill the gap.
+Writing hard rules apply: no em-dashes or en-dashes, straight quotes, sentence-case headings (Temporal education doc), one sentence per line.
+Skill order for every prose step in this arc: invoke content-design:tutorial-writing first (it owns the structure, the code sandwich, and the mechanical canon), then voice:teaching (Mason's teaching register applied on top; it imports the tutorial-writing canon rather than re-deriving it, so where both are loaded the tutorial-writing rules win on mechanics), then draft, then content-design:review-content.
+voice:teaching requires that every draft wait for Mason's eyes with a smell report attached and that nothing publishes autonomously.
+In this loop the handoff is the commit on the scaffold branch, which only Mason merges, so that requirement is met by writing the smell report and the open questions for each artifact to docs/drafts/smell-reports.md (one H2 per artifact; one bullet per suspect item with the verbatim quote and the rule it may break; open questions inside CLAUDE_HELP tags) and committing that file with the prose.
+Do not read the skill's wait-for-Mason rule as a reason to abort or to skip the step.
+`just preflight` must exit 0 before drafting starts; a non-zero exit is a Failure for the step (fix Step 0's artifacts, never skip the gate).
+The validator for this section consults voice:teaching in critique mode (findings only, each with the verbatim quote and the law behind it) and the tutorial-writing pre-submission checklist, runs the two declared linters, and maps Vale `error` to block, `warning` to warn, and `suggestion` to info; every keyboard-characters hit is a block.
+
+```text
+1. Scope:
+   - Artifact(s): exercises/01-sync-http-client/README.md, exercises/02-sleep-between-heartbeats/README.md, exercises/03-cpu-bound/README.md, exercises/04-zombie-thread/README.md, exercises/05-catching-blockers-early/README.md, docs/drafts/smell-reports.md (new; one section per README)
+   - Desired end state: five READMEs, each in the 102 structure: title "Exercise N: <Doing the thing>", "During this exercise, you will" bullets, the edit-practice / peek-at-solution note, a prerequisites section pointing at the root README setup and at `just metrics`, Parts A through E (run it and watch it misbehave; diagnose it with the Python tooling, `asyncio ps` / `pstree`, `py-spy dump`, the CPU reading, or asyncio debug mode, with the named Grafana panel as corroboration; find the bug; write the Part D test and fix it in practice; redeploy and verify), and the closing "### This is the end of the exercise." line. Each quotes only that exercise's captures and names the Grafana panel in the observe and verify parts.
+
+2. Tooling:
+   - Skills: content-design:tutorial-writing (invoke first), voice:teaching (invoke second, draft mode, teaching-refined register), content-design:review-content (invoke after drafting), temporal:temporal-developer
+   - MCPs: mcp__temporal-docs__search_temporal_knowledge_sources (confirm any primitive name or metric name before it reaches prose)
+   - External: `just preflight` (must pass first), Vale via review-content and `just lint-prose`, `just lint-keyboard`
+
+3. Do the work:
+   - Run `just preflight`; stop with a Failure on a non-zero exit.
+   - Invoke content-design:tutorial-writing; follow its workflow (the output/ working files are gitignored under docs/drafts/output and are not these READMEs). Then invoke voice:teaching and read its profile in full before drafting.
+   - For each exercise, write the README to exercises/<NN-name>/README.md using the Part A-E mapping: Part A runs the practice copy and the stack and shows the misbehavior as the reader would meet it in production (a failing bystander, a retry storm, the same work running twice, a slow receipt), framed as a problem to solve, not a lesson announced; Part B is the diagnosis the reader performs with the Python tooling, asyncio ps / pstree for the dead-ended task, py-spy where a freeze applies, the CPU reading for 03, the Worker log where the zombie or the overlap is the point, the asyncio debug-mode warning for 05, with the named Grafana panel last as the fleet-wide view of what the tooling found; Part C finds the bug at the TODO PART C line; Part D writes the Part D test (the one in practice/tests/) and applies the fix; Part E redeploys and verifies the after-state, quoting the solution capture and the same panel showing the fix.
+   - Quote only captures from Step 10 for that exercise; match the after-states in spec Exercise requirements.
+   - Keep every exercise framed as the one mechanism (a blocked event loop); do not drift into heartbeat, timeout, or retry tuning.
+   - Point prerequisites at the root README setup and `just metrics`; do not restate the whole setup.
+   - Write the smell report and open questions for each README to docs/drafts/smell-reports.md under an H2 named for the file.
+
+4. Verify:
+   - Invoke content-design:review-content on each README and address every finding (Vale MasonBase plus MasonTechnical, then the copy-editor pass).
+   - `just lint-prose` shows no error-level Vale alert on any of the five READMEs; `just lint-keyboard` exits 0.
+   - Human-check each README: 102 structure present, the closing line present, every quoted block traceable to a Step 10 capture of that exercise, the Grafana panel named, no em-dashes or en-dashes, sentence-case headings, one sentence per line; docs/drafts/smell-reports.md has a section per README.
+
+5. Document:
+   - This step is the documentation; the root README's Exercises table linking these is Step 13.
+```
+
+## Section 7: Tutorial Series Drafts
+
+**Tools:**
+- Skills: content-design:tutorial-writing, voice:teaching, content-design:review-content, temporal:temporal-developer, python:python
+- MCPs: mcp__temporal-docs__search_temporal_knowledge_sources
+- Linters: just lint-prose docs/drafts/part-*.md, just lint-keyboard docs/drafts/part-*.md
+
+### Step 12: Write The Six-Part Series Drafts (task)
+
+**NOTE**: Prose from the exercise READMEs and captures, so Task template.
+Six drafts under docs/drafts/, written with the tutorial-writing skill, each Vale-clean and passed through review-content.
+The tutorial-writing skill's own working files live under docs/drafts/output/ and are gitignored; the committed drafts are docs/drafts/part-N-*.md.
+Drafts carry no frontmatter and use TODO placeholders for the previous and next links and the venue (the venue decision is deferred).
+Skill order for every prose step in this arc: invoke content-design:tutorial-writing first (it owns the structure, the code sandwich, and the mechanical canon), then voice:teaching (Mason's teaching register applied on top; it imports the tutorial-writing canon rather than re-deriving it, so where both are loaded the tutorial-writing rules win on mechanics), then draft, then content-design:review-content.
+voice:teaching requires that every draft wait for Mason's eyes with a smell report attached and that nothing publishes autonomously.
+In this loop the handoff is the commit on the scaffold branch, which only Mason merges, so that requirement is met by writing the smell report and the open questions for each artifact to docs/drafts/smell-reports.md (one H2 per artifact; one bullet per suspect item with the verbatim quote and the rule it may break; open questions inside CLAUDE_HELP tags) and committing that file with the prose.
+Do not read the skill's wait-for-Mason rule as a reason to abort or to skip the step.
+`just preflight` must exit 0 before drafting starts; a non-zero exit is a Failure for the step (fix Step 0's artifacts, never skip the gate).
+The validator for this section consults voice:teaching in critique mode (findings only, each with the verbatim quote and the law behind it) and the tutorial-writing pre-submission checklist, runs the two declared linters, and maps Vale `error` to block, `warning` to warn, and `suggestion` to info; every keyboard-characters hit is a block.
+
+```text
+1. Scope:
+   - Artifact(s): docs/drafts/part-1-healthy-worker.md, part-2-sync-http-client.md, part-3-sleep-between-heartbeats.md, part-4-cpu-bound.md, part-5-zombie-thread.md, part-6-catching-blockers-early.md, docs/drafts/smell-reports.md (one section per part, appended)
+   - Desired end state: six drafts in the tutorial-writing structure (Title H1, Introduction H3, Prerequisites H2, "Step N: Gerund phrase" H2, Conclusion H2; sentence case; second person; code sandwich; Temporal primitives capitalized), each linking the previous and next parts with TODO placeholders and carrying no frontmatter. Part 1 covers install, ptrace_scope, `just server`, `just worker`, `just metrics`, `just healthy`, and the baseline readings including the dashboard. Parts 2 to 6 follow exercises 01 to 05 and end with the reader's fix and its verification. The series title is "Debugging blocking calls in Temporal async Activities".
+
+2. Tooling:
+   - Skills: content-design:tutorial-writing (invoke first; its outline step writes docs/drafts/output/outline.md, gitignored and generated fresh from the new captures), voice:teaching (invoke second, draft mode, teaching-refined register), content-design:review-content (invoke after drafting), temporal:temporal-developer, python:python
+   - MCPs: mcp__temporal-docs__search_temporal_knowledge_sources (confirm primitive and metric names before prose)
+   - External: `just preflight` (must pass first), Vale via review-content and `just lint-prose`, `just lint-keyboard`, the wordcount tool bundled with the tutorial-writing skill
+
+3. Do the work:
+   - Run `just preflight`; stop with a Failure on a non-zero exit.
+   - Invoke content-design:tutorial-writing; generate the outline from the Step 10 captures and the exercise READMEs; get the structure right for six parts before writing sections. Then invoke voice:teaching and read its profile in full before drafting.
+   - Write part 1 from the baseline captures and the root README setup; write parts 2 to 6 from exercises 01 to 05's READMEs and captures, each ending with the reader changing code in practice/ and re-running the recipe to see the failure gone.
+   - Quote only captures from Step 10; never generate code or output; flag any gap with CLAUDE_HELP and continue.
+   - Keep the whole series on the one mechanism; do not add a heartbeat, timeout, or retry-policy part.
+   - Use TODO placeholders for previous/next links and the venue; add no frontmatter.
+   - Append the smell report and open questions for each part to docs/drafts/smell-reports.md under an H2 named for the file.
+
+4. Verify:
+   - Run Vale (via review-content) on each draft and fix until clean (MasonBase plus MasonTechnical); run the copy-editor pass; track length with the wordcount tool.
+   - `just lint-prose` shows no error-level Vale alert on any of the six drafts; `just lint-keyboard` exits 0.
+   - Human-check: six drafts present, no frontmatter, the series title correct, every quoted block traceable to a Step 10 capture, no em-dashes or en-dashes, sentence-case headings, one sentence per line, Temporal primitives capitalized; docs/drafts/smell-reports.md has a section per part.
+
+5. Document:
+   - docs/drafts/README.md is updated in Step 13 to list these six drafts.
+```
+
+## Section 8: Root Documentation Refresh
+
+**Tools:**
+- Skills: content-design:tutorial-writing, voice:teaching, content-design:review-content
+- MCPs: none
+- Linters: just lint-prose README.md CLAUDE.md docs/drafts/README.md, just lint-keyboard README.md CLAUDE.md docs/drafts/README.md
+
+### Step 13: Root README, CLAUDE.md, And docs/drafts/README Refresh (task)
+
+**NOTE**: Prose and layout refresh, so Task template, and the last step.
+The root README drops to three lessons (healthy, blocking call, CPU bound), all recaptured from the trimmed package in Step 10, and gains the Exercises table and Observability section.
+CLAUDE.md is refreshed to the trimmed package, the three-layer layout, and the solution-copy carve-out.
+docs/drafts/README.md lists the six drafts and the smell-reports file.
+Writing hard rules apply throughout.
+Skill order for every prose step in this arc: invoke content-design:tutorial-writing first (it owns the structure, the code sandwich, and the mechanical canon), then voice:teaching (Mason's teaching register applied on top; it imports the tutorial-writing canon rather than re-deriving it, so where both are loaded the tutorial-writing rules win on mechanics), then draft, then content-design:review-content.
+voice:teaching requires that every draft wait for Mason's eyes with a smell report attached and that nothing publishes autonomously.
+In this loop the handoff is the commit on the scaffold branch, which only Mason merges, so that requirement is met by writing the smell report and the open questions for each artifact to docs/drafts/smell-reports.md (one H2 per artifact; one bullet per suspect item with the verbatim quote and the rule it may break; open questions inside CLAUDE_HELP tags) and committing that file with the prose.
+Do not read the skill's wait-for-Mason rule as a reason to abort or to skip the step.
+`just preflight` must exit 0 before drafting starts; a non-zero exit is a Failure for the step (fix Step 0's artifacts, never skip the gate).
+The validator for this section consults voice:teaching in critique mode (findings only, each with the verbatim quote and the law behind it) and the tutorial-writing pre-submission checklist, runs the two declared linters, and maps Vale `error` to block, `warning` to warn, and `suggestion` to info; every keyboard-characters hit is a block.
+
+```text
+1. Scope:
+   - Artifact(s): README.md (edit), CLAUDE.md (edit), docs/drafts/README.md (edit), docs/drafts/smell-reports.md (append a section for README.md)
+   - Desired end state:
+     - README.md has exactly three lessons (healthy, frozen loop from a blocking call, frozen loop from CPU-bound code), their output blocks recaptured from the trimmed package; lessons 4 to 7, "Which timeout fires, and how to tell", and the timeout-tuning parts of "Realistic timeouts" are removed. README gains an "Exercises" table in the 102 root-README shape (directory, exercise link) linking each exercises/<NN-name>/README.md, and an "Observability" section stating what `just metrics` starts, where the dashboard is (localhost:3000), the dev server metrics port 9465 and why `just server` sets it, and (if the backlog panel was dropped in Step 10) that the dev server does not export the backlog gauge. The series title with a TODO link is present.
+     - CLAUDE.md describes the trimmed package (block and cpu only), the three-layer layout (root reference, exercises, observability), the solution-copy carve-out (a solution/ copy carries no antipattern and no marker; grep excludes it), the new `just` recipes (server --metrics-port 9465, metrics, metrics-down, check solution loop, check-practice, preflight, lint-prose, lint-keyboard), and the per-directory gate; it keeps the antipattern marker convention section.
+     - docs/drafts/README.md lists the six drafts and docs/drafts/smell-reports.md (what it is, who reads it), keeps the provenance note on the original draft, and keeps the venue as not yet chosen.
+
+2. Tooling:
+   - Skills: content-design:tutorial-writing (invoke first), voice:teaching (invoke second, edit mode on the README's prose), content-design:review-content (run on README.md after editing)
+   - MCPs: none
+   - External: `just preflight` (must pass first), Vale via review-content and `just lint-prose`, `just lint-keyboard`
+
+3. Do the work:
+   - Run `just preflight`; stop with a Failure on a non-zero exit. Invoke content-design:tutorial-writing, then voice:teaching, before touching README.md.
+   - Rewrite the root README to three lessons with the recaptured blocks; remove the saturation, heartbeat, schedule-to-start, and timeout-tuning sections; add the Exercises table, the Observability section, the series title, and a TODO tutorial link; list preflight, lint-prose, and lint-keyboard in the recipe table.
+   - Rewrite CLAUDE.md's architecture and commands to the trimmed package, the three-layer layout, the solution-copy carve-out, and the new recipes; keep the antipattern marker convention section and confirm its grep string, extending it to note the solution-copy exclusion; remove references to the removed modes, the quote, and the saturation recipes.
+   - Update docs/drafts/README.md to list part-1 through part-6 and smell-reports.md, keep the original-draft provenance note, and keep the venue note.
+   - Append the README.md smell report and open questions to docs/drafts/smell-reports.md.
+   - Apply the writing hard rules: no em-dashes or en-dashes, straight quotes, one sentence per line in committed Markdown, sentence-case headings.
+
+4. Verify:
+   - Run content-design:review-content on README.md and address findings; `just lint-prose` shows no error-level Vale alert on README.md, CLAUDE.md, or docs/drafts/README.md; `just lint-keyboard` exits 0.
+   - Grep CLAUDE.md and README.md for stale references (removed modes, the quote, saturation, maximum_attempts); confirm the module and layer list matches the tree (`ls exercises/`, `ls observability/`); confirm `grep -rn "ANTIPATTERN (deliberate, for teaching)" exercises/*/solution` returns nothing; run `just check` and `just check-practice` and confirm exit 0.
 
 5. Document:
    - This step is the documentation.
@@ -470,27 +727,34 @@ This is a straight documentation update with no code change.
 
 ## Implementation Guidelines
 
-- All Python code follows the python:python skill without exception: full type hints, Google-style docstrings on public interfaces, no single-letter names, canonical ruff/mypy/pytest config blocks. Use PEP 695 generics and X | None as the foundation already does.
-- Demo code stays small and readable; it is excerpted line-by-line in the tutorial. Comment density serves a reader learning the failure mode.
-- Every deliberate bug, mistuning, or antipattern carries the fixed marker `# ANTIPATTERN (deliberate, for teaching): <why>. Correct: <right approach>. Do not copy.` on or immediately above the offending line. The validator flags any mistuning that lacks one. slow_heartbeat is correct and carries no marker.
-- No new dependencies (Invariants: temporalio only, deps not to be added without a spec change). All new modes use stdlib (asyncio, time) and the existing httpx/temporalio.
-- No role-labeled names (no victim, villain, culprit). New workflow types are neutral and realistic.
-- Do not implement anything in Non-goals or the Deferred list (no fleet generator, no seeded culprit, no game master, no web UI, no CI changes, no Docker).
-- Tests must not require a running Temporal server except through the SDK's own facilities (ActivityEnvironment, WorkflowEnvironment.start_time_skipping). Network is always mocked. Guard activity.heartbeat with activity.in_activity() in code reused outside an activity.
-- Prefer start_local over start_time_skipping when a test involves schedule_to_start timing (a captured lesson); here, schedule_to_start is asserted via the options helper, not by tripping it under time-skipping.
-- The full local gate is `just check` (ruff check, ruff format --check, mypy strict, pytest). Autonomous-run verification is pytest alone.
-- Live failure signatures (cross-type blast radius, slot timing, CPU pinning, heartbeat and schedule-to-start timeouts) are captured live while writing the README, not asserted in CI.
-- Writing rules apply to all prose (README, CLAUDE.md, docstrings, commit messages): no em-dashes or en-dashes, straight quotes, one sentence per line in committed Markdown.
-- Never commit to main; work on a feature branch. Only Mason merges to main.
+- One mechanism only. Every lesson, exercise, capture, README, and draft is about blocking the shared asyncio event loop. No step may add a slot-exhaustion, Worker-sizing-for-throughput, heartbeat-tuning, timeout-tuning, schedule-to-start, or retry-policy lesson, even as a contrast case. Heartbeats and timeouts appear only as fixed scenery or as symptoms of a frozen loop, never as the subject the reader tunes.
+- Every exercise's bug is an execution failure the reader sees without a dashboard (bystanders fail, attempts fail and retry, the same work runs twice, a bystander is visibly delayed on every run), diagnosed with the Python tooling the reader runs (`asyncio ps`, `pstree`, `py-spy dump`, the CPU reading, asyncio debug mode). A metrics blip alone is not a bug, and Grafana corroborates rather than teaches. Exercise 05 is the one detection lesson and the only exercise that misbehaves without failing; do not add a second.
+- All Python code follows the python:python skill without exception: full type hints, Google-style docstrings on public interfaces, no single-letter names, canonical ruff/mypy/pytest config blocks verbatim, PEP 604 X | None, absolute (flat top-level) imports in the exercise copies rather than relative imports.
+- The root package is trimmed in Step 1 and then frozen for the rest of the arc; after Step 1 every code change lands under exercises/ or observability/. The invariant paths are src/temporal_async_debug/**, tests/**, exercises/**, observability/**, docs/**, justfile, pyproject.toml, README.md, CLAUDE.md, .github/workflows/ci.yml.
+- No new Python runtime dependency. The fixes use the standard library (concurrent.futures.ThreadPoolExecutor, asyncio, time, http.server, json, contextvars, threading) and the httpx already present (its synchronous Client stands in for requests); py-spy stays uvx; Prometheus and Grafana run in containers. A dev-group parser for the config tests is acceptable only if one is already in the dependency group.
+- The Temporal server is always `temporal server start-dev` with `--metrics-port 9465`; never a cluster, a server container, or Cloud. The compose stack is Prometheus and Grafana only and stays docker-compose v1 compatible; a test asserts no service image names Temporal.
+- 102 layout: exercises/<NN-name>/{README.md,practice/,solution/}; each copy is a standalone flat set of modules plus tests/, runs from its own directory under the root virtual environment, and the practice edit points carry `# TODO PART X:` comments. A practice/ copy keeps the antipattern and its marker; a solution/ copy carries no antipattern and no marker. `grep -rn "ANTIPATTERN (deliberate, for teaching)" exercises/*/solution` must return nothing.
+- Every quoted block in an exercise README or a draft is a capture of that exercise's own copy (or of the root package for the root README and part 1), taken live in Step 10. No reconstructed output; flag a missing capture with CLAUDE_HELP rather than invent it.
+- Tests never require a running Temporal server except through the SDK's own facilities (ActivityEnvironment, WorkflowEnvironment.start_time_skipping()); all network is mocked, and exercise 01 serves its slow endpoint from a stdlib server inside the test. Guard activity.heartbeat with activity.in_activity() in any code path reachable outside an activity. Prefer history-based assertions over tripping timeouts live.
+- The gate: root ruff, ruff format --check, mypy strict, and pytest exclude exercises/; `just check` then loops every exercises/*/solution directory running ruff, ruff format --check, mypy, and pytest per directory (so near-identical module names never share one invocation), and the loop is a no-op at exit 0 when no solution directory exists; `just check-practice` loops every exercises/*/practice directory running ruff and mypy only. The observability config tests live under the root tests/ tree and run in the root pytest.
+- No role-labeled names (victim, villain, culprit). The fleet reads as ordinary.
+- Do not implement anything in Non-goals or either Deferred list: no lab mode, no alert rules or Alertmanager, no ProcessPoolExecutor exercise, no blocking-in-Workflow exercise, no Codespaces, no committed capture script, no Web UI screenshots, no venue or frontmatter on the drafts.
+- Writing hard rules apply to all prose (READMEs, CLAUDE.md, drafts, docstrings, commit messages): no em-dashes or en-dashes, no banned AI-tell vocabulary, straight quotes, one sentence per line in committed Markdown, sentence-case headings for the Temporal education docs.
+- Prose steps (11, 12, 13) invoke skills in a fixed order: content-design:tutorial-writing, then voice:teaching, then draft, then content-design:review-content. The tutorial-writing canon wins on mechanics; voice:teaching adds the register. Each prose artifact gets a smell report and an open-questions list in docs/drafts/smell-reports.md, committed with it; the commit on the scaffold branch is the handoff to Mason and nothing publishes from the loop. `just preflight` gates every prose step and is never weakened to pass.
+- Vale runs from the repo's own .vale.ini (Step 0), which applies MasonBase everywhere and adds MasonTechnical under docs/drafts/** and exercises/**. Each prose section declares `just lint-prose <its files>` and `just lint-keyboard <its files>` as linters, scoped so a section is never blocked by a file it does not touch; the validator maps Vale error to block, warning to warn, suggestion to info, and every keyboard-characters hit to block. docs/drafts/tutorial-original-draft.md is provenance and is never linted.
+- The confirm-at-review decisions baked into this plan: keep max_concurrent_activities=2 and drop its marker (Step 1); metrics port 9465 (Step 3); the slow endpoint served by the starter for exercise 01 (Step 5); the awaited 1-second tick wait with a heartbeat per tick for exercise 02 under a 5-second heartbeat_timeout and an 8-second poll interval (Step 6; this replaced the spec's one-line await, which would still outrun the timeout); the cpu second-Worker demonstration (Steps 7 and 10); the JSON-round-trip blocker sized to 200-500 ms for exercise 05 (Step 9); the per-directory mypy and pytest loop (Step 4). Confirm each against the live captures in Step 10.
+- The full local gate is `just check` plus `just check-practice`; pytest alone (root, which excludes exercises/) is the autonomous-run verification command. The live signatures and after-states are captured in Step 10, not asserted in CI.
+- Never commit to main; work on the scaffold branch (PR #4). Only Mason merges to main. No attribution trailers in commits or PRs.
 
 ## Success Metrics
 
-- `just check` passes: ruff clean, ruff format check clean, mypy strict clean, all tests green.
-- Activity tests prove each of the five modes does what it claims: block calls time.sleep, cpu busy-loops without awaiting or sleeping, slow awaits asyncio.sleep, slow_heartbeat awaits and heartbeats more than once, stuck_no_heartbeat awaits and never heartbeats; the healthy path applies no delay; provider failover still works.
-- The starvation probe deterministically shows block and cpu starve the probe while slow and slow_heartbeat do not, and the cpu case fails if its branch is switched to a cooperative await.
-- The two new bystander workflows (SalesRollupWorkflow, PriceQuoteWorkflow) pass happy-path and concurrent tests under start_time_skipping with no network, and PriceQuoteWorkflow's options helper sets the marked schedule_to_start_timeout.
-- geo_activity_options returns generous start_to_close for every mode, a heartbeat_timeout for slow_heartbeat and stuck_no_heartbeat, maximum_attempts=1 throughout, and raises on an unknown mode.
-- worker.py registers all four workflow types and every activity, keeps max_concurrent_activities=2 (marked) and the metrics endpoint, and imports cleanly.
-- The starter exposes all five modes and the --rollups/--quotes flags, constructs distinct inputs per bystander, and sequences submissions so freeze scenarios catch bystanders in-flight and saturation scenarios starve them.
-- Every deliberately wrong line (time.sleep, the cpu loop, stuck_no_heartbeat missing heartbeat, the quote schedule_to_start_timeout, maximum_attempts=1, max_concurrent_activities=2) carries the exact antipattern marker and is greppable.
-- The README documents every scenario with real captured healthy-versus-broken output, the mode-to-timeout-to-signature table, the platform gotchas, and the deliberately-broken-code warning; CLAUDE.md's architecture section matches the shipped modules with no stale Greeting/Victim references.
+- `just check` is green with the solution-copy loop and the observability config tests included, and `just check-practice` is green.
+- `grep -rn "slow_heartbeat\|stuck_no_heartbeat\|PriceQuote\|maximum_attempts" src tests justfile` returns nothing.
+- `observability/` brings up Prometheus and Grafana with `just metrics` on a docker-compose v1 machine; the config tests pin two scrape targets (9464 and 9465), exactly the two services with no Temporal image, and a dashboard whose panels reference only allowlisted metrics.
+- Each of the five exercises runs from its own directory: the practice/ copy reproduces its failure, and the solution/ copy produces its after-state, both captured and quoted. The solution copies pass their Part D tests (probe for 01, 03, 05; heartbeat-and-probe for 02; cancel-stops-work plus executor-size for 04).
+- `grep -rn "ANTIPATTERN (deliberate, for teaching)" exercises/*/solution` returns nothing; each practice/ copy keeps its marker and its `# TODO PART X:` comments.
+- The root README has exactly three lessons, all recaptured; five exercise READMEs exist in the 102 structure, quote only captures of their own exercise, name the Grafana panel, pass Vale, and have been through /review-content.
+- Six tutorial drafts exist under docs/drafts/, follow the tutorial-writing structure, carry no frontmatter, use TODO cross-links, quote only Step 10 captures, pass Vale, and have been through /review-content.
+- The root README has the Exercises table and the Observability section; CLAUDE.md describes the trimmed package, the three-layer layout, the solution-copy carve-out, and the new recipes; docs/drafts/README.md lists the six drafts and keeps the venue open.
+- `just preflight` exits 0; `just lint-prose` shows no error-level Vale alert across the five exercise READMEs, the six drafts, README.md, CLAUDE.md, and docs/drafts/README.md; `just lint-keyboard` exits 0; docs/drafts/smell-reports.md carries one section per prose artifact with its smell report and open questions.
+- The arc ships as commits on the scaffold branch against main, with a session summary per commit.

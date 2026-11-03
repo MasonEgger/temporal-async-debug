@@ -11,6 +11,10 @@ Do not "fix" antipatterns you find here unless the task explicitly asks you to c
 The build is driven by `spec.md` (requirements) and `plan.md`/`todo.md` (the step-by-step execution plan, consumed by `/bpe:execute-plan` or `/bpe:goal`).
 Read `spec.md` in full before making architectural decisions; it is the source of truth for behavior this repo must exhibit.
 
+The current plan is the `event-loop-exercises` arc: it trims this package to the frozen-loop reference (`block` and `cpu` only), then adds five `exercises/` in the Temporal 102 `practice/` and `solution/` layout, an `observability/` Prometheus and Grafana stack, and a six-part tutorial draft.
+The whole arc is about one mechanism, blocking the shared asyncio event loop; the spec's Invariants forbid any slot-exhaustion, heartbeat-tuning, timeout-tuning, or retry-policy lesson.
+The Architecture and Commands sections below describe the package at HEAD, which is the shipped failure-mode catalog (its plan is archived under `.ai-sessions/failure-mode-catalog/`); plan.md's Step 13 refreshes them once the trim and the exercises land.
+
 ## Antipattern Marker Convention
 
 Every deliberately wrong line, setting, or pattern carries a comment of this exact, greppable form on or immediately above the offending line:
