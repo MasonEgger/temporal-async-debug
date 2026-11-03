@@ -84,14 +84,14 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 7: Exercise 03 CPU Bound
 
-- [ ] 1. RED: create solution/ flat copy; async def geo with a CPU-bound transform of the provider response; solution/tests/test_probe.py failing against the on-loop computation
-- [ ] 2. Document: module docstrings on solution activities.py and worker.py
-- [ ] 3. GREEN: def activities + ThreadPoolExecutor; CPU transform kept but no marker; grep clean
-- [ ] 4. Create practice/: async def + GIL-pinning transform (marker kept), TODO C/D comments, test_probe.py stub
-- [ ] 5. Integrate into the gate: solution green, practice green
-- [ ] 6. REFACTOR: keep the diff to the fix lines and TODO comments
-- [ ] 7. Docs: none
-- [ ] 8. Verify: probe fails if the transform moves back onto the loop, revert, run `just check` and `just check-practice`
+- [x] 1. RED: create solution/ flat copy; async def geo with a CPU-bound transform of the provider response; solution/tests/test_probe.py failing against the on-loop computation
+- [x] 2. Document: module docstrings on solution activities.py and worker.py
+- [x] 3. GREEN: def activities + ThreadPoolExecutor; CPU transform kept but no marker; grep clean
+- [x] 4. Create practice/: async def + GIL-pinning transform (marker kept), TODO C/D comments, test_probe.py stub
+- [x] 5. Integrate into the gate: solution green, practice green
+- [x] 6. REFACTOR: keep the diff to the fix lines and TODO comments
+- [x] 7. Docs: none
+- [x] 8. Verify: probe fails if the transform moves back onto the loop, revert, run `just check` and `just check-practice`
 
 ### Step 8: Exercise 04 Zombie Thread
 
