@@ -3,7 +3,7 @@ ABOUTME: Activities are stubbed to return fixed strings, so no test touches the 
 
 The happy path proves the two-activity sequence and the output shape; the stubbed get_location
 asserts it received the ip that get_ip produced, which pins the ordering. The error path proves
-maximum_attempts=1 surfaces the first failure as a WorkflowFailureError instead of retrying it away.
+the unknown-mode path fails the run with an ApplicationError instead of stalling it.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from datetime import timedelta
 import pytest
 from temporalio import activity
 from temporalio.client import WorkflowFailureError
-from temporalio.exceptions import ActivityError, ApplicationError
+from temporalio.exceptions import ApplicationError
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
 
@@ -27,9 +27,6 @@ STUB_IP: str = "203.0.113.7"
 
 STUB_LOCATION: str = "Austin, Texas, United States"
 """Location the stubbed get_location returns once it has confirmed the ip."""
-
-GET_IP_FAILURE_MESSAGE: str = "stubbed get_ip failure"
-"""Message the failing get_ip stub raises, checked in the error-path cause chain."""
 
 
 @activity.defn(name="get_ip")
@@ -68,38 +65,9 @@ async def test_geo_workflow_happy_path_returns_ip_and_location() -> None:
     assert result.location == STUB_LOCATION
 
 
-async def test_geo_workflow_runs_to_completion_in_slow_heartbeat_mode() -> None:
-    """geo_activity_options' heartbeat_timeout for slow_heartbeat applies without error."""
-    async with (
-        await WorkflowEnvironment.start_time_skipping() as env,
-        Worker(
-            env.client,
-            task_queue=TASK_QUEUE,
-            workflows=[GeoEnrichmentWorkflow],
-            activities=[get_ip_stub, get_location_stub],
-        ),
-    ):
-        result = await env.client.execute_workflow(
-            GeoEnrichmentWorkflow.run,
-            GeoEnrichmentInput(block_seconds=0.0, mode="slow_heartbeat"),
-            id=str(uuid.uuid4()),
-            task_queue=TASK_QUEUE,
-        )
-
-    assert isinstance(result, GeoEnrichmentOutput)
-    assert result.ip == STUB_IP
-    assert result.location == STUB_LOCATION
-
-
-@pytest.mark.parametrize(
-    ("mode", "expected_heartbeat_timeout"),
-    [("slow_heartbeat", timedelta(seconds=10)), ("block", timedelta(0))],
-)
-async def test_geo_workflow_passes_its_timeouts_through_to_the_scheduled_activities(
-    mode: str,
-    expected_heartbeat_timeout: timedelta,
-) -> None:
-    """Both scheduled geo activities carry the mode's timeouts, read back from the server's history.
+@pytest.mark.parametrize("mode", ["block", "cpu"])
+async def test_geo_workflow_passes_its_timeouts_through_to_the_scheduled_activities(mode: str) -> None:
+    """Both scheduled geo activities carry the fixed timeouts, read back from the server's history.
 
     A zero heartbeat_timeout in the history is how the server records "none set".
     """
@@ -123,7 +91,7 @@ async def test_geo_workflow_passes_its_timeouts_through_to_the_scheduled_activit
 
     assert [attributes.activity_type.name for attributes in scheduled] == ["get_ip", "get_location"]
     for attributes in scheduled:
-        assert attributes.heartbeat_timeout.ToTimedelta() == expected_heartbeat_timeout
+        assert attributes.heartbeat_timeout.ToTimedelta() == timedelta(0)
         assert attributes.start_to_close_timeout.ToTimedelta() == timedelta(seconds=120)
         assert attributes.schedule_to_close_timeout.ToTimedelta() == timedelta(seconds=150)
 
@@ -156,43 +124,3 @@ async def test_geo_workflow_fails_fast_on_an_unknown_mode() -> None:
     assert isinstance(application_error, ApplicationError)
     assert application_error.type == "InvalidMode"
     assert "unknown mode" in str(application_error)
-
-
-async def test_geo_workflow_surfaces_first_failure_without_retrying() -> None:
-    """maximum_attempts=1 fails the workflow on the first get_ip error instead of retrying."""
-    attempts: list[int] = []
-    """Attempt numbers the failing stub saw, one entry per invocation; proves no retry."""
-
-    @activity.defn(name="get_ip")
-    async def get_ip_failing(block_seconds: float, mode: str) -> str:
-        """Stand in for get_ip that always fails, recording each attempt to prove no retry."""
-        attempts.append(activity.info().attempt)
-        raise ApplicationError(GET_IP_FAILURE_MESSAGE)
-
-    async with (
-        await WorkflowEnvironment.start_time_skipping() as env,
-        Worker(
-            env.client,
-            task_queue=TASK_QUEUE,
-            workflows=[GeoEnrichmentWorkflow],
-            activities=[get_ip_failing, get_location_stub],
-        ),
-    ):
-        with pytest.raises(WorkflowFailureError) as failure:
-            await env.client.execute_workflow(
-                GeoEnrichmentWorkflow.run,
-                GeoEnrichmentInput(),
-                id=str(uuid.uuid4()),
-                task_queue=TASK_QUEUE,
-            )
-
-    # Exactly one attempt: maximum_attempts=1 disabled the retry that would append a second entry.
-    # Bumping the workflow's RetryPolicy to maximum_attempts=2 makes this list [1, 2] and fails here.
-    assert attempts == [1]
-
-    # The failure is the stubbed error surfaced through the activity, not a timeout.
-    activity_error = failure.value.cause
-    assert isinstance(activity_error, ActivityError)
-    application_error = activity_error.cause
-    assert isinstance(application_error, ApplicationError)
-    assert GET_IP_FAILURE_MESSAGE in str(application_error)

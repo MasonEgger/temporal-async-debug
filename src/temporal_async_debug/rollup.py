@@ -25,7 +25,7 @@ ACTIVITY_START_TO_CLOSE_TIMEOUT: timedelta = timedelta(seconds=10)
 """Budget for a single roll_up_sales attempt; generous relative to the few seconds of work."""
 
 ACTIVITY_SCHEDULE_TO_CLOSE_TIMEOUT: timedelta = timedelta(seconds=20)
-"""Overall budget from schedule to close; a saturated worker makes even this short work breach it."""
+"""Overall budget from schedule to close; a frozen loop makes even this short work breach it."""
 
 FIGURES: tuple[int, ...] = (1_200, 950, 3_100, 780)
 """Placeholder per-region sales figures, in whole currency units, standing in for a real data source."""

@@ -1,7 +1,7 @@
 """ABOUTME: Tests for the worker's construction and startup banner, with no live Temporal server.
 ABOUTME: build_worker runs against the time-skipping environment's client; the banner runs under capsys.
 
-These tests pin the deliberate mistuning the tutorial depends on: two activity slots, no
+These tests pin the setup the tutorial depends on: two activity slots (small on purpose), no
 activity_executor (so async activities share the one event loop), and every workflow type and
 activity registered on the one worker so a failure in one type can reach the others.
 """
@@ -15,7 +15,6 @@ from typing import TYPE_CHECKING
 
 from temporalio.testing import WorkflowEnvironment
 
-from temporal_async_debug.quote import PriceQuoteWorkflow
 from temporal_async_debug.receipt import OrderReceiptWorkflow
 from temporal_async_debug.rollup import SalesRollupWorkflow
 from temporal_async_debug.shared import TASK_QUEUE
@@ -33,13 +32,12 @@ EXPECTED_ACTIVITY_NAMES: frozenset[str] = frozenset(
         "compute_total",
         "format_receipt",
         "roll_up_sales",
-        "compute_quote",
     }
 )
-"""Every activity the four workflow types schedule, all of which must share the one worker."""
+"""Every activity the three workflow types schedule, all of which must share the one worker."""
 
 
-async def test_build_worker_keeps_the_deliberate_mistuning_and_full_registration() -> None:
+async def test_build_worker_keeps_the_small_slot_pool_and_full_registration() -> None:
     """build_worker caps activity slots at two, adds no executor, and registers the whole fleet."""
     async with await WorkflowEnvironment.start_time_skipping() as env:
         worker_config = build_worker(env.client).config()
@@ -53,7 +51,6 @@ async def test_build_worker_keeps_the_deliberate_mistuning_and_full_registration
         GeoEnrichmentWorkflow,
         OrderReceiptWorkflow,
         SalesRollupWorkflow,
-        PriceQuoteWorkflow,
     }
 
 

@@ -1,13 +1,12 @@
-"""ABOUTME: The deliberately mistuned worker that hosts every demo workflow type and activity.
-ABOUTME: max_concurrent_activities=2 with no executor lets two blocking activities stall the queue.
+"""ABOUTME: The worker that hosts every demo workflow type and activity on one event loop.
+ABOUTME: max_concurrent_activities=2 and no executor keep the freeze lessons small and readable.
 
 This worker is the process the tutorial attaches to and inspects. It runs its poller, its heartbeat
-sender, and every async activity from all four workflow types on a single asyncio event loop, so the
-blocking bug in activities.py freezes the whole worker, unrelated workflows included. Two deliberate
-choices make the failure legible:
+sender, and every async activity from all three workflow types on a single asyncio event loop, so the
+blocking bug in activities.py freezes the whole worker, unrelated workflows included.
 
-- ``max_concurrent_activities=2`` undersizes the slot pool so a pair of slow or blocked activities
-  exhausts every slot and the other work on the worker starves.
+- ``max_concurrent_activities=2`` is small on purpose, so the slot gauge readings in the lessons stay
+  short enough to read on a single machine.
 - No ``activity_executor`` means the activities run on the event loop itself rather than in a thread
   or process pool, which is exactly what lets ``time.sleep`` freeze the loop.
 
@@ -26,7 +25,6 @@ from temporalio.worker import Worker
 
 from temporal_async_debug import shared
 from temporal_async_debug.activities import get_ip, get_location
-from temporal_async_debug.quote import PriceQuoteWorkflow, compute_quote
 from temporal_async_debug.receipt import (
     OrderReceiptWorkflow,
     compute_total,
@@ -66,7 +64,7 @@ def print_startup_banner() -> None:
 
 
 def build_worker(client: Client) -> Worker:
-    """Construct the deliberately mistuned Worker for all four workflow types and their activities.
+    """Construct the Worker for all three workflow types and their activities.
 
     Kept free of any connection logic so tests can build it against a test environment's client
     and inspect its configuration without polling a real server.
@@ -84,7 +82,6 @@ def build_worker(client: Client) -> Worker:
             GeoEnrichmentWorkflow,
             OrderReceiptWorkflow,
             SalesRollupWorkflow,
-            PriceQuoteWorkflow,
         ],
         activities=[
             get_ip,
@@ -93,17 +90,14 @@ def build_worker(client: Client) -> Worker:
             compute_total,
             format_receipt,
             roll_up_sales,
-            compute_quote,
         ],
-        # ANTIPATTERN (deliberate, for teaching): max_concurrent_activities=2 undersizes the
-        # worker so two slow activities exhaust every slot and stall the queue. Correct: size
-        # slots to expected concurrency and load. Do not copy.
+        # Small on purpose: a single-machine demo keeps the slot gauge readings short and readable.
         max_concurrent_activities=2,
     )
 
 
 async def main() -> None:
-    """Connect to the local Temporal server and run the deliberately mistuned worker.
+    """Connect to the local Temporal server and run the worker.
 
     Builds a Runtime with the Prometheus metrics endpoint enabled, connects a Client to the
     local dev server, builds the Worker with build_worker, prints the startup banner, and then

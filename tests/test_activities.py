@@ -93,18 +93,7 @@ async def test_block_mode_sleeps_with_time_sleep(
     assert recorder.cooperative_sleeps == []
 
 
-async def test_slow_mode_awaits_asyncio_sleep(
-    recorder: SleepRecorder,
-    mocked_network: respx.MockRouter,
-) -> None:
-    """Slow mode takes the same delay cooperatively, leaving the loop free to run other tasks."""
-    await ActivityEnvironment().run(get_ip, 30.0, "slow")
-
-    assert recorder.cooperative_sleeps == [30.0]
-    assert recorder.blocking_sleeps == []
-
-
-@pytest.mark.parametrize("mode", ["block", "slow"])
+@pytest.mark.parametrize("mode", ["block", "cpu"])
 async def test_zero_block_seconds_applies_no_delay(
     mode: str,
     recorder: SleepRecorder,
@@ -175,45 +164,6 @@ async def test_get_location_fails_over_on_a_malformed_payload(unusable_payload: 
         assert await ActivityEnvironment().run(get_location, MOCKED_IP, 0.0, "block") == failover_location
 
 
-async def test_slow_heartbeat_mode_heartbeats_before_every_provider_attempt() -> None:
-    """slow_heartbeat heartbeats right before each provider request, so a slow provider cannot
-    run out the heartbeat_timeout while the activity is legitimately busy."""
-    events: list[str] = []
-
-    def failing_request(_request: httpx.Request) -> httpx.Response:
-        events.append("request")
-        return httpx.Response(500)
-
-    def answering_request(_request: httpx.Request) -> httpx.Response:
-        events.append("request")
-        return httpx.Response(200, text=f"{MOCKED_IP}\n")
-
-    environment = ActivityEnvironment()
-    environment.on_heartbeat = lambda *_details: events.append("heartbeat")
-    with respx.mock(assert_all_called=False) as router:
-        router.get(IP_PROVIDERS[0]).mock(side_effect=failing_request)
-        router.get(IP_PROVIDERS[1]).mock(side_effect=answering_request)
-
-        assert await environment.run(get_ip, 0.0, "slow_heartbeat") == MOCKED_IP
-
-    assert events == ["heartbeat", "request", "heartbeat", "request"]
-
-
-@pytest.mark.parametrize("mode", ["block", "slow", "stuck_no_heartbeat"])
-async def test_non_heartbeat_modes_never_heartbeat_around_the_http_phase(
-    mode: str,
-    mocked_network: respx.MockRouter,
-) -> None:
-    """Only slow_heartbeat heartbeats; the other modes leave the HTTP phase silent."""
-    heartbeats: list[object] = []
-    environment = ActivityEnvironment()
-    environment.on_heartbeat = lambda *details: heartbeats.append(details)
-
-    await environment.run(get_location, MOCKED_IP, 0.0, mode)
-
-    assert heartbeats == []
-
-
 async def test_get_ip_raises_when_every_provider_fails() -> None:
     """With every provider erroring, get_ip exhausts the list and raises rather than returning junk."""
     with respx.mock(assert_all_called=False) as router:
@@ -225,8 +175,8 @@ async def test_get_ip_raises_when_every_provider_fails() -> None:
 
 
 def test_valid_modes_names_every_delay_mode() -> None:
-    """VALID_MODES names exactly the five delay modes the demo exercises."""
-    assert set(VALID_MODES) == {"block", "cpu", "slow", "slow_heartbeat", "stuck_no_heartbeat"}
+    """VALID_MODES names exactly the two freezing modes the demo exercises."""
+    assert set(VALID_MODES) == {"block", "cpu"}
 
 
 async def test_cpu_mode_busy_loops_without_sleeping_or_awaiting(
@@ -243,65 +193,3 @@ async def test_cpu_mode_busy_loops_without_sleeping_or_awaiting(
     assert elapsed >= block_seconds
     assert recorder.blocking_sleeps == []
     assert recorder.cooperative_sleeps == []
-
-
-async def test_slow_heartbeat_mode_heartbeats_more_than_once(
-    recorder: SleepRecorder,
-    mocked_network: respx.MockRouter,
-) -> None:
-    """Slow-heartbeat mode awaits asyncio.sleep in steps and heartbeats after each one."""
-    heartbeat_count = 0
-
-    def count_heartbeat(*_details: object) -> None:
-        nonlocal heartbeat_count
-        heartbeat_count += 1
-
-    environment = ActivityEnvironment()
-    environment.on_heartbeat = count_heartbeat
-
-    await environment.run(get_ip, 6.5, "slow_heartbeat")
-
-    assert heartbeat_count >= 2
-    assert len(recorder.cooperative_sleeps) >= 2
-    assert recorder.blocking_sleeps == []
-
-
-async def test_slow_heartbeat_mode_returns_result_while_heartbeating(
-    mocked_network: respx.MockRouter,
-) -> None:
-    """slow_heartbeat mode returns the real activity result, proving the mode composes with the
-    activity body rather than only with a patched sleep."""
-    heartbeat_count = 0
-
-    def count_heartbeat(*_details: object) -> None:
-        nonlocal heartbeat_count
-        heartbeat_count += 1
-
-    environment = ActivityEnvironment()
-    environment.on_heartbeat = count_heartbeat
-
-    result = await environment.run(get_ip, 0.09, "slow_heartbeat")
-
-    assert result == MOCKED_IP
-    assert heartbeat_count >= 1
-
-
-async def test_stuck_no_heartbeat_mode_never_heartbeats(
-    recorder: SleepRecorder,
-    mocked_network: respx.MockRouter,
-) -> None:
-    """Stuck-no-heartbeat mode awaits the full delay once and never calls heartbeat."""
-    heartbeat_count = 0
-
-    def count_heartbeat(*_details: object) -> None:
-        nonlocal heartbeat_count
-        heartbeat_count += 1
-
-    environment = ActivityEnvironment()
-    environment.on_heartbeat = count_heartbeat
-
-    await environment.run(get_ip, 0.09, "stuck_no_heartbeat")
-
-    assert heartbeat_count == 0
-    assert recorder.cooperative_sleeps == [0.09]
-    assert recorder.blocking_sleeps == []

@@ -18,14 +18,14 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 1: Trim The Root Package To The Frozen-Loop Reference
 
-- [ ] 1. RED: update root tests to the trimmed surface (VALID_MODES {block,cpu}; delete slow/slow_heartbeat/stuck tests; fixed timeouts, no maximum_attempts; registration without the quote; drop saturation/--quotes starter tests; delete quote/geo-options timeout cases); `just check` now fails against untrimmed source
-- [ ] 2. Document: module docstrings describe the frozen-loop reference (block and cpu only)
-- [ ] 3. GREEN: trim shared.py (VALID_MODES, drop quote dataclasses), activities.py (keep block+cpu, drop the rest and the heartbeat helper), workflow.py (one fixed options set, drop RetryPolicy and marker), delete quote.py, worker.py (drop quote, keep max=2 but remove its marker + add plain comment), starter.py (drop saturation ordering/SATURATION_MODES/concurrent fallback/--quotes, keep freeze ordering + gate + os._exit); grep for removed surface returns nothing
-- [ ] 4. RED: guard test (importing quote raises ModuleNotFoundError; VALID_MODES length 2)
-- [ ] 5. GREEN: guard passes
-- [ ] 6. REFACTOR: remove dead imports/constants/helpers; keep block+cpu markers exact
-- [ ] 7. Docs: none (root README/CLAUDE.md are Step 13; README recapture is Step 10)
-- [ ] 8. Verify: suite covers block/cpu/healthy/failover/fixed-timeouts/registration/ordering; `grep ANTIPATTERN src` returns exactly block+cpu; run `just check`
+- [x] 1. RED: update root tests to the trimmed surface (VALID_MODES {block,cpu}; delete slow/slow_heartbeat/stuck tests; fixed timeouts, no maximum_attempts; registration without the quote; drop saturation/--quotes starter tests; delete quote/geo-options timeout cases); `just check` now fails against untrimmed source
+- [x] 2. Document: module docstrings describe the frozen-loop reference (block and cpu only)
+- [x] 3. GREEN: trim shared.py (VALID_MODES, drop quote dataclasses), activities.py (keep block+cpu, drop the rest and the heartbeat helper), workflow.py (one fixed options set, drop RetryPolicy and marker), delete quote.py, worker.py (drop quote, keep max=2 but remove its marker + add plain comment), starter.py (drop saturation ordering/SATURATION_MODES/concurrent fallback/--quotes, keep freeze ordering + gate + os._exit); grep for removed surface returns nothing
+- [x] 4. RED: guard test (importing quote raises ModuleNotFoundError; VALID_MODES length 2)
+- [x] 5. GREEN: guard passes
+- [x] 6. REFACTOR: remove dead imports/constants/helpers; keep block+cpu markers exact
+- [x] 7. Docs: none (root README/CLAUDE.md are Step 13; README recapture is Step 10)
+- [x] 8. Verify: suite covers block/cpu/healthy/failover/fixed-timeouts/registration/ordering; `grep ANTIPATTERN src` returns exactly block+cpu; run `just check`
 
 ## Section 2: Observability Stack
 
