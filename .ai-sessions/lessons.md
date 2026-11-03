@@ -2,6 +2,7 @@
 
 ## Recent
 
+- For exercise copies, an optional info finding forwarded to a fix pass can widen a deliberately minimal practice-to-solution diff (an executor-lifecycle change touched the Part D lines); keep info findings out of fix passes unless they protect that diff (2026-11-03)
 - pytest resolves a relative `pythonpath` ini value against the config file's directory, not the cwd, so a per-directory run from a subdirectory with `-o pythonpath=.` put the repo root on every copy's sys.path; pass an absolute path (`-o pythonpath="$PWD"`) inside the cd subshell to keep the repo root off it. Proved with throwaway two-copy probes (2026-11-03)
 - A config test that must assert "exactly these values and nothing else" should scan for every token of the value's shape across the whole file rather than parse structure with regexes; structural regex parsing failed open across two validator rounds (2026-11-03)
 - When the owner states a tutorial's scope in one sentence ("JUST about the Python async event loop"), that sentence is the test for every lesson; defending a lesson on its merit (the timeout and retry content) when it fails the scope test cost a spec rewrite and a plan regeneration. Write the sentence into `## Invariants` the moment it is said so the plan writer and validator enforce it (2026-11-03)
@@ -62,6 +63,7 @@
 
 ## Workflow
 
+- For exercise copies, an optional info finding forwarded to a fix pass can widen a deliberately minimal practice-to-solution diff (an executor-lifecycle change touched the Part D lines); keep info findings out of fix passes unless they protect that diff (2026-11-03)
 - When the owner states a tutorial's scope in one sentence ("JUST about the Python async event loop"), that sentence is the test for every lesson; defending a lesson on its merit (the timeout and retry content) when it fails the scope test cost a spec rewrite and a plan regeneration. Write the sentence into `## Invariants` the moment it is said so the plan writer and validator enforce it (2026-11-03)
 - In a merge-mode brainstorm, decide low-stakes values (ports, slot counts, branch names, gitignore lines) and record them as `confirm at review` instead of asking; four rounds of batched forks read as the work being hard, and the author stopped the session to ask what was going on (2026-10-31)
 - In a justfile, the FIRST recipe is what bare `just` runs; when a plan step adds recipes, instruct the executor to keep the `default: @just --list` recipe first and verify bare `just` prints the help, or an insertion above it silently changes the CLI's front door (2026-09-21)

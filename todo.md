@@ -62,14 +62,14 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 5: Exercise 01 Sync HTTP Client
 
-- [ ] 1. RED: create solution/ flat copy (flat imports, bystander fleet, freeze ordering, slow_upstream.py, tests/conftest); async def geo on sync httpx.Client, bad run points at the local slow endpoint; solution/tests/test_probe.py failing against the unfixed copy
-- [ ] 2. Document: module docstrings on solution activities.py and worker.py
-- [ ] 3. GREEN: def geo activities on sync httpx.Client; worker activity_executor=ThreadPoolExecutor sized to max_concurrent_activities; no marker; grep clean
-- [ ] 4. Create practice/: same copy before the fix (async def + sync client on the loop, marker kept), `# TODO PART C/D:` comments, practice/tests/test_probe.py stub
-- [ ] 5. Integrate into the gate: `just check` green incl. solution loop; `just check-practice` green
-- [ ] 6. REFACTOR: keep the solution-vs-practice diff to the fix lines and TODO comments
-- [ ] 7. Docs: none (README is Step 11)
-- [ ] 8. Verify: probe test has teeth (fails if reverted to async-on-loop), revert, run `just check` and `just check-practice`
+- [x] 1. RED: create solution/ flat copy (flat imports, bystander fleet, freeze ordering, slow_upstream.py, tests/conftest); async def geo on sync httpx.Client, bad run points at the local slow endpoint; solution/tests/test_probe.py failing against the unfixed copy
+- [x] 2. Document: module docstrings on solution activities.py and worker.py
+- [x] 3. GREEN: def geo activities on sync httpx.Client; worker activity_executor=ThreadPoolExecutor sized to max_concurrent_activities; no marker; grep clean
+- [x] 4. Create practice/: same copy before the fix (async def + sync client on the loop, marker kept), `# TODO PART C/D:` comments, practice/tests/test_probe.py stub
+- [x] 5. Integrate into the gate: `just check` green incl. solution loop; `just check-practice` green
+- [x] 6. REFACTOR: keep the solution-vs-practice diff to the fix lines and TODO comments
+- [x] 7. Docs: none (README is Step 11)
+- [x] 8. Verify: probe test has teeth (fails if reverted to async-on-loop), revert, run `just check` and `just check-practice`
 
 ### Step 6: Exercise 02 Sleep Between Heartbeats
 
