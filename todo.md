@@ -6,13 +6,13 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 0: Vale Config, Prose Lint Recipes, And The Pre-flight Gate (task)
 
-- [ ] 1. Scope defined (.vale.ini at the repo root; justfile gains preflight, lint-prose, lint-keyboard; `just check` untouched)
-- [ ] 2. Tooling: content-design:style-linting; vale >= 3.20, content-design scripts (normalize-keyboard-chars.py, wordcount), voice:teaching skill files, uv
-- [ ] 3. Do: create .vale.ini exactly as plan.md Step 0 gives it (MasonBase default; MasonBase + MasonTechnical under {docs/drafts,exercises}/**/*.md; Std package)
-- [ ] 3. Do: add the preflight, lint-prose, and lint-keyboard recipes exactly as plan.md Step 0 gives them (plugin roots resolved by glob, never pinned)
-- [ ] 3. Do: run `just preflight` and fix the tooling until it exits 0; never weaken a check
-- [ ] 4. Verify: `just preflight` exits 0 with every ok line; `vale ls-config` shows MasonTechnical under the docs/drafts,exercises glob; `just lint-prose` (no args, and with one file named) exits 0 and emits JSON; `just lint-keyboard` exits 0 both ways; bare `just` lists the three recipes; `just check` exits 0
-- [ ] 5. Document: recipe comments only (README and CLAUDE.md recipe tables are Step 13)
+- [x] 1. Scope defined (.vale.ini at the repo root; justfile gains preflight, lint-prose, lint-keyboard; `just check` untouched)
+- [x] 2. Tooling: content-design:style-linting; vale >= 3.20, content-design scripts (normalize-keyboard-chars.py, wordcount), voice:teaching skill files, uv
+- [x] 3. Do: create .vale.ini exactly as plan.md Step 0 gives it (MasonBase default; MasonBase + MasonTechnical under {docs/drafts,exercises}/**/*.md; Std package)
+- [x] 3. Do: add the preflight, lint-prose, and lint-keyboard recipes exactly as plan.md Step 0 gives them (plugin roots resolved by glob, never pinned)
+- [x] 3. Do: run `just preflight` and fix the tooling until it exits 0; never weaken a check
+- [x] 4. Verify: `just preflight` exits 0 with every ok line; `vale ls-config` shows MasonTechnical under the docs/drafts,exercises glob; `just lint-prose` (no args, and with one file named) exits 0 and emits JSON; `just lint-keyboard` exits 0 both ways; bare `just` lists the three recipes; `just check` exits 0
+- [x] 5. Document: recipe comments only (README and CLAUDE.md recipe tables are Step 13)
 
 ## Section 1: Root Package Trim
 
