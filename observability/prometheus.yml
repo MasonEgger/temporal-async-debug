@@ -1,0 +1,12 @@
+# Prometheus config for the Prometheus-and-Grafana-only stack (docker-compose v1, host networking
+# on Linux). It scrapes the SDK worker endpoint on 127.0.0.1:9464 and the dev server endpoint on
+# 127.0.0.1:9465, so the dashboard shows both sides of a frozen event loop.
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: temporal
+    static_configs:
+      - targets:
+          - 127.0.0.1:9464
+          - 127.0.0.1:9465

@@ -31,14 +31,14 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 2: Observability Config And Its Tests
 
-- [ ] 1. RED: tests/test_observability_config.py, invariants only (compose exactly prometheus and grafana, no temporal image; prometheus.yml exactly the two targets 9464 and 9465; panel exprs in the frozen-loop metric allowlist, passes with a panel removed); no test that only asserts a file parses or a config value we chose
-- [ ] 2. Document: header comments on docker-compose.yml and prometheus.yml (stack scope, ports, host networking)
-- [ ] 3. GREEN: observability/docker-compose.yml, prometheus.yml, grafana/provisioning/{datasources,dashboards}, grafana/dashboards/async-debug.json (activity+workflow-task latency, failures/timeouts, slots used, backlog)
-- [ ] 4. RED: cross-file consistency test (provider path matches the compose mount path)
-- [ ] 5. GREEN: align mount and provider paths
-- [ ] 6. REFACTOR: minimal YAML and JSON, no stray services
-- [ ] 7. Docs: none (Observability README section is Step 13)
-- [ ] 8. Verify: config tests cover the two-service invariant, two targets, allowlist; run `just check`
+- [x] 1. RED: tests/test_observability_config.py, invariants only (compose exactly prometheus and grafana, no temporal image; prometheus.yml exactly the two targets 9464 and 9465; panel exprs in the frozen-loop metric allowlist, passes with a panel removed); no test that only asserts a file parses or a config value we chose
+- [x] 2. Document: header comments on docker-compose.yml and prometheus.yml (stack scope, ports, host networking)
+- [x] 3. GREEN: observability/docker-compose.yml, prometheus.yml, grafana/provisioning/{datasources,dashboards}, grafana/dashboards/async-debug.json (activity+workflow-task latency, failures/timeouts, slots used, backlog)
+- [x] 4. RED: cross-file consistency test (provider path matches the compose mount path)
+- [x] 5. GREEN: align mount and provider paths
+- [x] 6. REFACTOR: minimal YAML and JSON, no stray services
+- [x] 7. Docs: none (Observability README section is Step 13)
+- [x] 8. Verify: config tests cover the two-service invariant, two targets, allowlist; run `just check`
 
 ### Step 3: Metrics And Server Just Recipes (task)
 

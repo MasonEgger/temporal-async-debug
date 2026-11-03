@@ -2,6 +2,7 @@
 
 ## Recent
 
+- A config test that must assert "exactly these values and nothing else" should scan for every token of the value's shape across the whole file rather than parse structure with regexes; structural regex parsing failed open across two validator rounds (2026-11-03)
 - When the owner states a tutorial's scope in one sentence ("JUST about the Python async event loop"), that sentence is the test for every lesson; defending a lesson on its merit (the timeout and retry content) when it fails the scope test cost a spec rewrite and a plan regeneration. Write the sentence into `## Invariants` the moment it is said so the plan writer and validator enforce it (2026-11-03)
 - Every teaching exercise needs an execution-level symptom the reader sees without a dashboard (a bystander fails, attempts fail and retry, the same work runs twice, a bystander is visibly delayed); a metrics blip alone was rejected as "not a bug", and one detection-only exercise is the cap (2026-11-03)
 - In the Python SDK, `activity.heartbeat()` inside an `async def` Activity schedules an asyncio task to send the heartbeat, so a heartbeat recorded right before `time.sleep` cannot leave the Worker until the sleep ends; the "time.sleep between heartbeats" bug therefore only trips the heartbeat timeout when one sleep exceeds it, and the one-line `await asyncio.sleep(same_interval)` is not a fix (still no heartbeat for that long). The fix is awaited short ticks with a heartbeat per tick. Reasoned from the SDK, to be confirmed by the Step 10 capture (2026-11-03)
@@ -15,6 +16,7 @@
 
 ## Testing
 
+- A config test that must assert "exactly these values and nothing else" should scan for every token of the value's shape across the whole file rather than parse structure with regexes; structural regex parsing failed open across two validator rounds (2026-11-03)
 - Config-file tests assert the stack's invariants (the service set, the scrape targets, the metric allowlist) and nothing else; "parses as YAML" and asserting a value we chose were rejected as testing for the sake of it (2026-11-03)
 - Concurrent `execute_workflow` calls (`asyncio.gather`) under `WorkflowEnvironment.start_time_skipping()` can race the server's automatic clock advance against real workflow-task dispatch, producing spurious `START_TO_CLOSE` timeouts; wrap the `gather` in `env.auto_time_skipping_disabled()` (synchronous context manager) to remove the race (2026-09-23)
 - An error-path test that asserts only the exception type does not prove a retry policy is disabled; record `activity.info().attempt` per invocation and assert the attempt count (`== [1]` for `maximum_attempts=1`) so the test fails if retries come back (2026-09-17)
