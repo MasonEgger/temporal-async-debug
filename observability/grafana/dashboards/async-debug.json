@@ -26,12 +26,13 @@
         {
           "refId": "A",
           "expr": "rate(temporal_activity_execution_latency_sum[30s]) / rate(temporal_activity_execution_latency_count[30s])",
-          "legendFormat": "avg"
+          "legendFormat": "{{activity_type}}",
+          "interval": "5s"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "s"
+          "unit": "ms"
         },
         "overrides": []
       }
@@ -54,12 +55,13 @@
         {
           "refId": "A",
           "expr": "rate(temporal_workflow_task_schedule_to_start_latency_sum[30s]) / rate(temporal_workflow_task_schedule_to_start_latency_count[30s])",
-          "legendFormat": "avg"
+          "legendFormat": "{{task_queue}}",
+          "interval": "5s"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "s"
+          "unit": "ms"
         },
         "overrides": []
       }
@@ -82,12 +84,13 @@
         {
           "refId": "A",
           "expr": "rate(temporal_workflow_task_execution_latency_sum[30s]) / rate(temporal_workflow_task_execution_latency_count[30s])",
-          "legendFormat": "avg"
+          "legendFormat": "{{workflow_type}}",
+          "interval": "5s"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "s"
+          "unit": "ms"
         },
         "overrides": []
       }
@@ -110,12 +113,20 @@
         {
           "refId": "A",
           "expr": "increase(temporal_activity_execution_failed[1m])",
-          "legendFormat": "activity failed"
+          "legendFormat": "activity failed",
+          "interval": "5s"
         },
         {
           "refId": "B",
           "expr": "increase(temporal_workflow_task_execution_failed[1m])",
-          "legendFormat": "workflow task failed"
+          "legendFormat": "workflow task failed",
+          "interval": "5s"
+        },
+        {
+          "refId": "C",
+          "expr": "sum by (timeout_type) (activity_timeout)",
+          "legendFormat": "{{timeout_type}} timeouts so far (server)",
+          "interval": "5s"
         }
       ]
     },
@@ -137,7 +148,8 @@
         {
           "refId": "A",
           "expr": "sum by (worker_type) (temporal_worker_task_slots_used)",
-          "legendFormat": "{{worker_type}}"
+          "legendFormat": "{{worker_type}}",
+          "interval": "5s"
         }
       ]
     },
@@ -158,8 +170,9 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "approximate_backlog_count",
-          "legendFormat": "backlog"
+          "expr": "sum by (task_type) (approximate_backlog_count{taskqueue=\"async_debug_task_queue\"})",
+          "legendFormat": "{{task_type}}",
+          "interval": "5s"
         }
       ]
     }

@@ -2,6 +2,10 @@
 
 ## Recent
 
+- The Temporal Python SDK reports latency histograms in milliseconds, so a Grafana panel with unit "s" misreads by 1000x; check the unit against a live scrape before trusting a panel (2026-11-03)
+- A frozen event loop fails no worker-side activity, so worker failure counters stay empty; plot the dev server's `activity_timeout` series as the failure signal (2026-11-03)
+- A retried activity writes no history event per failed attempt; the failed attempts show only in `temporal workflow describe` (Attempt, LastFailure) and the Worker log (2026-11-03)
+- Spreading CPU-bound runs across Worker processes needs a free slot on each process, or the server can place both runs on one and the second Worker adds nothing (2026-11-03)
 - Moving pure-Python CPU work to a thread unblocks the event loop (the probe test is green, no asyncio debug-mode warning) but does not restore bystander latency, because the thread still holds the GIL against the workflow-task thread (receipts' first workflow task stayed at 357 to 617 ms). A "short blocker" example that a thread fixes needs GIL-releasing C work (one large `zlib.compress` or `hashlib` call over prebuilt bytes: practice 267 to 345 ms, solution 18 to 49 ms), and recovery must be measured live, since a probe test alone passes either way (2026-11-03)
 - An `async def` activity that `time.sleep`s in a loop without ever awaiting produces one Heartbeat timeout plus a zombie that holds the loop until it finishes, not a retry storm, because the retry cannot run Python until the loop thaws; reasoning about retry timing on a frozen loop needs a live capture (it was wrong here in spec.md and plan.md) (2026-11-03)
 - For exercise copies, an optional info finding forwarded to a fix pass can widen a deliberately minimal practice-to-solution diff (an executor-lifecycle change touched the Part D lines); keep info findings out of fix passes unless they protect that diff (2026-11-03)
@@ -30,6 +34,10 @@
 
 ## Temporal
 
+- The Temporal Python SDK reports latency histograms in milliseconds, so a Grafana panel with unit "s" misreads by 1000x; check the unit against a live scrape before trusting a panel (2026-11-03)
+- A frozen event loop fails no worker-side activity, so worker failure counters stay empty; plot the dev server's `activity_timeout` series as the failure signal (2026-11-03)
+- A retried activity writes no history event per failed attempt; the failed attempts show only in `temporal workflow describe` (Attempt, LastFailure) and the Worker log (2026-11-03)
+- Spreading CPU-bound runs across Worker processes needs a free slot on each process, or the server can place both runs on one and the second Worker adds nothing (2026-11-03)
 - Moving pure-Python CPU work to a thread unblocks the event loop (the probe test is green, no asyncio debug-mode warning) but does not restore bystander latency, because the thread still holds the GIL against the workflow-task thread (receipts' first workflow task stayed at 357 to 617 ms). A "short blocker" example that a thread fixes needs GIL-releasing C work (one large `zlib.compress` or `hashlib` call over prebuilt bytes: practice 267 to 345 ms, solution 18 to 49 ms), and recovery must be measured live, since a probe test alone passes either way (2026-11-03)
 - An `async def` activity that `time.sleep`s in a loop without ever awaiting produces one Heartbeat timeout plus a zombie that holds the loop until it finishes, not a retry storm, because the retry cannot run Python until the loop thaws; reasoning about retry timing on a frozen loop needs a live capture (it was wrong here in spec.md and plan.md) (2026-11-03)
 - In the Python SDK, `activity.heartbeat()` inside an `async def` Activity schedules an asyncio task to send the heartbeat, so a heartbeat recorded right before `time.sleep` cannot leave the Worker until the sleep ends; the "time.sleep between heartbeats" bug therefore only trips the heartbeat timeout when one sleep exceeds it, and the one-line `await asyncio.sleep(same_interval)` is not a fix (still no heartbeat for that long). The fix is awaited short ticks with a heartbeat per tick. Reasoned from the SDK, to be confirmed by the Step 10 capture (2026-11-03)

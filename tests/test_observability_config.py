@@ -23,9 +23,13 @@ ALLOWED_METRICS: frozenset[str] = frozenset(
         "temporal_worker_task_slots_used",
         "temporal_activity_execution_failed",
         "temporal_workflow_task_execution_failed",
+        "activity_timeout",
     }
 )
-"""Worker-side metric base names a panel may query."""
+"""Metric base names a panel may query.
+
+The worker-side set plus the dev server's ``activity_timeout`` counter. A freeze fails no worker-side
+activity, so only the server counts the timeout."""
 
 OPTIONAL_BACKLOG_METRICS: frozenset[str] = frozenset({"approximate_backlog_count"})
 """The dev server's Task Queue backlog gauge; its panel may be dropped, so it is allowed but never required."""

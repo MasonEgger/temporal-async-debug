@@ -119,18 +119,18 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 10: Capture Before And After For Every Exercise Plus The Baseline (task)
 
-- [ ] 1. Scope defined (scratchpad captures + docs/images/ PNGs; no code changes except a possible panel/metric-name fix)
-- [ ] 2. Tooling: temporal skill, temporal-docs MCP; temporal CLI, docker-compose v1, uvx py-spy, PYTHONASYNCIODEBUG for 05, Grafana capture
-- [ ] 3. Do: start stack (server 9465, metrics, worker); baseline `just healthy` captures (healthy asyncio ps, latency panels)
-- [ ] 3. Do: 01 before+after (frozen shape, py-spy on httpx.Client line, CPU near zero, rollup timeout, workflow-task latency spike; after loop live, HTTP read on executor thread)
-- [ ] 3. Do: 02 before+after (retry storm in workflow show through to the succeeding attempt, zombie poll lines in the Worker log, bystanders failing, py-spy on time.sleep; after last-heartbeat advancing every second, first-attempt completion)
-- [ ] 3. Do: 03 before+after (frozen shape, top ~100% on one core captured next to 01's near-zero, py-spy in compute loop, rollup failure; after loop live, computation on executor thread, second Worker combined CPU > 100%)
-- [ ] 3. Do: 04 before+after (first attempt times out, detached-thread work finishing after the failure and the retry overlapping it, py-spy showing the orphaned thread, the two startup traps; after CancelledError in thread, no overlap)
-- [ ] 3. Do: 05 before+after (healthy vs practice receipt started-to-completed gap in workflow show, asyncio debug slow-step warning, py-spy serialization line; after receipt gap back to ms, no warning, parametrized probe passes)
-- [ ] 3. Do: save Grafana PNGs under docs/images/ as <exercise>-<state>-<panel>.png
-- [ ] 3. Do: if the dev server lacks the backlog gauge or a metric name is wrong, fix the dashboard JSON, update the allowlist test, note for the README, re-run `just check`
-- [ ] 4. Verify: every capture Steps 11 and 12 need exists and is from the right copy/state; docs/images/ holds baseline + before/after per exercise; re-run `just check` if the dashboard changed
-- [ ] 5. Document: scratchpad index mapping each capture to exercise, state, and tool
+- [x] 1. Scope defined (scratchpad captures + docs/images/ PNGs; no code changes except a possible panel/metric-name fix)
+- [x] 2. Tooling: temporal skill, temporal-docs MCP; temporal CLI, docker-compose v1, uvx py-spy, PYTHONASYNCIODEBUG for 05, Grafana capture
+- [x] 3. Do: start stack (server 9465, metrics, worker); baseline `just healthy` captures (healthy asyncio ps, latency panels)
+- [x] 3. Do: 01 before+after (frozen shape, py-spy on httpx.Client line, CPU near zero, rollup timeout, workflow-task latency spike; after loop live, HTTP read on executor thread)
+- [x] 3. Do: 02 before+after (retry storm in workflow show through to the succeeding attempt, zombie poll lines in the Worker log, bystanders failing, py-spy on time.sleep; after last-heartbeat advancing every second, first-attempt completion)
+- [x] 3. Do: 03 before+after (frozen shape, top ~100% on one core captured next to 01's near-zero, py-spy in compute loop, rollup failure; after loop live, computation on executor thread, second Worker combined CPU > 100%)
+- [x] 3. Do: 04 before+after (first attempt times out, detached-thread work finishing after the failure and the retry overlapping it, py-spy showing the orphaned thread, the two startup traps; after CancelledError in thread, no overlap)
+- [x] 3. Do: 05 before+after (healthy vs practice receipt started-to-completed gap in workflow show, asyncio debug slow-step warning, py-spy serialization line; after receipt gap back to ms, no warning, parametrized probe passes)
+- [x] 3. Do: save Grafana PNGs under docs/images/ as <exercise>-<state>-<panel>.png
+- [x] 3. Do: if the dev server lacks the backlog gauge or a metric name is wrong, fix the dashboard JSON, update the allowlist test, note for the README, re-run `just check`
+- [x] 4. Verify: every capture Steps 11 and 12 need exists and is from the right copy/state; docs/images/ holds baseline + before/after per exercise; re-run `just check` if the dashboard changed
+- [x] 5. Document: scratchpad index mapping each capture to exercise, state, and tool
 
 ## Section 6: Exercise READMEs
 
