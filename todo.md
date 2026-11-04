@@ -158,11 +158,11 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 13: Root README, CLAUDE.md, And docs/drafts/README Refresh (task)
 
-- [ ] 1. Scope defined (README.md, CLAUDE.md, docs/drafts/README.md edits; smell-reports.md section for README.md)
-- [ ] 2. Tooling: `just preflight` must pass; tutorial-writing first, voice:teaching second (edit mode), review-content on README after editing; `just lint-prose`, `just lint-keyboard`
-- [ ] 3. Do: run `just preflight` (non-zero is a Failure); invoke tutorial-writing, then voice:teaching; README to three lessons (recaptured), remove the saturation/heartbeat/schedule-to-start/timeout sections, add Exercises table + Observability section (what `just metrics` starts, dashboard at 3000, port 9465 and why, backlog note if dropped) + series title with TODO link; recipe table lists preflight, lint-prose, lint-keyboard
-- [ ] 3. Do: CLAUDE.md to the trimmed package, three-layer layout, solution-copy carve-out, new recipes (server --metrics-port 9465, metrics, metrics-down, check loop, check-practice, preflight, lint-prose, lint-keyboard), per-dir gate; keep marker convention + grep; remove references to removed modes/quote/saturation
-- [ ] 3. Do: docs/drafts/README.md lists part-1..part-6 and smell-reports.md, keeps original-draft provenance, keeps venue open
-- [ ] 3. Do: append the README.md smell report and open questions to docs/drafts/smell-reports.md
-- [ ] 4. Verify: review-content on README; `just lint-prose` no error-level alerts on README.md, CLAUDE.md, docs/drafts/README.md, `just lint-keyboard` clean; grep for stale refs (removed modes, quote, saturation, maximum_attempts); layer list matches tree; `grep -rn "ANTIPATTERN (deliberate, for teaching)" exercises/*/solution` empty; `just check` and `just check-practice` exit 0
-- [ ] 5. Document: this step is the documentation
+- [x] 1. Scope defined (README.md, CLAUDE.md, docs/drafts/README.md edits; smell-reports.md section for README.md)
+- [x] 2. Tooling: `just preflight` must pass; tutorial-writing first, voice:teaching second (edit mode), review-content on README after editing; `just lint-prose`, `just lint-keyboard`
+- [x] 3. Do: run `just preflight` (non-zero is a Failure); invoke tutorial-writing, then voice:teaching; README to three lessons (recaptured), remove the saturation/heartbeat/schedule-to-start/timeout sections, add Exercises table + Observability section (what `just metrics` starts, dashboard at 3000, port 9465 and why, backlog note if dropped) + series title with TODO link; recipe table lists preflight, lint-prose, lint-keyboard
+- [x] 3. Do: CLAUDE.md to the trimmed package, three-layer layout, solution-copy carve-out, new recipes (server --metrics-port 9465, metrics, metrics-down, check loop, check-practice, preflight, lint-prose, lint-keyboard), per-dir gate; keep marker convention + grep; remove references to removed modes/quote/saturation
+- [x] 3. Do: docs/drafts/README.md lists part-1..part-6 and smell-reports.md, keeps original-draft provenance, keeps venue open
+- [x] 3. Do: append the README.md smell report and open questions to docs/drafts/smell-reports.md
+- [x] 4. Verify: review-content on README; `just lint-prose` no error-level alerts on README.md, CLAUDE.md, docs/drafts/README.md, `just lint-keyboard` clean; grep for stale refs (removed modes, quote, saturation, maximum_attempts); layer list matches tree; `grep -rn "ANTIPATTERN (deliberate, for teaching)" exercises/*/solution` empty; `just check` and `just check-practice` exit 0
+- [x] 5. Document: this step is the documentation

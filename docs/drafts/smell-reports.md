@@ -62,6 +62,7 @@ The same question applies to Exercises 3, 4, and 5.
   Against the practice copy, the solution test fails first at `assert isinstance(executor, ThreadPoolExecutor)`, because practice `build_worker` passes no `activity_executor`.
   The drafts now say this.
   The README wording was left alone, because it is out of scope for the draft step.
+- Still open for Mason (Step 13 left it alone, by instruction): the Part D test-failure wording in `exercises/01-sync-http-client/README.md`, described in the bullet above.
 
 ## exercises/02-sleep-between-heartbeats/README.md
 
@@ -112,6 +113,7 @@ Should the second-Worker extension ship a port setting in the solution copy, or 
 - Open for Mason: the Part D test-failure wording in this README has the same problem as Exercise 1.
   The hinted solution test fails against practice at the executor `isinstance` assert before any gap is measured.
   The README was left alone.
+- Still open for Mason (Step 13 left it alone, by instruction): the Part D test-failure wording in `exercises/03-cpu-bound/README.md`, described in the bullet above.
 
 ## exercises/04-zombie-thread/README.md
 
@@ -139,6 +141,10 @@ Should the second-Worker extension ship a port setting in the solution copy, or 
   Rule: honest panel reading.
   The slot panel shows 2 then 1 for about 25 seconds in the practice run.
 - Rule check: the mechanism stays "work outliving its Activity attempt", which sits next to the blocked-loop theme because the fix most readers ship first is the one that removed the freeze.
+- Still open for Mason (Step 13 left it alone, by instruction): the startup trap 1 disclosure.
+  Quote: `This is the last line of the error from the capture.`
+  Rule: disclosure accuracy.
+  The block under it shows four lines (the `raise ValueError(` snippet and the final `ValueError:` line), so the sentence undercounts.
 
 ## exercises/05-catching-blockers-early/README.md
 
@@ -356,4 +362,61 @@ Keep it as a described extension, or cut it from the draft?
 <CLAUDE_HELP>
 Part 6 has no `workflow show` capture, only helper script output.
 Commit a small script, or add JSON excerpts in a later capture pass?
+</CLAUDE_HELP>
+
+## README.md
+
+- Quote: `Series: TODO (add the link when the series goes up).`
+  Rule: placeholder.
+  The plan asks for a series title with a TODO link, and the venue is not chosen.
+- Quote: `The starter took about 62 seconds end to end in the capture.`
+  Rule: unexplained number.
+  The figure comes from the capture timestamps (`root-block/start.txt` at 17:14:09.5, the starter output last written at 17:15:11.2), and it fits two 30-second freezes plus a short gap.
+  An earlier draft said 55 seconds, which the timestamps do not support.
+- Quote: `The failure is ` followed by `ScheduleToClose` caused by `StartToClose`.
+  Rule: unquoted claim.
+  The root captures have no `temporal workflow show` output.
+  The README names Exercise 1, whose captures hold both histories for the same kind of freeze, as the source, and it tells the reader to run the command.
+- Quote: `That task times out, which the Event History records as `WorkflowTaskTimedOut`.`
+  Rule: unquoted claim.
+  The README reads it as a stall across two Workflow Tasks, as the exercise captures show, but no root capture holds the receipt history.
+- Quote: `A second scrape about 8 seconds later, still inside the first freeze, read the same.`
+  Rule: sampling scope.
+  Both root scrapes (17:14:25.4 and 17:14:33.0, about 14 and 22 seconds after the starter began) fall inside the first freeze, so no root capture shows the `get_location` freeze or the slots reading of 1.
+- Quote: `so a stall of about 29 seconds reads as 5 to 6 seconds on the graph.`
+  Rule: figure from other captures.
+  FINDINGS gives it for one 29-second stalled Workflow Task, and it is not from a root run.
+  The README and CLAUDE.md scope the 30-second rate average to the latency panels, because the failures, slots, and backlog panels use other expressions.
+- Quote: `asyncio ps cannot show the blocking line, and that is not a bug in the tool.`
+  Rule: negation-first objection countering.
+  It denies a bug before saying what the tool does, and Mason may want it to open with the tool's mechanism.
+- Quote: `It survives because the starter waits for it, not because of its 120-second `start_to_close`.`
+  Rule: negation-first objection countering.
+  It states the denial after the cause, and Mason may want only the positive half.
+- Quote: the document-level Flesch reading ease of `README.md`.
+  Rule: `MasonBase.FleschReadingEase`.
+  The `vale off` and `vale on` pairs around every fence hide the warning.
+  With the wrappers removed, the README scores 68.39 against a target of 70, and it is not restructured for it.
+- Quote: `Grafana corroborates the diagnosis, and the tooling makes it.`
+  Rule: voice cadence.
+  It is a two-clause aphorism that echoes the plan's "Grafana corroborates rather than teaches", and Mason may want it plainer.
+- Quote: `Remember this shape, because the next lesson shows a task that does not have it.`
+  Rule: forward reference, kept as a teaching transition.
+- Quote: `<!-- vale off -->` around every `text` and `bash` fence.
+  Rule: Vale hygiene.
+  Captured blocks have long lines and multi-space columns.
+  Vale stopped honoring the comment after an unwrapped `bash` fence, so the `bash` fences are wrapped too.
+- Quote: `Warning: this repository contains deliberately broken code`
+  Rule: `MasonBase.Adverbs` and `MasonBase.Weasel` warn on `deliberately`.
+  The sentence is the original warning text and the claim is exact, so it stays.
+- Quote: the headings `temporal-async-debug`, `What is in this repository`, `The headline: one Workflow type takes down another`, and `The diagnostic story: two tools for a frozen loop`.
+  Rule: `MasonBase.Headings` wants title case.
+  The task rules say sentence case, and the warnings are ruled false positives.
+- Rule check: the review-content copy-editor agent could not run in this dispatch, because a subagent cannot launch another.
+  The Vale run, the keyboard check, and a manual pass against the tutorial-writing checklist stood in for it.
+
+<CLAUDE_HELP>
+The root lessons have no `temporal workflow show` capture, so the rollup failure chain and the receipt `WorkflowTaskTimedOut` are stated in prose without a quoted block.
+Should a later capture pass add the two histories?
+The 29-second panel figure needs a second look against a fresh run.
 </CLAUDE_HELP>
