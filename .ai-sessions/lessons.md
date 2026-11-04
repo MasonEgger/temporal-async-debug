@@ -2,6 +2,7 @@
 
 ## Recent
 
+- Applying a validator's suggested_fix wording verbatim introduced six Vale warnings; run `just lint-prose` on the changed text before re-validation. Run the trim-disclosure audit over every quoted block in the first fix pass, not only the flagged ones, or each iteration finds a few more (2026-11-03)
 - The Temporal Python SDK reports latency histograms in milliseconds, so a Grafana panel with unit "s" misreads by 1000x; check the unit against a live scrape before trusting a panel (2026-11-03)
 - A frozen event loop fails no worker-side activity, so worker failure counters stay empty; plot the dev server's `activity_timeout` series as the failure signal (2026-11-03)
 - A retried activity writes no history event per failed attempt; the failed attempts show only in `temporal workflow describe` (Attempt, LastFailure) and the Worker log (2026-11-03)

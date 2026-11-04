@@ -136,12 +136,12 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 11: Write The Five Exercise READMEs From The Captures (task)
 
-- [ ] 1. Scope defined (five exercises/<NN-name>/README.md in the 102 structure; docs/drafts/smell-reports.md with one section per README)
-- [ ] 2. Tooling: `just preflight` must pass; tutorial-writing first, voice:teaching second (draft mode), review-content after; temporal skill + MCP; `just lint-prose` and `just lint-keyboard`
-- [ ] 3. Do: run `just preflight` (non-zero is a Failure); invoke tutorial-writing, then voice:teaching (read the profile in full); write each README (title, "During this exercise, you will", practice/solution note, prerequisites -> root README + `just metrics`, Parts A-E with Part A the misbehavior as met in production and Part B the Python-tooling diagnosis with Grafana last as corroboration, closing line); quote only that exercise's Step 10 captures; name the Grafana panel; keep each on the one mechanism
-- [ ] 3. Do: write each README's smell report (verbatim quote + rule per bullet) and open questions (CLAUDE_HELP) to docs/drafts/smell-reports.md; the scaffold commit is the handoff, nothing publishes
-- [ ] 4. Verify: review-content on each README; `just lint-prose` no error-level alerts, `just lint-keyboard` clean; human-check 102 structure, closing line, capture traceability, panel named, writing rules, smell-reports section per README
-- [ ] 5. Document: this step is the documentation (root README table is Step 13)
+- [x] 1. Scope defined (five exercises/<NN-name>/README.md in the 102 structure; docs/drafts/smell-reports.md with one section per README)
+- [x] 2. Tooling: `just preflight` must pass; tutorial-writing first, voice:teaching second (draft mode), review-content after; temporal skill + MCP; `just lint-prose` and `just lint-keyboard`
+- [x] 3. Do: run `just preflight` (non-zero is a Failure); invoke tutorial-writing, then voice:teaching (read the profile in full); write each README (title, "During this exercise, you will", practice/solution note, prerequisites -> root README + `just metrics`, Parts A-E with Part A the misbehavior as met in production and Part B the Python-tooling diagnosis with Grafana last as corroboration, closing line); quote only that exercise's Step 10 captures; name the Grafana panel; keep each on the one mechanism
+- [x] 3. Do: write each README's smell report (verbatim quote + rule per bullet) and open questions (CLAUDE_HELP) to docs/drafts/smell-reports.md; the scaffold commit is the handoff, nothing publishes
+- [x] 4. Verify: review-content on each README; `just lint-prose` no error-level alerts, `just lint-keyboard` clean; human-check 102 structure, closing line, capture traceability, panel named, writing rules, smell-reports section per README
+- [x] 5. Document: this step is the documentation (root README table is Step 13)
 
 ## Section 7: Tutorial Series Drafts
 
