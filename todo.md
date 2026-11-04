@@ -147,12 +147,12 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 12: Write The Six-Part Series Drafts (task)
 
-- [ ] 1. Scope defined (docs/drafts/part-1 .. part-6, tutorial-writing structure, no frontmatter, TODO cross-links; smell-reports.md section per part)
-- [ ] 2. Tooling: `just preflight` must pass; tutorial-writing first (generate outline from the new captures), voice:teaching second (draft mode), review-content after; temporal + python skills, MCP; `just lint-prose`, `just lint-keyboard`, wordcount
-- [ ] 3. Do: run `just preflight` (non-zero is a Failure); invoke tutorial-writing, then voice:teaching; part 1 from baseline captures + root setup (install, ptrace_scope, server, worker, metrics, healthy, dashboard); parts 2-6 follow exercises 01-05, each ending with the reader's fix and verification; quote only Step 10 captures; keep the series on the one mechanism; TODO links; no frontmatter
-- [ ] 3. Do: append each part's smell report and open questions to docs/drafts/smell-reports.md
-- [ ] 4. Verify: Vale clean per draft; `just lint-prose` no error-level alerts, `just lint-keyboard` clean; copy-editor pass; wordcount tracked; human-check six drafts, no frontmatter, series title, capture traceability, writing rules, primitives capitalized, smell-reports section per part
-- [ ] 5. Document: docs/drafts/README.md updated in Step 13
+- [x] 1. Scope defined (docs/drafts/part-1 .. part-6, tutorial-writing structure, no frontmatter, TODO cross-links; smell-reports.md section per part)
+- [x] 2. Tooling: `just preflight` must pass; tutorial-writing first (generate outline from the new captures), voice:teaching second (draft mode), review-content after; temporal + python skills, MCP; `just lint-prose`, `just lint-keyboard`, wordcount
+- [x] 3. Do: run `just preflight` (non-zero is a Failure); invoke tutorial-writing, then voice:teaching; part 1 from baseline captures + root setup (install, ptrace_scope, server, worker, metrics, healthy, dashboard); parts 2-6 follow exercises 01-05, each ending with the reader's fix and verification; quote only Step 10 captures; keep the series on the one mechanism; TODO links; no frontmatter
+- [x] 3. Do: append each part's smell report and open questions to docs/drafts/smell-reports.md
+- [x] 4. Verify: Vale clean per draft; `just lint-prose` no error-level alerts, `just lint-keyboard` clean; copy-editor pass; wordcount tracked; human-check six drafts, no frontmatter, series title, capture traceability, writing rules, primitives capitalized, smell-reports section per part
+- [x] 5. Document: docs/drafts/README.md updated in Step 13
 
 ## Section 8: Root Documentation Refresh
 

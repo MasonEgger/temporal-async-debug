@@ -58,6 +58,11 @@ Should the repository commit the receipt-gaps helper, or should Part E quote `wo
 The same question applies to Exercises 3, 4, and 5.
 </CLAUDE_HELP>
 
+- Open for Mason: Part D step 4 says the hinted test fails because the probe cannot tick while `get_location` is an `async def`.
+  Against the practice copy, the solution test fails first at `assert isinstance(executor, ThreadPoolExecutor)`, because practice `build_worker` passes no `activity_executor`.
+  The drafts now say this.
+  The README wording was left alone, because it is out of scope for the draft step.
+
 ## exercises/02-sleep-between-heartbeats/README.md
 
 - Quote: `The SDK uses that task to send a heartbeat to the server.`
@@ -103,6 +108,10 @@ The same question applies to Exercises 3, 4, and 5.
 <CLAUDE_HELP>
 Should the second-Worker extension ship a port setting in the solution copy, or stay a described extension?
 </CLAUDE_HELP>
+
+- Open for Mason: the Part D test-failure wording in this README has the same problem as Exercise 1.
+  The hinted solution test fails against practice at the executor `isinstance` assert before any gap is measured.
+  The README was left alone.
 
 ## exercises/04-zombie-thread/README.md
 
@@ -155,4 +164,196 @@ Should the second-Worker extension ship a port setting in the solution copy, or 
 <CLAUDE_HELP>
 Exercise 5 has no `workflow show` capture, only the helper output.
 Should I commit a small script, or should a later capture step add JSON excerpts?
+</CLAUDE_HELP>
+
+## docs/drafts/part-1-healthy-worker.md
+
+Draft status: waits for Mason's review.
+Nothing here publishes.
+
+- Resolved: the four two-sentence prerequisite bullets now put the second sentence on an indented continuation line.
+- Resolved: stack direction is stated once (`asyncio ps` lists a task's calls from the innermost to the outermost), and the rollup paragraph now says the innermost call is `sleep`.
+- Quote: `<!-- vale off -->` and `<!-- vale MasonBase.CodeLineLength = NO -->` around every `text` and `python` block in all six drafts.
+  Rule: Vale hygiene.
+  Captured output has multi-space columns and long lines, and the wrappers keep the quotes verbatim.
+- Quote: `<!-- TODO: venue not yet chosen. -->`
+  Rule: no frontmatter and no venue.
+  A comment holds the placeholder in every draft.
+- Quote: `The machine that produced the captures in this series reports 0, which allows attaching.`
+  Rule: unquoted claim.
+  No capture holds `ptrace_scope`; the value comes from spec.md and one live read.
+- Quote: `Set the value to 0 for your session with this command:`
+  Rule: never generate new code.
+  The `sysctl` command is not in any repository file or capture.
+- Quote: `Previous: this is the first part.`
+  Rule: tutorial-writing structure.
+  The line is a navigation note, not an instruction.
+- Quote: `Remember this shape.`
+  Rule: voice:teaching, short imperative sentences.
+  It reads as emphasis and may sit close to broetry.
+- Quote: `Both ports read 1, so Prometheus saw the Worker and the server.`
+  Rule: derived claim.
+  The capture says only that each target reached 1 at some point in three hours.
+- Quote: `The lines sit between about 6 and 32 milliseconds.`
+  Rule: read from the PNG, not from a capture file.
+- Quote: `- **Activity Execution Latency**` (six bold panel names in one list).
+  Rule: `MasonBase.BoldOveruse` suggestion.
+  The names are UI labels, so bold follows the style guide.
+- Quote: `### Introduction` directly under the H1.
+  Rule: `MasonBase.HeadingLevelSkip` suggestion.
+  The tutorial-writing structure requires H3 here.
+
+<CLAUDE_HELP>
+The repository clone URL is missing from part 1.
+The ptrace failure message and the `sysctl` command have no capture.
+The backlog gauge stayed flat in every capture, so part 1 treats `temporal task-queue describe` as the reliable reading.
+Confirm all three.
+</CLAUDE_HELP>
+
+## docs/drafts/part-2-sync-http-client.md
+
+- Resolved: the stack wording follows the part 1 convention (a stuck task holds only the SDK handler, the outermost call; the top `py-spy` frame is the innermost).
+- Resolved: the hinted test now fails first at the missing `activity_executor`, and a probe over the `async def` fails on a gap the length of the wait.
+- Resolved: the pstree command block has a sentence before its output block.
+
+- Quote: `That is part of the problem.`
+  Rule: voice:teaching broetry and two-beat contrast.
+  It carries over from the exercise README.
+- Quote: `The tools told you why.`
+  Rule: the same two-beat shape.
+- Quote: `A 29-second stall is the mystery to solve.`
+  Rule: voice:teaching, possible idiom or drama.
+- Quote: `The Workflows finish and nothing looks wrong.`
+  Rule: unquoted claim.
+  The small healthy run has no capture.
+- Quote: the `receipt-gaps.txt` block.
+  Rule: the numbers come from a helper script that is not in the repository.
+- Quote: `uv run python starter.py --block-seconds 30 --bad 1 --geo 1 \`
+  Rule: the capture shows one line, and the draft breaks it for line length.
+- Quote: `The test builds the Worker with `build_worker` and takes the executor from its configuration.`
+  Rule: describes quoted solution code, not a capture.
+- Quote: links to `https://docs.temporal.io/` in every Conclusion.
+  Rule: vague pointer.
+  The docs MCP was not reachable, so deeper links are unverified.
+
+<CLAUDE_HELP>
+Should the repository commit the receipt-gaps helper, or should the drafts quote `workflow show` excerpts?
+The same question applies to parts 4 and 6.
+</CLAUDE_HELP>
+
+## docs/drafts/part-3-sleep-between-heartbeats.md
+
+- Resolved: Step 10 no longer says the describe capture is from a second run (it is from the first); the receipt-gaps block now says it is from the second run.
+- Resolved: the Heartbeat wording says the Activity records a Heartbeat and the SDK sends it when the loop is free, with no claim of one send per tick.
+- Resolved: stack wording follows the part 1 convention, and the `asyncio ps` command block has a sentence before its output block.
+
+- Quote: `The Activity heartbeats before every wait, so you expect it to pass.`
+  Rule: invented framing.
+  The scenario follows the exercise README.
+- Quote: `The attempt never stopped, so it ran to the end of the job as a zombie.`
+  Rule: voice:teaching, figurative term.
+  "Zombie" comes from FINDINGS and the Step 11 READMEs.
+- Quote: `The first four lines come from attempt 1.`
+  Rule: derived from the log; the grep keeps five poll lines.
+- Quote: `These receipts come from a second run of the same fleet, so their IDs differ from the starter output.`
+  Rule: provenance claim, checked against the capture index (receipt-gaps.txt is from the second run).
+- Quote: `The Workflow gives that Activity a Heartbeat timeout of five seconds.`
+  Rule: series scope.
+  Heartbeats and timeouts appear as scenery and as the symptom, and the draft never asks the reader to tune them.
+- Quote: the `receipt-gaps.txt` block.
+  Rule: helper script output, as in part 2.
+- Quote: Step 8 describes the test in prose and shows no code.
+  Rule: never generate new code.
+  The solution test excerpt was not quoted.
+
+<CLAUDE_HELP>
+The server-side Heartbeat time advances about every four seconds in the captures, not every second.
+The draft leaves that out to stay off heartbeat tuning.
+Confirm that cut.
+</CLAUDE_HELP>
+
+## docs/drafts/part-4-cpu-bound.md
+
+- Resolved: the hinted test wording matches part 2 (fails first at the missing `activity_executor`).
+- Resolved: the signature block and the sync client block each have prose around them.
+- Resolved: Step 10 splits each `top` and run-time pair into separate blocks with a sentence between, and the one-Worker reading is now the second `top` frame (91.0 percent), not the first.
+- Resolved: stack wording follows the part 1 convention.
+
+- Quote: `A blocking call is not always a call that waits.`
+  Rule: voice:teaching opening smell check.
+  The sentence is a contrast with the next lines and may read as a two-beat split.
+- Quote: `The loop is live, but the GIL is not free.`
+  Rule: two-beat contrast.
+  It restates the FINDINGS wording.
+- Quote: `The time scales with the speed of your CPU, so yours can differ.`
+  Rule: unquoted claim.
+  FINDINGS says the roughly 29 seconds scales with CPU speed.
+- Quote: Step 10 and its two `top` captures.
+  Rule: scope and reproducibility.
+  The second-Worker demonstration uses scratch copies that are not in the repository.
+- Quote: the `receipt-gaps.txt` block.
+  Rule: helper script output.
+
+<CLAUDE_HELP>
+The shipped solution cannot start a second Worker without a metrics port change.
+Should the exercise ship that setting, or should the draft drop Step 10?
+</CLAUDE_HELP>
+
+## docs/drafts/part-5-zombie-thread.md
+
+- Resolved: Step 9 now says to add `from temporalio.exceptions import CancelledError` and to remove the unused `import asyncio`.
+- Resolved: the signature block and the return line block have prose around them.
+- Resolved: the forced-timeout paragraph says each attempt stops at the end of its current step, that a retry can overlap the old attempt by up to one step, and that no attempt runs to step 20; the Conclusion matches.
+- Resolved: the slot-busy duration reads about 20 seconds everywhere, and the panel paragraph says it is the second run.
+- Resolved: the Activity code is said to heartbeat or record a Heartbeat, not to send one.
+
+- Quote: `Moving blocking work into `asyncio.to_thread` frees the event loop, and it looks like a complete fix.`
+  Rule: voice:teaching, possible inflated framing.
+- Quote: `A teammate fixed a freeze like the one in part 2`
+  Rule: invented framing from the exercise README.
+- Quote: `The log cannot tell you which came first.`
+  Rule: matches FINDINGS, which says the capture cannot order the cancel and the last step.
+- Quote: `Each overlapping attempt has its own thread.`
+  Rule: derived from two `py-spy` threads and three attempts.
+- Quote: `The filter drops the other log lines from the same seconds, including the traceback you read next.`
+  Rule: disclosure sentence at the 25-word edge.
+- Quote: Heartbeat use in Step 9.
+  Rule: series scope.
+  The Heartbeat is the path a cancel takes into the thread, and the draft never tunes it.
+- Quote: Step 11 forced-timeout block.
+  Rule: scratch copy.
+  The capture comes from a modified solution that the repository does not ship.
+
+<CLAUDE_HELP>
+Step 11 depends on a scratch copy with `STEP_SECONDS` set to 6.0.
+Keep it as a described extension, or cut it from the draft?
+</CLAUDE_HELP>
+
+## docs/drafts/part-6-catching-blockers-early.md
+
+- Resolved: the intro and Conclusion say the probe catches an `async def` Activity that blocks the loop for 0.2 seconds or more with the network mocked, and drop the production claim.
+- Resolved: the two test excerpts have prose between them.
+- Resolved: Step 9 now runs the fix with debug mode off for the starter and receipt-gaps captures, then restarts with debug mode on for the log, and gives the debug-mode receipt range (21 to 55 ms) separately.
+
+- Quote: `The Worker runs slower than a healthy Worker, and no alert tells you why.`
+  Rule: unquoted claim.
+  No capture shows an alert state.
+- Quote: `The test fails the build when an `async def` Activity blocks the loop for 0.2 seconds or more with the network mocked.`
+  Rule: scope of the claim.
+  It states only what the probe catches.
+- Quote: `The capture needed 12 tries before the main thread was inside the blocking call.`
+  Rule: matches FINDINGS; the loop command is not in the draft.
+- Quote: `The `PYTHONASYNCIODEBUG=1` prefix sets an environment variable for this one command.`
+  Rule: explanation not tied to a capture.
+- Quote: `In that mode, the event loop logs a warning for every callback that runs longer than 0.1 seconds.`
+  Rule: sourced from the linked Python documentation, not a capture.
+- Quote: `Across the series, you used one mechanism and a small set of tools.`
+  Rule: summary sentence in the last Conclusion.
+- Quote: `lines=1-9` blocks of `receipt-gaps-practice-fleet.txt` and `receipt-gaps-solution-fleet.txt`.
+  Rule: the source files hold extra lines from other runs.
+  The draft keeps only the first nine.
+
+<CLAUDE_HELP>
+Part 6 has no `workflow show` capture, only helper script output.
+Commit a small script, or add JSON excerpts in a later capture pass?
 </CLAUDE_HELP>

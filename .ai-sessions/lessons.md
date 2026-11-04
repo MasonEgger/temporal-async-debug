@@ -2,6 +2,7 @@
 
 ## Recent
 
+- A capture summary written by the orchestrator can carry a misreading into later prose (the exercise 04 "no overlap" claim); a validator must re-derive timing claims from the timestamped log and the code's order of operations (sleep before print), not trust the summary (2026-11-03)
 - Applying a validator's suggested_fix wording verbatim introduced six Vale warnings; run `just lint-prose` on the changed text before re-validation. Run the trim-disclosure audit over every quoted block in the first fix pass, not only the flagged ones, or each iteration finds a few more (2026-11-03)
 - The Temporal Python SDK reports latency histograms in milliseconds, so a Grafana panel with unit "s" misreads by 1000x; check the unit against a live scrape before trusting a panel (2026-11-03)
 - A frozen event loop fails no worker-side activity, so worker failure counters stay empty; plot the dev server's `activity_timeout` series as the failure signal (2026-11-03)
@@ -76,6 +77,7 @@
 
 ## Workflow
 
+- A capture summary written by the orchestrator can carry a misreading into later prose (the exercise 04 "no overlap" claim); a validator must re-derive timing claims from the timestamped log and the code's order of operations (sleep before print), not trust the summary (2026-11-03)
 - For exercise copies, an optional info finding forwarded to a fix pass can widen a deliberately minimal practice-to-solution diff (an executor-lifecycle change touched the Part D lines); keep info findings out of fix passes unless they protect that diff (2026-11-03)
 - When the owner states a tutorial's scope in one sentence ("JUST about the Python async event loop"), that sentence is the test for every lesson; defending a lesson on its merit (the timeout and retry content) when it fails the scope test cost a spec rewrite and a plan regeneration. Write the sentence into `## Invariants` the moment it is said so the plan writer and validator enforce it (2026-11-03)
 - In a merge-mode brainstorm, decide low-stakes values (ports, slot counts, branch names, gitignore lines) and record them as `confirm at review` instead of asking; four rounds of batched forks read as the work being hard, and the author stopped the session to ask what was going on (2026-10-31)
