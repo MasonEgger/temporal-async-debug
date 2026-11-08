@@ -2,6 +2,7 @@
 
 ## Recent
 
+- A dashboard counter can silently miss a failure type: the failures panel plots `activity_timeout`, which never counts Heartbeat timeouts, so it hid the exercise 02 retry storm that `activity_task_timeout{timeout_type="Heartbeat"}` counts. Check that a panel shows the symptom the prose will cite before you write the prose (2026-11-08)
 - When a plan says a test runs against captures and no machine-readable capture exists, capture one live (`temporal workflow show --output json`) instead of reconstructing fixtures backward from the expected output; a fixture built to match the expected result makes a circular test. Step 15's first validator pass caught it (2026-11-08)
 - `sudo` through a `!` command cannot prompt for a password (no terminal), so a sysctl step needs the user's own terminal; `kernel.yama.ptrace_scope` is system-wide, so setting it there applies to this session. Read `/proc/sys/kernel/yama/ptrace_scope` to confirm instead of asking (2026-11-08)
 - py-spy is not a project dependency, so `uv run py-spy` fails with "Failed to spawn"; capture with `uvx py-spy`, the form the README prints. Under ptrace_scope 1 both `uvx py-spy dump` and `python -m asyncio ps` refuse to attach (2026-11-08)

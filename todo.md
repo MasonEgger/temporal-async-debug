@@ -224,13 +224,13 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 19: Recapture For The Rework (task)
 
-- [ ] 1. Scope defined (02 v2, 05 v2, root histories, 03 second Worker, UI and Grafana PNGs, INDEX rows, FINDINGS section)
-- [ ] 2. Tooling: temporal CLI with UI, compose stack, py-spy, PYTHONASYNCIODEBUG, Playwright via uv run --with, scripts/receipt_gaps.py
-- [ ] 3. Do: 02 practice and solution captures including Web UI screenshots and TMPRL1101 lines
-- [ ] 3. Do: 05 practice and solution captures with the new trail
-- [ ] 3. Do: root block histories; 03 two-Worker run; Step 15 fixture JSON if needed; ptrace files checked (CLAUDE_HELP if Mason has not saved them)
-- [ ] 4. Verify: every artifact indexed; `just check` if fixtures or dashboard changed
-- [ ] 5. Document: INDEX rows and FINDINGS section
+- [x] 1. Scope defined (02 v2, 05 v2, root histories, 03 second Worker, UI and Grafana PNGs, INDEX rows, FINDINGS section)
+- [x] 2. Tooling: temporal CLI with UI, compose stack, py-spy, PYTHONASYNCIODEBUG, Playwright via uv run --with, scripts/receipt_gaps.py
+- [x] 3. Do: 02 practice and solution captures including Web UI screenshots and TMPRL1101 lines
+- [x] 3. Do: 05 practice and solution captures with the new trail
+- [x] 3. Do: root block histories; 03 two-Worker run; Step 15 fixture JSON if needed; ptrace files checked (CLAUDE_HELP if Mason has not saved them)
+- [x] 4. Verify: every artifact indexed; `just check` if fixtures or dashboard changed
+- [x] 5. Document: INDEX rows and FINDINGS section
 
 ## Section 10: Rework Prose
 
