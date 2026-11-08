@@ -17,7 +17,7 @@ The failure-mode catalog that preceded this layout lives under `.ai-sessions/fai
 
 ## Layout
 
-The repository has three layers:
+The repository has four layers:
 
 - Root reference: `src/temporal_async_debug/`, `tests/`, and the three lessons in `README.md`.
   The package is the frozen-loop reference, trimmed to `block` and `cpu` only.
@@ -25,6 +25,9 @@ The repository has three layers:
   The directories are `01-sync-http-client`, `02-sleep-between-heartbeats`, `03-cpu-bound`, `04-zombie-thread`, and `05-catching-blockers-early`.
   Each copy is a flat set of modules plus `tests/`, with absolute (flat top-level) imports, and it runs from its own directory under the root virtual environment.
   Practice edit points carry `# TODO PART X:` comments.
+- `scripts/`: `receipt_gaps.py`, a standard-library helper that reads `temporal workflow show --output json` for receipt Workflows and prints the first Workflow Task time (WT1) and each Activity's waits.
+  `just receipt-gaps` runs it.
+  The directory holds that one script, and it reproduces no whole run.
 - `observability/`: `docker-compose.yml` (Prometheus and Grafana only, docker-compose v1), `prometheus.yml`, and the provisioned `grafana/` dashboard.
 
 Other directories: `docs/drafts/` holds the six-part series drafts, `smell-reports.md` (the voice:teaching smell reports and open questions for Mason), and the provenance draft `tutorial-original-draft.md`; `docs/images/` holds the Grafana captures.
@@ -81,6 +84,7 @@ just healthy               # healthy fleet (two geo, a rollup, three receipts), 
 just trigger               # smaller healthy fleet (geo and receipts only), a quick smoke test
 just block seconds="30"    # frozen-loop lesson (time.sleep blocks the Worker)
 just cpu seconds="30"      # frozen-loop lesson, CPU-pinned (busy loop holds the GIL)
+just receipt-gaps ids      # WT1 and Activity gaps for receipt Workflow IDs, or --limit N (needs the Temporal CLI and a server)
 just metrics               # Prometheus and Grafana in the background (docker-compose v1)
 just metrics-down          # tear the stack down
 ```
@@ -100,7 +104,8 @@ just lint-keyboard   # flag non-keyboard characters (em-dashes, smart quotes, ar
 <!-- vale on -->
 
 `.vale.ini` applies `MasonBase` to every Markdown file and adds `MasonTechnical` under `docs/drafts/` and `exercises/`.
-`MasonBase.Headings` and `MasonBase.SentenceCapitalization` are ruled false positives for this repository.
+`.vale.ini` turns `MasonBase.Headings` off under `docs/drafts/` and `exercises/` only.
+In the root `README.md` and `CLAUDE.md` it still fires, and both it and `MasonBase.SentenceCapitalization` are ruled false positives there.
 Run `just preflight` before any prose step.
 
 ## Architecture
@@ -143,6 +148,8 @@ The root cause is a frozen loop (`block`, `cpu`): a single blocking or CPU-bound
 - The in-flight rollup fails `ScheduleToClose` caused by `StartToClose`.
   Receipts stall: their first Workflow Task goes to the frozen Worker and times out, and a second Workflow Task completes at the thaw.
   Read a `WorkflowTaskTimedOut` plus retry as a stall across two Workflow Tasks, never as one long one.
+  The root `just block` histories quoted in README.md show both: the rollup's Activity times out 20 seconds after it is scheduled, and a receipt's WT1 is about 28.8 seconds.
+  WT1 runs from the first `WorkflowTaskStarted` to the first `WorkflowTaskCompleted`, so it spans the timeout and its retry.
 - The metrics endpoint stays reachable during a freeze, answering in milliseconds (0.014 s in the capture quoted in README.md), so it is not a freeze signal.
   `temporal_worker_task_slots_available` reads 0 whenever both slots are in use, so slots alone do not name the cause.
   The pollers live in the Rust core and keep long-polling through a freeze, so poller `LastAccessTime` is not a freeze signal either.
@@ -154,6 +161,19 @@ Dashboard facts from the captures quoted in README.md and the exercise READMEs (
 - The dev server's backlog gauge is nearly flat.
   `temporal task-queue describe` is the reliable backlog reading (count 1, age 4.27 s during a `cpu` freeze, while the 9465 scrape read 0).
 - The latency panels plot a 30-second rate average, so a 29-second stall reads as 5 to 6 seconds.
+- The failures panel plots `activity_timeout`, so it misses a Heartbeat timeout.
+  Exercise 02's storm is a run of Heartbeat timeouts, so the panel misses the storm.
+
+Exercise facts from the rework captures (the exercise READMEs quote them):
+
+- Exercise 02, the retry storm: the Activity's **Attempt** climbs in the Web UI and in `temporal workflow describe` (to attempt 4 in about 50 seconds), but a retried Activity writes no history event per attempt, so `workflow show` cannot show the storm.
+  The Worker log shows each attempt's polls.
+  `TMPRL1101` ("Potential deadlock detected") appeared on one failed Workflow Task in each of the four capture runs (runs 1 and 2, with the Web UI open, also failed one legacy Query each), and `TMPRL1104` ("Workflow task duration exceeded 5 seconds") appeared in every run.
+  `TMPRL1101` depends on timing, so the README says a reader's run may not show it.
+- Exercise 03: `solution/worker.py` reads its Prometheus port from `ASYNC_DEBUG_METRICS_PORT`, so a second Worker runs with `ASYNC_DEBUG_METRICS_PORT=9466 uv run python worker.py` and needs no edit.
+- Exercise 05: the audit trail is 40,000 generated audit-log lines, about five megabytes, built once at Worker start.
+  `get_location` compresses it with `zlib`, which releases the GIL, then throws the bytes away in place of an upload.
+  The run completes with no failure, and the receipts only run a little late.
 
 `spec.md`'s Behavior Requirements section spells out what each mode must produce; where the captured output quoted in README.md and the exercise READMEs disagrees with spec.md or plan.md, the captures win.
 `README.md` is the tutorial companion with captured output for the three lessons, an Exercises table, and an Observability section.

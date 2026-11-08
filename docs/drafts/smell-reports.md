@@ -391,13 +391,28 @@ Keep it as a described extension, or cut it from the draft?
   Rule: unexplained number.
   The figure comes from the capture timestamps (`root-block/start.txt` at 17:14:09.5, the starter output last written at 17:15:11.2), and it fits two 30-second freezes plus a short gap.
   An earlier draft said 55 seconds, which the timestamps do not support.
-- Quote: `The failure is ` followed by `ScheduleToClose` caused by `StartToClose`.
-  Rule: unquoted claim.
-  The root captures have no `temporal workflow show` output.
-  The README names Exercise 1, whose captures hold both histories for the same kind of freeze, as the source, and it tells the reader to run the command.
-- Quote: `That task times out, which the Event History records as `WorkflowTaskTimedOut`.`
-  Rule: unquoted claim.
-  The README reads it as a stall across two Workflow Tasks, as the exercise captures show, but no root capture holds the receipt history.
+- Resolved: the rollup's `ScheduleToClose` caused by `StartToClose` and the receipt's `WorkflowTaskTimedOut` are now quoted from the Step 19 root `just block` histories (`root-block-histories/show-rollup-8003e351...txt` and `show-receipt-6e4afdb8...txt`).
+  The ruling is that every Event History claim needs a root capture behind it, and the pointer to Exercise 1 is gone.
+  The histories come from a fourth run (2026-11-08), so their Workflow IDs match no other excerpt, and the README says so.
+- Quote: the receipt Event History excerpt, `lines=1-9` of a 26-event history.
+  Rule: trimmed capture.
+  The README says in one sentence that it keeps the first seven events and drops events 8 through 26 and the Results block, and it lists the trim among the capture edits.
+- Quote: `This is what `just receipt-gaps` printed for the two receipts.`
+  Rule: command attribution.
+  Resolved: the capture came from `just receipt-gaps` (captures/INDEX.md and the capture script agree).
+  The file's first line is `just` echoing the command the recipe runs, and the README says so.
+- Quote: `so WT1 of 28,816 and 28,834 milliseconds is the two Workflow Tasks together.`
+  Rule: figure from a capture.
+  Both figures come from `receipt-gaps.txt`, and CLAUDE.md gives the same reading (about 28.8 seconds, first `WorkflowTaskStarted` to first `WorkflowTaskCompleted`).
+- Quote: the list of permitted capture edits, with no entry for ANSI stripping.
+  Rule: open question for Mason.
+  Exercise 02 and draft part 3 strip ANSI escapes (`strip=ansi`) from the Worker log and disclose it.
+  The root README quotes no Worker log, so it needs no entry today.
+
+<CLAUDE_HELP>
+Should the root README's permitted-edits list name ANSI stripping now, since exercise 02 and draft part 3 use strip=ansi, so a later root log capture needs no README change?
+</CLAUDE_HELP>
+
 - Quote: `A second scrape about 8 seconds later, still inside the first freeze, read the same.`
   Rule: sampling scope.
   Both root scrapes (17:14:25.4 and 17:14:33.0, about 14 and 22 seconds after the starter began) fall inside the first freeze, so no root capture shows the `get_location` freeze or the slots reading of 1.
@@ -434,7 +449,15 @@ Keep it as a described extension, or cut it from the draft?
   The Vale run, the keyboard check, and a manual pass against the tutorial-writing checklist stood in for it.
 
 <CLAUDE_HELP>
-The root lessons have no `temporal workflow show` capture, so the rollup failure chain and the receipt `WorkflowTaskTimedOut` are stated in prose without a quoted block.
-Should a later capture pass add the two histories?
 The 29-second panel figure needs a second look against a fresh run.
+</CLAUDE_HELP>
+
+<CLAUDE_HELP>
+Part 1 clones with the SSH remote (git@github.com:MasonEgger/temporal-async-debug.git).
+Should a public tutorial use the HTTPS URL instead?
+</CLAUDE_HELP>
+
+<CLAUDE_HELP>
+CLAUDE.md now says the repository has four layers (it counts `scripts/`), while README.md line 19 says three layers and describes `scripts/` in a separate paragraph.
+Which count should both files use?
 </CLAUDE_HELP>

@@ -252,8 +252,8 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 22: Update The Root README And CLAUDE.md (task)
 
-- [ ] 1. Scope defined (README histories and recipe, CLAUDE.md layout/commands/facts, README smell report)
-- [ ] 2. Tooling: preflight; tutorial-writing, voice:teaching, review-content; lint-prose, lint-keyboard
-- [ ] 3. Do: splice root histories; resolve the README CLAUDE_HELP; update CLAUDE.md
-- [ ] 4. Verify: review-content, Vale no errors, keyboard clean, `just check`, `just check-practice`, solution marker grep empty
-- [ ] 5. Document: this step is the documentation
+- [x] 1. Scope defined (README histories and recipe, CLAUDE.md layout/commands/facts, README smell report)
+- [x] 2. Tooling: preflight; tutorial-writing, voice:teaching, review-content; lint-prose, lint-keyboard
+- [x] 3. Do: splice root histories; resolve the README CLAUDE_HELP; update CLAUDE.md
+- [x] 4. Verify: review-content, Vale no errors, keyboard clean, `just check`, `just check-practice`, solution marker grep empty
+- [x] 5. Document: this step is the documentation

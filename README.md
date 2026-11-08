@@ -26,6 +26,9 @@ The repository has three layers:
 - `observability/` holds a Prometheus and Grafana stack that plots the Worker's metrics.
   See [Observability](#observability).
 
+`scripts/receipt_gaps.py` is a standard-library helper that reads receipt Event Histories.
+The `just receipt-gaps` recipe runs it.
+
 ## The headline: one Workflow type takes down another
 
 The three Workflow types have nothing to do with each other:
@@ -136,6 +139,7 @@ Bare `just` prints every recipe:
 | `just trigger` | Smaller healthy fleet (geo and receipts only), a quick smoke test |
 | `just block [seconds]` | A geo run calls `time.sleep` and freezes the loop, with a healthy geo, a rollup, and two receipts alongside (default 30) |
 | `just cpu [seconds]` | A geo run spins in a busy loop and freezes the loop, with the same fleet as `block` (default 30) |
+| `just receipt-gaps [ids]` | Print the first Workflow Task time and the Activity waits for receipt Workflows (needs the Temporal CLI and a server) |
 | `just metrics` | Start Prometheus and Grafana in the background (docker-compose v1) |
 | `just metrics-down` | Stop the Prometheus and Grafana stack |
 | `just check` | The full gate: ruff, ruff format, mypy, and pytest on the root package, then the solution loop |
@@ -155,6 +159,7 @@ Each geo run has two Activities (`get_ip`, then `get_location`), and both apply 
 Everything quoted in the lessons is real output, captured on 2026-11-03 against `temporal server start-dev --metrics-port 9465` (Temporal CLI 1.6.2, server 1.30.2).
 The Worker ran `temporalio` 1.33.0 on Python 3.14.3, Linux.
 The three lessons come from three runs of the same Worker process, so task numbers, addresses, and Workflow IDs differ between excerpts.
+The Event Histories in Lesson 2 come from a fourth run, a `just block` on 2026-11-08, so their Workflow IDs match no other excerpt.
 
 These are the only edits made to the captures:
 
@@ -165,6 +170,7 @@ These are the only edits made to the captures:
   The package prefix stays, so `temporalio/bridge/worker.py` cannot be confused with `temporal_async_debug/worker.py`.
 - `pstree` excerpts show only the branches the text names.
 - `py-spy dump` excerpts omit the three idle pool threads.
+- The receipt Event History excerpt keeps the first seven events of 26.
 
 No number, name, or message inside a quoted line was changed.
 
@@ -439,19 +445,100 @@ geo geo-ec790305-9af6-490a-88ac-c1f473d13c72: GeoEnrichmentOutput(ip='256.256.25
 
 The rollup was in flight when the freeze landed, so its Workflow fails.
 The starter's message does not say which timeout fired.
-`temporal workflow show --workflow-id <id>` does: the failure is `ScheduleToClose` caused by `StartToClose`.
-The rollup's Activity has a `start_to_close` timeout and a `schedule_to_close` timeout, and it keeps the default retry policy.
-The first attempt timed out on the frozen Worker.
-The retry then waited for a free slot until the `schedule_to_close` timeout ran out.
+The Event History does.
+These Event Histories come from a separate `just block` run on 2026-11-08, so their Workflow IDs and times differ from the excerpts above.
+Run `temporal workflow show -w <rollup workflow ID>` for the rollup:
+
+<!-- vale off -->
+<!-- vale MasonBase.CodeLineLength = NO -->
+```text
+Progress:
+  ID           Time                     Type           
+    1  2026-11-08T18:11:27Z  WorkflowExecutionStarted  
+    2  2026-11-08T18:11:27Z  WorkflowTaskScheduled     
+    3  2026-11-08T18:11:27Z  WorkflowTaskStarted       
+    4  2026-11-08T18:11:27Z  WorkflowTaskCompleted     
+    5  2026-11-08T18:11:27Z  ActivityTaskScheduled     
+    6  2026-11-08T18:11:47Z  ActivityTaskTimedOut      
+    7  2026-11-08T18:11:47Z  WorkflowTaskScheduled     
+    8  2026-11-08T18:11:47Z  WorkflowTaskStarted       
+    9  2026-11-08T18:11:57Z  WorkflowTaskTimedOut      
+   10  2026-11-08T18:11:57Z  WorkflowTaskScheduled     
+   11  2026-11-08T18:11:57Z  WorkflowTaskStarted       
+   12  2026-11-08T18:11:58Z  WorkflowTaskCompleted     
+   13  2026-11-08T18:11:58Z  WorkflowExecutionFailed   
+
+Results:
+  Status   FAILED
+  Failure  
+    Message: Activity task timed out
+    Cause:
+        Message: activity ScheduleToClose timeout
+        Cause:
+            Message: activity StartToClose timeout
+```
+<!-- vale MasonBase.CodeLineLength = YES -->
+<!-- vale on -->
+
+The Activity was scheduled at event 5 and timed out at event 6, 20 seconds later.
+The Results block reads `ScheduleToClose` caused by `StartToClose`.
+The history writes no event for a retried attempt, so it cannot tell you how many attempts ran.
+The rollup's own Workflow Task stalled too.
+Event 8 started it, event 9 timed it out, and a second Workflow Task completed at event 12.
 
 The receipts stall instead of failing.
 They arrive during the final freeze, so the frozen Worker cannot process their first Workflow Task.
-That task times out, which the Event History records as `WorkflowTaskTimedOut`.
-The server schedules a second Workflow Task, and it completes when the freeze ends.
+Run the same command for a receipt:
+
+<!-- vale off -->
+<!-- vale MasonBase.CodeLineLength = NO -->
+```text
+Progress:
+  ID           Time                     Type           
+    1  2026-11-08T18:11:59Z  WorkflowExecutionStarted  
+    2  2026-11-08T18:11:59Z  WorkflowTaskScheduled     
+    3  2026-11-08T18:11:59Z  WorkflowTaskStarted       
+    4  2026-11-08T18:12:09Z  WorkflowTaskTimedOut      
+    5  2026-11-08T18:12:19Z  WorkflowTaskScheduled     
+    6  2026-11-08T18:12:19Z  WorkflowTaskStarted       
+    7  2026-11-08T18:12:28Z  WorkflowTaskCompleted     
+```
+<!-- vale MasonBase.CodeLineLength = YES -->
+<!-- vale on -->
+
+This excerpt keeps the first seven events and drops events 8 through 26 and the Results block.
+Event 3 starts the first Workflow Task, and event 4 records it as `WorkflowTaskTimedOut`.
+The server schedules a second Workflow Task at event 5, and it completes at event 7, 29 seconds after event 3.
 That is a stall across two Workflow Tasks, not one long one.
-The rollup's 20-second `schedule_to_close` ran out inside the first freeze.
+
+`just receipt-gaps` prints the same stall as one number.
+Pass it the receipt Workflow IDs from your run:
+
+<!-- vale off -->
+<!-- vale MasonBase.CodeLineLength = NO -->
+```bash
+just receipt-gaps <receipt workflow ID> <receipt workflow ID>
+```
+<!-- vale MasonBase.CodeLineLength = YES -->
+<!-- vale on -->
+
+This is what `just receipt-gaps` printed for the two receipts.
+The first line is `just` echoing the command the recipe runs.
+
+<!-- vale off -->
+<!-- vale MasonBase.CodeLineLength = NO -->
+```text
+uv run python scripts/receipt_gaps.py receipt-6e4afdb8-7647-4f9a-b348-15f31de0f68a receipt-cbca96a0-2dee-46a0-83a6-8d58e8f32e35
+receipt-6e4afdb8 total 28935ms | WT1 started->completed 28816ms | validate_order: sched->started 4ms started->completed 9ms | compute_total: sched->started 5ms started->completed 9ms | format_receipt: sched->started 9ms started->completed 9ms
+receipt-cbca96a0 total 28954ms | WT1 started->completed 28834ms | validate_order: sched->started 12ms started->completed 9ms | compute_total: sched->started 3ms started->completed 12ms | format_receipt: sched->started 4ms started->completed 8ms
+```
+<!-- vale MasonBase.CodeLineLength = YES -->
+<!-- vale on -->
+
+"WT1" runs from the first `WorkflowTaskStarted` to the first `WorkflowTaskCompleted`.
+It spans the timeout and its retry, so WT1 of 28,816 and 28,834 milliseconds is the two Workflow Tasks together.
+Each Activity then takes 3 to 12 milliseconds to start and 8 to 12 to finish, so the receipts lost their time before the first `WorkflowTaskCompleted`.
 The receipts completed once the final freeze ended.
-Exercise 1 captures the rollup and receipt Event Histories for the same kind of freeze (see [Exercise 1](exercises/01-sync-http-client/README.md)).
 
 That is the cross-type damage: a geo bug failed a rollup that has no bug, and held up receipts until the freeze ended.
 Now that you have seen a blocking call freeze the loop, the next lesson freezes it with a busy loop.
