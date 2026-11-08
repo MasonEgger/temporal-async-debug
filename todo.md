@@ -180,14 +180,14 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 15: Commit The Receipt-Gap Helper
 
-- [ ] 1. RED: tests/fixtures receipt histories; tests/test_receipt_gaps.py (timed-out WT1 span, healthy gaps, no-Activity history, --limit filter through an injected runner)
-- [ ] 2. Document: scripts/receipt_gaps.py module docstring
-- [ ] 3. GREEN: scripts/receipt_gaps.py, stdlib only
-- [ ] 4. RED: parity test against the scratchpad receipt-gaps captures
-- [ ] 5. GREEN: `just receipt-gaps` recipe; scripts/ under ruff, format, mypy
-- [ ] 6. REFACTOR: one formatting path, about 100 lines
-- [ ] 7. Docs: none
-- [ ] 8. Verify: teeth check (last WT breaks the tests), `just check`
+- [x] 1. RED: tests/fixtures receipt histories; tests/test_receipt_gaps.py (timed-out WT1 span, healthy gaps, no-Activity history, --limit filter through an injected runner)
+- [x] 2. Document: scripts/receipt_gaps.py module docstring
+- [x] 3. GREEN: scripts/receipt_gaps.py, stdlib only
+- [x] 4. RED: parity test against the scratchpad receipt-gaps captures
+- [x] 5. GREEN: `just receipt-gaps` recipe; scripts/ under ruff, format, mypy
+- [x] 6. REFACTOR: one formatting path, about 100 lines
+- [x] 7. Docs: none
+- [x] 8. Verify: teeth check (last WT breaks the tests), `just check`
 
 ### Step 16: Exercise 03 Metrics-Port Setting
 

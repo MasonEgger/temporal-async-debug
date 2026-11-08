@@ -2,6 +2,7 @@
 
 ## Recent
 
+- When a plan says a test runs against captures and no machine-readable capture exists, capture one live (`temporal workflow show --output json`) instead of reconstructing fixtures backward from the expected output; a fixture built to match the expected result makes a circular test. Step 15's first validator pass caught it (2026-11-08)
 - `sudo` through a `!` command cannot prompt for a password (no terminal), so a sysctl step needs the user's own terminal; `kernel.yama.ptrace_scope` is system-wide, so setting it there applies to this session. Read `/proc/sys/kernel/yama/ptrace_scope` to confirm instead of asking (2026-11-08)
 - py-spy is not a project dependency, so `uv run py-spy` fails with "Failed to spawn"; capture with `uvx py-spy`, the form the README prints. Under ptrace_scope 1 both `uvx py-spy dump` and `python -m asyncio ps` refuse to attach (2026-11-08)
 - A capture summary written by the orchestrator can carry a misreading into later prose (the exercise 04 "no overlap" claim); a validator must re-derive timing claims from the timestamped log and the code's order of operations (sleep before print), not trust the summary. It happened twice (the 04 "no overlap" claim, then a root block run time of "about 55 s" that the capture timestamps put at about 62 s), so write the capture file and its timestamps next to every figure in a summary (2026-11-03)
@@ -15,6 +16,7 @@
 
 ## Testing
 
+- When a plan says a test runs against captures and no machine-readable capture exists, capture one live (`temporal workflow show --output json`) instead of reconstructing fixtures backward from the expected output; a fixture built to match the expected result makes a circular test. Step 15's first validator pass caught it (2026-11-08)
 - pytest resolves a relative `pythonpath` ini value against the config file's directory, not the cwd, so a per-directory run from a subdirectory with `-o pythonpath=.` put the repo root on every copy's sys.path; pass an absolute path (`-o pythonpath="$PWD"`) inside the cd subshell to keep the repo root off it. Proved with throwaway two-copy probes (2026-11-03)
 - A config test that must assert "exactly these values and nothing else" should scan for every token of the value's shape across the whole file rather than parse structure with regexes; structural regex parsing failed open across two validator rounds (2026-11-03)
 - Config-file tests assert the stack's invariants (the service set, the scrape targets, the metric allowlist) and nothing else; "parses as YAML" and asserting a value we chose were rejected as testing for the sake of it (2026-11-03)

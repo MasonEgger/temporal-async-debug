@@ -135,3 +135,7 @@ block seconds="30":
 # Trigger a fleet where one geo run pins the GIL in a busy loop, freezing the whole worker (CPU-pinned lesson)
 cpu seconds="30":
     uv run python -m temporal_async_debug.starter --mode cpu --block-seconds {{seconds}} --bad 1 --geo 1 --rollups 1 --receipts 2
+
+# Print WT1 and Activity gaps for receipt Workflows: pass Workflow IDs or --limit N (needs the Temporal CLI and a server)
+receipt-gaps *args:
+    uv run python scripts/receipt_gaps.py {{args}}
