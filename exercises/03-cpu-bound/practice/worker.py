@@ -8,7 +8,8 @@ CPU-bound call in an async activity freezes the whole worker, unrelated workflow
 ``MAX_CONCURRENT_ACTIVITIES`` is small on purpose, so the slot gauge readings stay short enough to
 read on a single machine.
 
-The worker enables the SDK's Prometheus metrics endpoint on 127.0.0.1:9464 and prints a startup
+The worker enables the SDK's Prometheus metrics endpoint on 127.0.0.1, port 9464 unless
+ASYNC_DEBUG_METRICS_PORT says otherwise, and prints a startup
 banner with its PID and the copy-paste commands to inspect the live event loop.
 """
 
@@ -16,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+from typing import TYPE_CHECKING
 
 import shared
 from activities import get_ip, get_location
@@ -31,24 +33,73 @@ from temporalio.runtime import PrometheusConfig, Runtime, TelemetryConfig
 from temporalio.worker import Worker
 from workflow import GeoEnrichmentWorkflow
 
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
 TEMPORAL_TARGET: str = "localhost:7233"
 """Address of the local Temporal dev server the worker connects to."""
 
-METRICS_BIND_ADDRESS: str = "127.0.0.1:9464"
-"""Host and port the SDK binds its Prometheus scrape endpoint to."""
+METRICS_HOST: str = "127.0.0.1"
+"""Host the SDK binds its Prometheus scrape endpoint to."""
 
-METRICS_URL: str = "http://127.0.0.1:9464/metrics"
-"""Full URL a browser or curl uses to read the worker's metrics."""
+METRICS_PORT_ENV: str = "ASYNC_DEBUG_METRICS_PORT"
+"""Environment variable that overrides the metrics port, so a second Worker can run beside the first."""
+
+DEFAULT_METRICS_PORT: int = 9464
+"""Port used when ASYNC_DEBUG_METRICS_PORT is unset."""
 
 MAX_CONCURRENT_ACTIVITIES: int = 2
 """Small on purpose: a single-machine demo keeps the slot gauge readings short and readable."""
 
 
-def print_startup_banner() -> None:
+def resolve_metrics_port(environ: Mapping[str, str] | None = None) -> int:
+    """Read the Prometheus port from ASYNC_DEBUG_METRICS_PORT, defaulting to 9464.
+
+    Args:
+        environ: The environment to read; defaults to ``os.environ``.
+
+    Returns:
+        The port as an integer between 1 and 65535.
+
+    Raises:
+        ValueError: If the variable is set but empty, not an integer, or outside 1 to 65535.
+    """
+    env = os.environ if environ is None else environ
+    raw = env.get(METRICS_PORT_ENV)
+    if raw is None:
+        return DEFAULT_METRICS_PORT
+    try:
+        port = int(raw)
+    except ValueError:
+        msg = f"{METRICS_PORT_ENV} must be an integer from 1 to 65535, got {raw!r}"
+        raise ValueError(msg) from None
+    if not 1 <= port <= 65535:
+        msg = f"{METRICS_PORT_ENV} must be an integer from 1 to 65535, got {raw!r}"
+        raise ValueError(msg)
+    return port
+
+
+def build_telemetry_config(environ: Mapping[str, str] | None = None) -> TelemetryConfig:
+    """Build the telemetry config that binds the Prometheus endpoint to the resolved port.
+
+    Args:
+        environ: The environment to read the port from; defaults to ``os.environ``.
+
+    Returns:
+        A TelemetryConfig whose metrics endpoint is ``127.0.0.1:<port>``.
+    """
+    port = resolve_metrics_port(environ)
+    return TelemetryConfig(metrics=PrometheusConfig(bind_address=f"{METRICS_HOST}:{port}"))
+
+
+def print_startup_banner(metrics_port: int) -> None:
     """Print the worker's PID, the loop-introspection commands, and the metrics URL.
 
     The two ``python -m asyncio`` commands carry the real PID so the reader can copy-paste them
-    straight into a second terminal.
+    straight into a second terminal. The metrics line shows the port the endpoint is bound to.
+
+    Args:
+        metrics_port: The port the Prometheus endpoint is bound to.
     """
     pid = os.getpid()
     # flush=True on every line: under nohup or a log redirect stdout is block-buffered, and the
@@ -58,7 +109,7 @@ def print_startup_banner() -> None:
     print("Inspect the live event loop from another terminal with either of:", flush=True)
     print(f"    python -m asyncio ps {pid}", flush=True)
     print(f"    python -m asyncio pstree {pid}", flush=True)
-    print(f"Prometheus metrics: {METRICS_URL}", flush=True)
+    print(f"Prometheus metrics: http://{METRICS_HOST}:{metrics_port}/metrics", flush=True)
     print("=" * 72, flush=True)
 
 
@@ -100,14 +151,11 @@ async def main() -> None:
     local dev server, builds the Worker with build_worker, prints the startup banner, and then
     serves until interrupted.
     """
-    runtime = Runtime(
-        telemetry=TelemetryConfig(
-            metrics=PrometheusConfig(bind_address=METRICS_BIND_ADDRESS),
-        ),
-    )
+    telemetry = build_telemetry_config()
+    runtime = Runtime(telemetry=telemetry)
     client = await Client.connect(TEMPORAL_TARGET, runtime=runtime)
     worker = build_worker(client)
-    print_startup_banner()
+    print_startup_banner(resolve_metrics_port())
     await worker.run()
 
 

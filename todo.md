@@ -191,14 +191,14 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 16: Exercise 03 Metrics-Port Setting
 
-- [ ] 1. RED: port-resolution tests (default 9464, override, invalid values raise)
-- [ ] 2. Document: docstring and banner line
-- [ ] 3. GREEN: ASYNC_DEBUG_METRICS_PORT in solution and practice worker.py
-- [ ] 4. RED: the runtime builder receives the resolved address
-- [ ] 5. GREEN: wire it
-- [ ] 6. REFACTOR: practice-versus-solution diff unchanged
-- [ ] 7. Docs: none
-- [ ] 8. Verify: `just check`, `just check-practice`, two-Worker smoke run
+- [x] 1. RED: port-resolution tests (default 9464, override, invalid values raise)
+- [x] 2. Document: docstring and banner line
+- [x] 3. GREEN: ASYNC_DEBUG_METRICS_PORT in solution and practice worker.py
+- [x] 4. RED: the runtime builder receives the resolved address
+- [x] 5. GREEN: wire it
+- [x] 6. REFACTOR: practice-versus-solution diff unchanged
+- [x] 7. Docs: none
+- [x] 8. Verify: `just check`, `just check-practice`, two-Worker smoke run
 
 ### Step 17: Rebuild Exercise 02 For A Visible Retry Storm
 
