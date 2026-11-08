@@ -37,6 +37,17 @@ The root package after the trim is what part 1 baselines and the source each exe
   - [ ] Step 12: Write The Six-Part Series Drafts
 - [ ] Section 8: Root Documentation Refresh
   - [ ] Step 13: Root README, CLAUDE.md, And docs/drafts/README Refresh
+- [ ] Section 9: Post-Review Rework
+  - [ ] Step 14: Reconcile spec.md, plan.md, And .vale.ini With The Rulings
+  - [ ] Step 15: Commit The Receipt-Gap Helper
+  - [ ] Step 16: Exercise 03 Metrics-Port Setting
+  - [ ] Step 17: Rebuild Exercise 02 For A Visible Retry Storm
+  - [ ] Step 18: Exercise 05 Realistic Audit Trail
+  - [ ] Step 19: Recapture For The Rework
+- [ ] Section 10: Rework Prose
+  - [ ] Step 20: Update The Exercise READMEs
+  - [ ] Step 21: Update The Series Drafts
+  - [ ] Step 22: Update The Root README And CLAUDE.md
 
 ## Architecture Recap (target for this arc)
 
@@ -723,6 +734,269 @@ The validator for this section consults voice:teaching in critique mode (finding
 
 5. Document:
    - This step is the documentation.
+```
+
+## Section 9: Post-Review Rework (Mason's rulings, 2026-11-05)
+
+**Tools:**
+- Skills: python:python, temporal:temporal-developer
+- MCPs: mcp__temporal-docs__search_temporal_knowledge_sources
+- Linters: uv run ruff check --output-format=json ., uv run mypy .
+
+Mason reviewed the finished arc on 2026-11-05 and ruled on every open item.
+The rulings, which win over anything earlier in this plan:
+
+- Exercise 02 is rebuilt so the reader sees a visible retry storm. A scratch spike (scratchpad `spike02/`, logs `spike-worker.log` and `spike-starter.log`) proved the design: an awaited status check before each poll, the blocking `time.sleep(8)` kept, and `JOB_SECONDS` raised from 20 to 60. In the spike the bad run's Attempt counter climbed 1 to 4 in `temporal workflow describe`, every attempt failed with a Heartbeat timeout, cancels landed late (attempts 1 and 2 kept polling as overlapping zombies), the rollup failed, receipts stalled, two `TMPRL1101` deadlock errors appeared in the Worker log, and the run completed after about 65 s.
+- Temporal writes no history event per retried Activity attempt, so `temporal workflow show` never lists attempt after attempt. The storm is shown in the Temporal Web UI's pending-activity view (attempt count and last failure), in `temporal workflow describe`, in the Worker log, and in the Grafana `activity_timeout` panel. Web UI screenshots are allowed for exercise 02.
+- The exercise 02 README calls out `TMPRL1101 Potential deadlock detected` as a frozen-loop clue: on an `async def` Worker it can mean the event loop is blocked, not that the Workflow code deadlocked.
+- Draft part 3 keeps leaving out the 4 s server-side heartbeat cadence.
+- Exercise 05 keeps `zlib.compress`, because it releases the GIL and so the `asyncio.to_thread` fix visibly restores receipt latency (a pure-Python JSON blocker kept receipts slow after the fix through GIL contention). The `os.urandom` stand-in bytes become generated, realistic audit-log lines built inside the Worker. Nothing binary crosses a Temporal boundary: `get_location(ip: str, payload_records: int) -> str` stays as is. The README adds that a real archiver uploads the compressed bytes to blob storage and returns a key, never the blob.
+- A small receipt-gap helper is committed so readers can reproduce every gap figure. The full capture script stays deferred.
+- Exercise 03 ships a metrics-port setting so the second-Worker extension runs from the repository.
+- Exercise 04's forced-timeout demo stays a described extension (the reader edits `STEP_SECONDS` to 6.0 themselves). No repository change.
+- The root README gets quoted `temporal workflow show` histories for the rollup and a receipt under `just block`.
+- Draft part 1 gets a captured py-spy ptrace failure and the `sysctl` fix. Changing `kernel.yama.ptrace_scope` needs sudo with a password, so Mason captures it by hand before the loop starts (see Step 19), and the files land in the scratchpad at `captures/root-ptrace/`.
+- `.vale.ini` turns off `MasonBase.Headings` under `exercises/**` and `docs/drafts/**`.
+- The backlog framing stays: `temporal task-queue describe` is the reliable reading, and the dashboard corroborates.
+
+Captures from Step 10 still stand for everything these rulings do not touch, and the scratchpad `captures/INDEX.md` and `captures/FINDINGS.md` stay the source of truth for them.
+New captures land in the same scratchpad tree and get INDEX rows.
+
+### Step 14: Reconcile spec.md, plan.md, And .vale.ini With The Rulings (task)
+
+**Tools:**
+- Skills: none
+- MCPs: none
+- Linters: just lint-prose spec.md, just lint-keyboard spec.md plan.md .vale.ini
+
+```text
+1. Scope:
+   - Artifact(s): spec.md, plan.md (the header fence paragraph, the Architecture Recap table rows for 02 and 05, and the Implementation Guidelines bullets that name the deferred items and the confirm-at-review list), .vale.ini
+   - Desired end state: spec.md reads as current intent on one pass, with every ruling above applied in place and no stale prediction left; plan.md's earlier text no longer forbids what Section 9 does; Vale stops flagging sentence-case headings under exercises/ and docs/drafts/.
+
+2. Tooling:
+   - Skills: none
+   - MCPs: none
+   - External: just lint-prose, just lint-keyboard, vale ls-config
+
+3. Do the work:
+   - spec.md, exercise 02: rewrite the bullet to the spiked design (an awaited async status check before each poll, then the blocking time.sleep of the poll interval; heartbeat_timeout 5 s, poll 8 s, job 60 s keyed on the run id). State the observed shape: the Attempt counter climbs in describe and the Web UI, every attempt fails on Heartbeat timeout, cancels land late so failed attempts keep polling as zombies, bystanders fail and stall, TMPRL1101 deadlock warnings appear, and workflow show writes no per-attempt event. Keep the awaited 1-second tick fix. Drop "(confirm at review)".
+   - spec.md, exercise 05: the blocker is one zlib.compress at level 9 over generated audit-log lines built in the Worker (about 350 ms), with the GIL reason in one sentence. The symptom is the receipts' first Workflow Task gap. The asyncio debug warning names the SDK handler `_ActivityWorker._handle_start_activity_task`, so py-spy names the line. Add the blob-storage-key note as a README requirement.
+   - spec.md, exercise 03: the second-Worker extension runs from the repo through a metrics-port setting (an environment variable read by worker.py in both copies, default 9464).
+   - spec.md, Deferred list: move "Temporal Web UI screenshots" out of Deferred into the exercise 02 requirements (exercise 02 only). Narrow the "committed capture script" entry: a receipt-gap helper at scripts/receipt_gaps.py ships now; a script that reproduces whole runs stays deferred.
+   - spec.md, Invariants: add todo.md, plan.md, .ai-sessions/**, scripts/** to the paths: line.
+   - spec.md: resolve every remaining "(confirm at review)" that the Step 10 captures confirmed (max_concurrent_activities=2, port 9465, the slow endpoint served by the starter, the per-directory gate loop, the second-Worker demo), rewriting each as a plain decided requirement. Fix the exercise 02 "last heartbeat advancing every second" wording to the observed about-every-4-seconds cadence.
+   - plan.md: update the header paragraph and Implementation Guidelines so they no longer list "no committed capture script, no Web UI screenshots" without the Section 9 exceptions; update the 02 and 05 rows of the Architecture Recap table and the confirm-at-review bullet to match spec.md. Do not touch Sections 0 to 8's step bodies (they are history).
+   - .vale.ini: add `MasonBase.Headings = NO` under the exercises and docs/drafts section(s). Keep every other rule.
+   - Writing hard rules: one sentence per line, no em or en dashes, straight quotes.
+
+4. Verify:
+   - `grep -n "confirm at review\|retry storm\|attempt after attempt\|JSON round trip\|os.urandom" spec.md` returns nothing that contradicts the rulings.
+   - `vale ls-config` shows MasonBase.Headings off for exercises/ and docs/drafts/ files; `just lint-prose spec.md` shows no error-level alert; `just lint-keyboard spec.md plan.md` exits 0; `uv run pytest -q` exits 0.
+
+5. Document:
+   - none beyond the edits (CLAUDE.md is Step 22).
+```
+
+### Step 15: Commit The Receipt-Gap Helper
+
+**NOTE**: The scratchpad `gaps.py` produced every quoted receipt-gap figure; this step turns its two definitions into a small, tested, committed script.
+Definitions to keep exactly: "WT1" is the first WorkflowTaskStarted to the first WorkflowTaskCompleted (it spans a WorkflowTaskTimedOut and its retry, which is the stall), and each Activity reports scheduled-to-started and started-to-completed in milliseconds.
+The script reads `temporal workflow show -w <id> --output json` (stdlib only: json, subprocess, argparse, datetime), takes Workflow IDs or a `--limit N` listing filtered to OrderReceiptWorkflow, and prints one line per Workflow in the gaps.py format.
+
+```text
+1. RED: Write tests first:
+   - Create tests/fixtures/ with two captured history JSON files copied from the scratchpad captures (one receipt whose first Workflow Task timed out and retried, one healthy receipt). If no receipt history JSON was saved in Step 10, capture one of each now from a root `just block` run and a `just healthy` run and record them in INDEX.md.
+   - Create tests/test_receipt_gaps.py:
+     - Test that the WT1 gap for the timed-out receipt spans the timeout and retry (first Started to first Completed), matching a value computed by hand from the fixture timestamps.
+     - Test that a healthy receipt's WT1 gap and Activity gaps match hand-computed values.
+     - Test that a history with no Activity still prints the WT1 gap and the total.
+     - Test that the --limit listing keeps only OrderReceiptWorkflow entries (feed a fake listing through an injected runner, never a live server).
+
+2. Document component:
+   - Module docstring on scripts/receipt_gaps.py: what WT1 means, why it can span a timed-out Workflow Task, and the exact command a reader runs from any exercise directory.
+
+3. GREEN: Create scripts/receipt_gaps.py with the minimal code to pass; keep the subprocess call behind one small function the tests replace. Full type hints, Google-style docstrings, no single-letter names.
+
+4. RED: Add a parity test: running the script's formatter over every receipt history JSON in tests/fixtures/ reproduces the matching line in the scratchpad receipt-gaps capture for that Workflow, when one exists.
+
+5. GREEN: Wire it up: add a `receipt-gaps *args` recipe to the justfile that runs `uv run python scripts/receipt_gaps.py {{args}}` from the repo root; make sure root ruff, ruff format --check, and mypy cover scripts/ and tests cover it under `just check`.
+
+6. REFACTOR: Keep the script under about 100 lines with one formatting path shared by the ID and --limit modes.
+
+7. Update documentation: none here (READMEs and drafts point at it in Steps 20 to 22).
+
+8. Verify the tests fail if WT1 is changed to the last Workflow Task, revert, then run `just check`.
+```
+
+### Step 16: Exercise 03 Metrics-Port Setting
+
+**NOTE**: The second-Worker extension collided on 127.0.0.1:9464. Both exercise 03 copies read the Prometheus port from an environment variable (name it `ASYNC_DEBUG_METRICS_PORT`, default 9464), so a second Worker starts with `ASYNC_DEBUG_METRICS_PORT=9466 uv run python worker.py`.
+The setting is not part of the fix, so the practice-versus-solution diff does not change. The startup banner prints the port it bound.
+
+```text
+1. RED: In exercises/03-cpu-bound/solution/tests/, add tests for the port resolution: unset gives 9464; a valid integer overrides it; an empty, non-integer, or out-of-range value raises a ValueError that names the variable.
+
+2. Document component: docstring on the port-resolution function and one line in the worker banner text.
+
+3. GREEN: Implement the resolution in exercises/03-cpu-bound/solution/worker.py and use it where the Runtime's Prometheus address is built; mirror the same change into exercises/03-cpu-bound/practice/worker.py (and its tests, so the practice copy stays type-clean under check-practice).
+
+4. RED: Add a test that build_worker (or the runtime builder) receives the resolved address string, using the copy's existing test seams.
+
+5. GREEN: Wire it up minimally.
+
+6. REFACTOR: Keep the diff between the two copies limited to the original fix lines and TODO comments.
+
+7. Update documentation: none (README in Step 20).
+
+8. Verify: `just check` and `just check-practice` exit 0; two Workers start side by side from the solution directory with different ports (a short live smoke run against the dev server, not a test).
+```
+
+### Step 17: Rebuild Exercise 02 For A Visible Retry Storm
+
+**NOTE**: Apply the spiked design to both copies. The practice copy keeps its antipattern marker, rewritten so it stays true: the heartbeat cannot leave while time.sleep holds the loop, the server fails the attempt on Heartbeat timeout, and the cancel only lands at the next await, after the blocking sleep, so failed attempts keep polling as zombies and the retries freeze the loop again.
+The awaited status check is a small `async def` in activities.py that stands in for an asynchronous status call (it awaits briefly, never touches the network), so tests stay offline.
+`JOB_SECONDS` becomes 60.0. The heartbeat_timeout (5 s), the poll interval (8 s), and the Workflow's timeouts stay fixed scenery; confirm the 150 s schedule_to_close still covers a 60 s job plus the storm in the solution and practice runs.
+The solution keeps the awaited 1-second tick wait with a heartbeat per tick, plus the same awaited status check.
+
+```text
+1. RED: Update exercises/02-sleep-between-heartbeats/solution/tests/: keep the heartbeat-count-and-probe test working with the new status check and job length (shrink the job in the test through the existing seams; never wait 60 s in a test); add a test that the awaited status check observes the same job across attempts (keyed on the run id).
+
+2. Document component: update the module docstrings in both copies' activities.py to the new shape (awaited status check, 60 s job).
+
+3. GREEN: Apply the change to solution/activities.py (status check awaited before each poll, JOB_SECONDS 60.0, tick wait unchanged; no marker) and confirm `grep -rn "ANTIPATTERN" exercises/02-sleep-between-heartbeats/solution` is empty.
+
+4. Update the practice copy the same way, keeping time.sleep(POLL_INTERVAL_SECONDS), the rewritten marker, the `# TODO PART C:` comment, and the Part D stub.
+
+5. Integrate into the gate: `just check` green for the solution, `just check-practice` green for the practice copy.
+
+6. REFACTOR: The practice-versus-solution diff stays the wait (one sleep line versus the tick loop) plus the TODO comment.
+
+7. Update documentation: none (README in Step 20).
+
+8. Verify the solution test fails if the tick loop is reverted to the single time.sleep, revert, then run `just check` and `just check-practice`. Then run the practice fleet once against the dev server and confirm the Attempt counter climbs past 2 in `temporal workflow describe` (a smoke check; the captures are Step 19).
+```
+
+### Step 18: Exercise 05 Realistic Audit Trail
+
+**NOTE**: Replace the `os.urandom` stand-in with generated audit-log lines: deterministic (seeded `random.Random`), plain JSON lines with realistic fields (timestamp, request id, client ip, action, status, latency in ms), built once at import and cached as encoded bytes, so the per-call cost is still only the compression.
+Size the trail so one `zlib.compress(..., 9)` takes about 300 to 400 ms on this machine (measure with a short timing loop and record the result in the INDEX); adjust `PAYLOAD_RECORDS` and the record shape, not the compression level, and keep `RECORD_BYTES` only if it still means something.
+The trail never crosses a Temporal boundary. The Activity signature and return value stay `get_location(ip: str, payload_records: int) -> str`.
+The solution keeps `archived = await asyncio.to_thread(_archive_audit_trail, ip, payload_records)`.
+
+```text
+1. RED: In exercises/05-catching-blockers-early/solution/tests/, add tests for our generator: every line parses as JSON with the expected fields; the line count equals the requested records; the same seed gives the same bytes; the trail is compressible (compressed length well under the raw length). Keep the parametrized probe test.
+
+2. Document component: rewrite the docstrings on the trail builder and _archive_audit_trail (realistic lines, built in the Worker, discarded after compressing; a real archiver would upload the bytes and return a key), and the PAYLOAD_RECORDS docstring in shared.py.
+
+3. GREEN: Implement the generator in solution/activities.py; remove the os import if unused.
+
+4. Mirror the change into the practice copy, keeping its antipattern marker, its TODO comments, and the direct call on the loop.
+
+5. Integrate: `just check` and `just check-practice` exit 0.
+
+6. REFACTOR: Keep the practice-versus-solution diff to the to_thread line and the TODO comment.
+
+7. Update documentation: none (README in Step 20).
+
+8. Verify the probe test fails if the solution's to_thread is reverted to the direct call, revert, then run `just check`. Record the measured compress time.
+```
+
+### Step 19: Recapture For The Rework (task)
+
+**Tools:** none
+
+**NOTE**: Live and manual, like Step 10. Use the dev server WITH its Web UI (`just server`, UI on 127.0.0.1:8233) for the exercise 02 screenshots, the compose stack (`just metrics`), and the scratchpad `shot.py` pattern (Playwright via `uv run --with playwright`) for both Grafana panels and the Web UI.
+The ptrace capture needs sudo with a password, so Mason takes it by hand before the loop starts and saves it to the scratchpad at `captures/root-ptrace/` (py-spy failing with ptrace_scope 1, then the `sysctl` command restoring 0). If those files are missing, record a CLAUDE_HELP in the INDEX and continue; never attempt sudo.
+
+```text
+1. Scope:
+   - Artifact(s): scratchpad captures (captures/02-practice-v2/, 02-solution-v2/, 05-practice-v2/, 05-solution-v2/, root-block-histories/, 03-solution-second-worker/), INDEX.md rows for each, a FINDINGS.md section "Rework captures (2026-11-05)", PNGs under docs/images/ (02 Web UI pending-activity screenshots named 02-practice-ui-<view>.png, and replacement 02 and 05 Grafana PNGs).
+   - Desired end state: every claim Steps 20 to 22 make has a capture behind it.
+
+2. Tooling:
+   - Skills: temporal:temporal-developer
+   - MCPs: mcp__temporal-docs__search_temporal_knowledge_sources
+   - External: temporal CLI, docker-compose v1, uvx py-spy, PYTHONASYNCIODEBUG, Playwright through uv run --with, scripts/receipt_gaps.py
+
+3. Do the work:
+   - 02 practice: starter output; `temporal workflow describe` of the bad run sampled every 8 s (attempt and last failure); Web UI screenshots of the bad run's pending activity at two attempt counts; the Worker log with the zombie poll lines and the TMPRL1101 lines; `temporal workflow show` text (to show it lists no per-attempt failure) and its JSON; asyncio ps and py-spy dump during a freeze; receipt gaps via scripts/receipt_gaps.py; Grafana PNGs including activity_timeout.
+   - 02 solution: first-attempt completion, describe heartbeat reads, receipt gaps, Grafana PNGs.
+   - 05 practice and solution: healthy-vs-practice receipt gaps via scripts/receipt_gaps.py, the asyncio debug warning, py-spy naming the zlib.compress line, the measured compress time, solution gaps with and without debug mode, Grafana PNGs.
+   - Root: `just block` with `temporal workflow show` for the failed rollup and one receipt (text and JSON), plus receipt gaps.
+   - 03 solution: two Workers started with different ASYNC_DEBUG_METRICS_PORT values, two cpu runs progressing, top showing combined CPU above 100 percent.
+   - Copy any receipt history JSON the Step 15 fixtures need.
+
+4. Verify:
+   - Every artifact above exists with an INDEX row naming exercise, state, tool, command, and time; FINDINGS records any new contradiction; `just check` still exits 0 if a fixture or dashboard changed.
+
+5. Document:
+   - INDEX.md rows and the FINDINGS section.
+```
+
+## Section 10: Rework Prose
+
+**Tools:**
+- Skills: content-design:tutorial-writing, voice:teaching, content-design:review-content, temporal:temporal-developer
+- MCPs: mcp__temporal-docs__search_temporal_knowledge_sources
+- Linters: just lint-prose exercises/*/README.md docs/drafts/part-*.md README.md CLAUDE.md, just lint-keyboard exercises/*/README.md docs/drafts/part-*.md README.md CLAUDE.md
+
+The Section 6 to 8 rules carry over unchanged: `just preflight` first, tutorial-writing then voice:teaching then review-content, every quoted block a mechanical splice of a capture through the scratchpad build scripts (`build_readmes.py`, `build_drafts.py`, `build_readme.py` and their sources), every trim disclosed in one active sentence, and smell reports plus CLAUDE_HELP questions in docs/drafts/smell-reports.md.
+Mark each smell-report item these steps settle as Resolved, citing the ruling.
+
+### Step 20: Update The Exercise READMEs (task)
+
+```text
+1. Scope:
+   - Artifact(s): exercises/02-sleep-between-heartbeats/README.md (Parts A, B, C, E rewritten), exercises/05-catching-blockers-early/README.md, exercises/01-sync-http-client/README.md and exercises/03-cpu-bound/README.md (Part D wording; 03 second-Worker section), exercises/04-zombie-thread/README.md (trap 1 disclosure), every receipt-gap block in all five READMEs, docs/drafts/smell-reports.md.
+   - Desired end state: each README matches its rebuilt code and the Step 19 captures.
+
+2. Tooling: as the section's Tools block, plus `just preflight`.
+
+3. Do the work:
+   - 02: Part A shows the storm through the Web UI screenshots, the climbing Attempt in describe, the failing rollup, and stalled receipts; say plainly that workflow show writes no event per retried attempt. Part B adds the TMPRL1101 callout as a frozen-loop clue next to asyncio ps and py-spy, with the Grafana activity_timeout panel last. Part E quotes the solution captures.
+   - 05: describe the trail as generated audit-log lines, add the upload-and-return-a-key sentence, and replace every number and quoted block with the Step 19 captures.
+   - 01 and 03 Part D: the hinted test fails first at `assert isinstance(executor, ThreadPoolExecutor)` because practice build_worker passes no activity_executor; a probe over the async def fails on a gap the length of the wait.
+   - 03: the second-Worker section uses `ASYNC_DEBUG_METRICS_PORT=9466 uv run python worker.py` and the Step 19 capture; drop the scratch-copy disclosure.
+   - 04: fix "This is the last line of the error from the capture." to match the four-line block.
+   - All five: each receipt-gap block names the command `just receipt-gaps <workflow-ids>` (or `uv run python ../../scripts/receipt_gaps.py`) that produced it.
+   - Update the smell reports.
+
+4. Verify: review-content on each changed README; `just lint-prose` no error-level alert; `just lint-keyboard` exits 0; the build scripts reproduce each README byte for byte from its sources.
+
+5. Document: smell-reports.md updated.
+```
+
+### Step 21: Update The Series Drafts (task)
+
+```text
+1. Scope:
+   - Artifact(s): docs/drafts/part-1-healthy-worker.md (clone URL from `git remote get-url origin`, the ptrace capture if Mason saved it), part-3-sleep-between-heartbeats.md (rebuilt 02, TMPRL1101 callout, Web UI screenshots; keep the 4 s cadence cut), part-4-cpu-bound.md (Step 10 second Worker through ASYNC_DEBUG_METRICS_PORT), part-6-catching-blockers-early.md (new 05 trail and numbers, the key note), the receipt-gap blocks in parts 2, 3, 4, and 6, docs/drafts/smell-reports.md.
+   - Desired end state: the drafts match the READMEs and the Step 19 captures.
+
+2. Tooling: as the section's Tools block, plus `just preflight` and wordcount.
+
+3. Do the work: apply the same changes as Step 20 to the drafts; resolve the matching CLAUDE_HELP blocks in the drafts and smell reports (receipt-gap helper, second Worker, part 1 clone URL and ptrace if captured, part 6 workflow show).
+
+4. Verify: review-content on each changed draft; `just lint-prose` no error-level alert; `just lint-keyboard` exits 0; build_drafts.py reproduces each draft byte for byte.
+
+5. Document: smell-reports.md updated.
+```
+
+### Step 22: Update The Root README And CLAUDE.md (task)
+
+```text
+1. Scope:
+   - Artifact(s): README.md (quoted rollup and receipt histories from root-block-histories, the receipt-gaps recipe, scripts/ in the recipe table), CLAUDE.md (scripts/ layer, receipt-gaps recipe, 02 and 05 facts from the rework captures, exercise 03 port setting, Vale Headings scoping), docs/drafts/smell-reports.md (README section).
+   - Desired end state: the root docs describe the repository as it now stands.
+
+2. Tooling: as the section's Tools block, plus `just preflight`.
+
+3. Do the work: splice the root histories through build_readme.py with disclosed trims, replacing the pointer to exercise 01; resolve the README CLAUDE_HELP about a later root capture pass; update CLAUDE.md's Layout, Commands, Architecture, and dashboard-fact bullets; update the README smell report.
+
+4. Verify: review-content on README.md; `just lint-prose README.md CLAUDE.md` no error-level alert; `just lint-keyboard` exits 0; `just check` and `just check-practice` exit 0; `grep -rn "ANTIPATTERN (deliberate, for teaching)" exercises/*/solution` returns nothing.
+
+5. Document: this step is the documentation.
 ```
 
 ## Implementation Guidelines

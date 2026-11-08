@@ -166,3 +166,94 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 - [x] 3. Do: append the README.md smell report and open questions to docs/drafts/smell-reports.md
 - [x] 4. Verify: review-content on README; `just lint-prose` no error-level alerts on README.md, CLAUDE.md, docs/drafts/README.md, `just lint-keyboard` clean; grep for stale refs (removed modes, quote, saturation, maximum_attempts); layer list matches tree; `grep -rn "ANTIPATTERN (deliberate, for teaching)" exercises/*/solution` empty; `just check` and `just check-practice` exit 0
 - [x] 5. Document: this step is the documentation
+
+## Section 9: Post-Review Rework
+
+### Step 14: Reconcile spec.md, plan.md, And .vale.ini With The Rulings (task)
+
+- [ ] 1. Scope defined (spec.md in place, plan.md header/recap/guidelines only, .vale.ini Headings scoping)
+- [ ] 2. Tooling: just lint-prose, just lint-keyboard, vale ls-config
+- [ ] 3. Do: spec 02 (spiked design and observed storm), 05 (zlib over generated audit lines, first-WT symptom, debug warning names the SDK handler, key note), 03 (port setting), Deferred (UI screenshots for 02 promoted; receipt-gap helper ships, full capture script stays deferred), paths: line, resolve confirmed checkpoints, 4 s heartbeat wording
+- [ ] 3. Do: plan.md header, recap rows, guidelines; .vale.ini MasonBase.Headings = NO for exercises and drafts
+- [ ] 4. Verify: stale-wording grep clean; vale ls-config; lint-prose spec.md no errors; lint-keyboard clean; pytest -q exits 0
+- [ ] 5. Document: none
+
+### Step 15: Commit The Receipt-Gap Helper
+
+- [ ] 1. RED: tests/fixtures receipt histories; tests/test_receipt_gaps.py (timed-out WT1 span, healthy gaps, no-Activity history, --limit filter through an injected runner)
+- [ ] 2. Document: scripts/receipt_gaps.py module docstring
+- [ ] 3. GREEN: scripts/receipt_gaps.py, stdlib only
+- [ ] 4. RED: parity test against the scratchpad receipt-gaps captures
+- [ ] 5. GREEN: `just receipt-gaps` recipe; scripts/ under ruff, format, mypy
+- [ ] 6. REFACTOR: one formatting path, about 100 lines
+- [ ] 7. Docs: none
+- [ ] 8. Verify: teeth check (last WT breaks the tests), `just check`
+
+### Step 16: Exercise 03 Metrics-Port Setting
+
+- [ ] 1. RED: port-resolution tests (default 9464, override, invalid values raise)
+- [ ] 2. Document: docstring and banner line
+- [ ] 3. GREEN: ASYNC_DEBUG_METRICS_PORT in solution and practice worker.py
+- [ ] 4. RED: the runtime builder receives the resolved address
+- [ ] 5. GREEN: wire it
+- [ ] 6. REFACTOR: practice-versus-solution diff unchanged
+- [ ] 7. Docs: none
+- [ ] 8. Verify: `just check`, `just check-practice`, two-Worker smoke run
+
+### Step 17: Rebuild Exercise 02 For A Visible Retry Storm
+
+- [ ] 1. RED: solution tests updated for the status check and the 60 s job (shrunk in tests); same-job-across-attempts test
+- [ ] 2. Document: module docstrings in both copies
+- [ ] 3. GREEN: solution activities.py (awaited status check, JOB_SECONDS 60.0, tick wait); no marker
+- [ ] 4. Practice copy updated with time.sleep kept, rewritten marker, TODO PART C, Part D stub
+- [ ] 5. Integrate: `just check`, `just check-practice`
+- [ ] 6. REFACTOR: diff stays the wait plus the TODO
+- [ ] 7. Docs: none
+- [ ] 8. Verify: teeth check, gates, live smoke run shows Attempt past 2
+
+### Step 18: Exercise 05 Realistic Audit Trail
+
+- [ ] 1. RED: generator tests (JSON lines with fields, count, determinism, compressible); probe kept
+- [ ] 2. Document: trail and archive docstrings, the key note, PAYLOAD_RECORDS docstring
+- [ ] 3. GREEN: seeded generator in solution activities.py, sized to about 300 to 400 ms
+- [ ] 4. Mirror into practice with marker and TODOs
+- [ ] 5. Integrate: `just check`, `just check-practice`
+- [ ] 6. REFACTOR: diff stays the to_thread line plus the TODO
+- [ ] 7. Docs: none
+- [ ] 8. Verify: teeth check, gates, measured compress time recorded
+
+### Step 19: Recapture For The Rework (task)
+
+- [ ] 1. Scope defined (02 v2, 05 v2, root histories, 03 second Worker, UI and Grafana PNGs, INDEX rows, FINDINGS section)
+- [ ] 2. Tooling: temporal CLI with UI, compose stack, py-spy, PYTHONASYNCIODEBUG, Playwright via uv run --with, scripts/receipt_gaps.py
+- [ ] 3. Do: 02 practice and solution captures including Web UI screenshots and TMPRL1101 lines
+- [ ] 3. Do: 05 practice and solution captures with the new trail
+- [ ] 3. Do: root block histories; 03 two-Worker run; Step 15 fixture JSON if needed; ptrace files checked (CLAUDE_HELP if Mason has not saved them)
+- [ ] 4. Verify: every artifact indexed; `just check` if fixtures or dashboard changed
+- [ ] 5. Document: INDEX rows and FINDINGS section
+
+## Section 10: Rework Prose
+
+### Step 20: Update The Exercise READMEs (task)
+
+- [ ] 1. Scope defined (02 rewrite, 05 update, 01 and 03 Part D, 03 second Worker, 04 trap 1, gap blocks in all five, smell reports)
+- [ ] 2. Tooling: preflight; tutorial-writing, voice:teaching, review-content; lint-prose, lint-keyboard
+- [ ] 3. Do: apply the Step 20 changes through the build sources
+- [ ] 4. Verify: review-content, Vale no errors, keyboard clean, byte-for-byte rebuild
+- [ ] 5. Document: smell-reports.md
+
+### Step 21: Update The Series Drafts (task)
+
+- [ ] 1. Scope defined (parts 1, 3, 4, 6 and the gap blocks in 2, 3, 4, 6; smell reports)
+- [ ] 2. Tooling: preflight; tutorial-writing, voice:teaching, review-content; lint-prose, lint-keyboard, wordcount
+- [ ] 3. Do: apply the Step 21 changes through the build sources; resolve the matching CLAUDE_HELP blocks
+- [ ] 4. Verify: review-content, Vale no errors, keyboard clean, byte-for-byte rebuild
+- [ ] 5. Document: smell-reports.md
+
+### Step 22: Update The Root README And CLAUDE.md (task)
+
+- [ ] 1. Scope defined (README histories and recipe, CLAUDE.md layout/commands/facts, README smell report)
+- [ ] 2. Tooling: preflight; tutorial-writing, voice:teaching, review-content; lint-prose, lint-keyboard
+- [ ] 3. Do: splice root histories; resolve the README CLAUDE_HELP; update CLAUDE.md
+- [ ] 4. Verify: review-content, Vale no errors, keyboard clean, `just check`, `just check-practice`, solution marker grep empty
+- [ ] 5. Document: this step is the documentation
