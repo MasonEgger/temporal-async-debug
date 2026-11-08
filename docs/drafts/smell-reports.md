@@ -197,6 +197,9 @@ Draft status: waits for Mason's review.
 Nothing here publishes.
 
 - Resolved: the four two-sentence prerequisite bullets now put the second sentence on an indented continuation line.
+- Resolved: the clone command uses the URL from `git remote get-url origin` (git@github.com:MasonEgger/temporal-async-debug.git).
+- Resolved: Step 1 quotes the ptrace capture (root-ptrace/): `py-spy dump` and `asyncio ps` refuse to attach at `ptrace_scope` 1, then attach at 0.
+  The failure message is no longer an open question.
 - Resolved: stack direction is stated once (`asyncio ps` lists a task's calls from the innermost to the outermost), and the rollup paragraph now says the innermost call is `sleep`.
 - Quote: `<!-- vale off -->` and `<!-- vale MasonBase.CodeLineLength = NO -->` around every `text` and `python` block in all six drafts.
   Rule: Vale hygiene.
@@ -204,12 +207,13 @@ Nothing here publishes.
 - Quote: `<!-- TODO: venue not yet chosen. -->`
   Rule: no frontmatter and no venue.
   A comment holds the placeholder in every draft.
-- Quote: `The machine that produced the captures in this series reports 0, which allows attaching.`
-  Rule: unquoted claim.
-  No capture holds `ptrace_scope`; the value comes from spec.md and one live read.
 - Quote: `Set the value to 0 for your session with this command:`
   Rule: never generate new code.
   The `sysctl` command is not in any repository file or capture.
+  The ptrace capture (root-ptrace/) holds the setting at 1 and 0 but not the `sysctl` call itself.
+- Quote: `You start the Worker in Step 3, so this first capture comes from an idle Worker started ahead of time.`
+  Rule: provenance disclosure.
+  The ptrace capture is of an idle root-package Worker, taken before the Step 3 Worker of this draft.
 - Quote: `Previous: this is the first part.`
   Rule: tutorial-writing structure.
   The line is a navigation note, not an instruction.
@@ -229,10 +233,9 @@ Nothing here publishes.
   The tutorial-writing structure requires H3 here.
 
 <CLAUDE_HELP>
-The repository clone URL is missing from part 1.
-The ptrace failure message and the `sysctl` command have no capture.
+The `sysctl` command has no capture; the ptrace capture shows the setting at 1 and 0 but not the call that changed it.
 The backlog gauge stayed flat in every capture, so part 1 treats `temporal task-queue describe` as the reliable reading.
-Confirm all three.
+Confirm both.
 </CLAUDE_HELP>
 
 ## docs/drafts/part-2-sync-http-client.md
@@ -240,6 +243,7 @@ Confirm all three.
 - Resolved: the stack wording follows the part 1 convention (a stuck task holds only the SDK handler, the outermost call; the top `py-spy` frame is the innermost).
 - Resolved: the hinted test now fails first at the missing `activity_executor`, and a probe over the `async def` fails on a gap the length of the wait.
 - Resolved: the pstree command block has a sentence before its output block.
+- Resolved: the receipt-gaps block names `just receipt-gaps <receipt workflow ID> <receipt workflow ID>` and discloses that the capture came from the prototype script, because the helper is committed (`scripts/receipt_gaps.py`).
 
 - Quote: `That is part of the problem.`
   Rule: voice:teaching broetry and two-beat contrast.
@@ -251,8 +255,9 @@ Confirm all three.
 - Quote: `The Workflows finish and nothing looks wrong.`
   Rule: unquoted claim.
   The small healthy run has no capture.
-- Quote: the `receipt-gaps.txt` block.
-  Rule: the numbers come from a helper script that is not in the repository.
+- Quote: `This block comes from an earlier script with the same output format, run on the two receipts in the solution capture.`
+  Rule: provenance.
+  The capture (01-solution/receipt-gaps.txt, 2026-11-03) predates `scripts/receipt_gaps.py`, so the draft names `just receipt-gaps` as the command to run and says the block came from the prototype script.
 - Quote: `uv run python starter.py --block-seconds 30 --bad 1 --geo 1 \`
   Rule: the capture shows one line, and the draft breaks it for line length.
 - Quote: `The test builds the Worker with `build_worker` and takes the executor from its configuration.`
@@ -261,47 +266,44 @@ Confirm all three.
   Rule: vague pointer.
   The docs MCP was not reachable, so deeper links are unverified.
 
-<CLAUDE_HELP>
-Should the repository commit the receipt-gaps helper, or should the drafts quote `workflow show` excerpts?
-The same question applies to parts 4 and 6.
-</CLAUDE_HELP>
-
 ## docs/drafts/part-3-sleep-between-heartbeats.md
 
-- Resolved: Step 10 no longer says the describe capture is from a second run (it is from the first); the receipt-gaps block now says it is from the second run.
-- Resolved: the Heartbeat wording says the Activity records a Heartbeat and the SDK sends it when the loop is free, with no claim of one send per tick.
-- Resolved: stack wording follows the part 1 convention, and the `asyncio ps` command block has a sentence before its output block.
+- Resolved: the draft is rebuilt from the Step 19 captures of the reworked exercise (practice run 2, solution run), matching the exercise 02 README.
+  Steps 2 to 5 and the Web UI screenshots draw on run 2.
+  The two dashboard panels are from run 1, and Step 6 says so.
+- Resolved: the Web UI screenshots, the climbing Attempt in `describe`, and the failing rollup and stalled receipts open the diagnosis.
+  The draft says that `workflow show` writes no event per retried attempt.
+- Resolved: the `TMPRL1101` and `TMPRL1104` warnings appear as frozen-loop clues, with the counts from the captures (one failed Workflow Task in each of four runs, one legacy query each in the two runs with the Web UI open).
+- Resolved: Step 6 says the failures panel plots `activity_timeout` and does not show the Heartbeat storm.
+- Resolved: the receipt-gaps blocks name `just receipt-gaps`, and both captures were printed by it (02-practice-v2 and 02-solution-v2 postdate the helper).
+- Resolved: `WT1` is described as running from the first `WorkflowTaskStarted` to the first `WorkflowTaskCompleted`, so it covers a timeout and its retry.
+- Resolved: the 4-second Heartbeat cadence stays cut (Step 20 ruling), and the draft says the Activity records a Heartbeat and the SDK sends it when the loop is free.
 
 - Quote: `The Activity heartbeats before every wait, so you expect it to pass.`
   Rule: invented framing.
   The scenario follows the exercise README.
-- Quote: `The attempt never stopped, so it ran to the end of the job as a zombie.`
+- Quote: `It ran as a zombie until the cancel finally landed.`
   Rule: voice:teaching, figurative term.
-  "Zombie" comes from FINDINGS and the Step 11 READMEs.
-- Quote: `The first four lines come from attempt 1.`
-  Rule: derived from the log; the grep keeps five poll lines.
-- Quote: `These receipts come from a second run of the same fleet, so their IDs differ from the starter output.`
-  Rule: provenance claim, checked against the capture index (receipt-gaps.txt is from the second run).
-- Quote: `The Workflow gives that Activity a Heartbeat timeout of five seconds.`
+  "Zombie" comes from FINDINGS and the READMEs.
+- Quote: `The name suggests a deadlock in your Workflow code.`
+  Rule: unquoted claim about how readers read `TMPRL1101`.
+- Quote: `The Workflow gives that Activity a Heartbeat timeout of five seconds and no retry limit.`
   Rule: series scope.
   Heartbeats and timeouts appear as scenery and as the symptom, and the draft never asks the reader to tune them.
-- Quote: the `receipt-gaps.txt` block.
-  Rule: helper script output, as in part 2.
+- Quote: `The receipt line starts near 55 seconds, the rollup line sits near 20 seconds, and the geo line sits between 16 and 18 seconds.`
+  Rule: read from the PNG, not from a capture file.
 - Quote: Step 8 describes the test in prose and shows no code.
   Rule: never generate new code.
   The solution test excerpt was not quoted.
 
-<CLAUDE_HELP>
-The server-side Heartbeat time advances about every four seconds in the captures, not every second.
-The draft leaves that out to stay off heartbeat tuning.
-Confirm that cut.
-</CLAUDE_HELP>
-
 ## docs/drafts/part-4-cpu-bound.md
 
 - Resolved: the hinted test wording matches part 2 (fails first at the missing `activity_executor`).
+- Resolved: Step 10 uses `ASYNC_DEBUG_METRICS_PORT=9466 uv run python worker.py` and the Step 19 captures (03-solution-second-worker), with no scratch copies.
+  In `--bad 2` the second Worker ran only `get_ip` and both `get_location` calls landed on the first Worker; the second Worker took a `get_location` only with `--bad 3`.
+- Resolved: the receipt-gaps block names `just receipt-gaps` and discloses the prototype-script provenance.
 - Resolved: the signature block and the sync client block each have prose around them.
-- Resolved: Step 10 splits each `top` and run-time pair into separate blocks with a sentence between, and the one-Worker reading is now the second `top` frame (91.0 percent), not the first.
+- Resolved: Step 10 splits each `top` and run-time pair into separate blocks with a sentence between.
 - Resolved: stack wording follows the part 1 convention.
 
 - Quote: `A blocking call is not always a call that waits.`
@@ -313,16 +315,12 @@ Confirm that cut.
 - Quote: `The time scales with the speed of your CPU, so yours can differ.`
   Rule: unquoted claim.
   FINDINGS says the roughly 29 seconds scales with CPU speed.
-- Quote: Step 10 and its two `top` captures.
-  Rule: scope and reproducibility.
-  The second-Worker demonstration uses scratch copies that are not in the repository.
+- Quote: the three run times in Step 10 (63 s, 30.14 s, 73.53 s and 73.83 s).
+  Rule: derived figures.
+  They come from run-times.txt, a summary computed over the run histories and not saved tool output, and the draft says so.
 - Quote: the `receipt-gaps.txt` block.
-  Rule: helper script output.
-
-<CLAUDE_HELP>
-The shipped solution cannot start a second Worker without a metrics port change.
-Should the exercise ship that setting, or should the draft drop Step 10?
-</CLAUDE_HELP>
+  Rule: provenance.
+  The capture (03-solution/receipt-gaps.txt, 2026-11-03) predates `scripts/receipt_gaps.py`, so the draft says it came from the prototype script.
 
 ## docs/drafts/part-5-zombie-thread.md
 
@@ -356,9 +354,12 @@ Keep it as a described extension, or cut it from the draft?
 
 ## docs/drafts/part-6-catching-blockers-early.md
 
+- Resolved: the draft is rebuilt from the Step 19 captures of the reworked exercise (seeded audit trail), matching the exercise 05 README.
+  It describes the trail as generated audit-log lines and says a real archiver would upload the bytes and return a key.
+- Resolved: the receipt-gaps blocks name `just receipt-gaps`, and the draft no longer asks the reader to rely on an uncommitted script (the helper is `scripts/receipt_gaps.py`); the `workflow show --output json` subtraction stays as the by-hand route.
+- Resolved: Step 9 runs the solution with debug mode on throughout, so the starter, receipt-gaps, and log captures come from one mode.
 - Resolved: the intro and Conclusion say the probe catches an `async def` Activity that blocks the loop for 0.2 seconds or more with the network mocked, and drop the production claim.
 - Resolved: the two test excerpts have prose between them.
-- Resolved: Step 9 now runs the fix with debug mode off for the starter and receipt-gaps captures, then restarts with debug mode on for the log, and gives the debug-mode receipt range (21 to 55 ms) separately.
 
 - Quote: `The Worker runs slower than a healthy Worker, and no alert tells you why.`
   Rule: unquoted claim.
@@ -366,22 +367,20 @@ Keep it as a described extension, or cut it from the draft?
 - Quote: `The test fails the build when an `async def` Activity blocks the loop for 0.2 seconds or more with the network mocked.`
   Rule: scope of the claim.
   It states only what the probe catches.
-- Quote: `The capture needed 12 tries before the main thread was inside the blocking call.`
-  Rule: matches FINDINGS; the loop command is not in the draft.
+- Quote: `The capture needed 9 tries before the main thread was inside the blocking call.`
+  Rule: matches INDEX row 627; the loop command is not in the draft.
 - Quote: `The `PYTHONASYNCIODEBUG=1` prefix sets an environment variable for this one command.`
   Rule: explanation not tied to a capture.
 - Quote: `In that mode, the event loop logs a warning for every callback that runs longer than 0.1 seconds.`
   Rule: sourced from the linked Python documentation, not a capture.
 - Quote: `Across the series, you used one mechanism and a small set of tools.`
   Rule: summary sentence in the last Conclusion.
-- Quote: `lines=1-9` blocks of `receipt-gaps-practice-fleet.txt` and `receipt-gaps-solution-fleet.txt`.
-  Rule: the source files hold extra lines from other runs.
-  The draft keeps only the first nine.
-
-<CLAUDE_HELP>
-Part 6 has no `workflow show` capture, only helper script output.
-Commit a small script, or add JSON excerpts in a later capture pass?
-</CLAUDE_HELP>
+- Quote: `It comes from its own practice run of the same fleet, so its PID differs from the debug-mode run in Step 3.`
+  Rule: provenance disclosure.
+  The `py-spy` capture (05-practice-v2/pyspy) and the probe capture are separate runs from the fleet captures.
+- Quote: `In the three practice fleets from Step 2, receipts read from 351 to 731 milliseconds, and 324 to 330 in the debug-mode practice fleet.`
+  Rule: cross-run comparison.
+  Each figure traces to a receipt-gaps.txt file in 05-practice-v2 and 05-solution-v2, and the draft names which fleet each range covers.
 
 ## README.md
 

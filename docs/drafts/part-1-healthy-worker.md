@@ -30,11 +30,7 @@ To complete this tutorial, you need:
 - **Docker and docker-compose**, from the [Docker Compose documentation](https://docs.docker.com/compose/).
   They run Prometheus and Grafana.
 - **A clone of the demo repository.**
-
-<CLAUDE_HELP>
-The repository URL is not in any source file for this draft.
-Add the clone command or a link to the prerequisites.
-</CLAUDE_HELP>
+  Run `git clone git@github.com:MasonEgger/temporal-async-debug.git`, then change into the new directory.
 
 You also use `py-spy` in later parts.
 The repository does not install it.
@@ -54,8 +50,39 @@ Read the current value with this command:
 cat /proc/sys/kernel/yama/ptrace_scope
 ```
 
-The machine that produced the captures in this series reports 0, which allows attaching.
-If yours reports 1, the tools fail when they attach.
+If it reads 1, the tools refuse to attach.
+You start the Worker in Step 3, so this first capture comes from an idle Worker started ahead of time.
+It shows `py-spy` with the value at 1.
+The capture records the setting, the command, its output, and the exit code.
+
+<!-- vale off -->
+<!-- vale MasonBase.CodeLineLength = NO -->
+```text
+$ cat /proc/sys/kernel/yama/ptrace_scope
+1
+$ uvx py-spy dump --pid 2542562
+Permission Denied: Try running again with elevated permissions by going 'sudo env "PATH=$PATH" !!'
+exit=1
+```
+<!-- vale MasonBase.CodeLineLength = YES -->
+<!-- vale on -->
+
+`python -m asyncio ps` fails the same way on the same Worker.
+The block is the whole capture file.
+
+<!-- vale off -->
+<!-- vale MasonBase.CodeLineLength = NO -->
+```text
+$ python -m asyncio ps 2542562
+Error: The specified process cannot be attached to due to insufficient permissions.
+See the Python documentation for details on required privileges and troubleshooting:
+https://docs.python.org/3.14/howto/remote_debugging.html#permission-requirements
+
+exit=1
+```
+<!-- vale MasonBase.CodeLineLength = YES -->
+<!-- vale on -->
+
 Set the value to 0 for your session with this command:
 
 ```sh
@@ -66,11 +93,53 @@ The `sudo` prefix is necessary because the setting belongs to the kernel.
 The change lasts until you restart the machine.
 On macOS, run the inspection commands with `sudo` instead.
 
-<CLAUDE_HELP>
-No capture shows the failure message or the `sysctl` command.
-The spec gives the failure text as "Failed to find the PyRuntime section", and the draft leaves it out.
-Confirm the message and the command, or capture them.
-</CLAUDE_HELP>
+With the value at 0, the same `py-spy` command attaches to the same Worker.
+The block is the whole capture file.
+
+<!-- vale off -->
+<!-- vale MasonBase.CodeLineLength = NO -->
+```text
+$ cat /proc/sys/kernel/yama/ptrace_scope
+0
+$ uvx py-spy dump --pid 2542562
+Process 2542562: /home/ziggy/temporal-async-debug/.venv/bin/python -m temporal_async_debug.worker
+Python v3.14.3 (/home/ziggy/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/bin/python3.14)
+
+Thread 2542562 (idle): "MainThread"
+    EpollSelector.select (selectors.py:452)
+    BaseEventLoop._run_once (asyncio/base_events.py:2008)
+    BaseEventLoop.run_forever (asyncio/base_events.py:677)
+    BaseEventLoop.run_until_complete (asyncio/base_events.py:706)
+    Runner.run (asyncio/runners.py:127)
+    run (asyncio/runners.py:204)
+    <module> (temporal_async_debug/worker.py:118)
+    _run_code (<frozen runpy>:88)
+    _run_module_as_main (<frozen runpy>:198)
+exit=0
+```
+<!-- vale MasonBase.CodeLineLength = YES -->
+<!-- vale on -->
+
+The `asyncio ps` command attaches too, and it lists the seven tasks of an idle Worker.
+The block is the whole capture file.
+
+<!-- vale off -->
+<!-- vale MasonBase.CodeLineLength = NO -->
+```text
+$ python -m asyncio ps 2542562
+tid        task id              task name            coroutine stack                                    awaiter chain                                      awaiter name    awaiter id     
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+2542562    0x7a24594f76b0       Task-1               Worker._run -> Worker.run -> main                                                                                     0x0            
+2542562    0x7a24594f7e30       Task-2               Event.wait -> Worker._run.<locals>.raise_on_shutdown _wait -> wait                                      Task-5          0x7a24594abd90 
+2542562    0x7a245938abd0       Task-3               _wait -> wait -> _ActivityWorker.run               _wait -> wait                                      Task-5          0x7a24594abd90 
+2542562    0x7a245938a660       Task-4               Worker.poll_workflow_activation -> _WorkflowWorker.run _wait -> wait                                      Task-5          0x7a24594abd90 
+2542562    0x7a24594abd90       Task-5               _wait -> wait                                      Worker._run -> Worker.run -> main                  Task-1          0x7a24594f76b0 
+2542562    0x7a24594abbd0       Task-6               Queue.get -> _ActivityWorker.run.<locals>.raise_from_exception_queue _wait -> wait -> _ActivityWorker.run               Task-3          0x7a245938abd0 
+2542562    0x7a2459260710       Task-7               Worker.poll_activity_task                          _wait -> wait -> _ActivityWorker.run               Task-3          0x7a245938abd0 
+exit=0
+```
+<!-- vale MasonBase.CodeLineLength = YES -->
+<!-- vale on -->
 
 Now that your machine allows inspection, you can start the services the demo needs.
 

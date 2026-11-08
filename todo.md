@@ -244,11 +244,11 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 21: Update The Series Drafts (task)
 
-- [ ] 1. Scope defined (parts 1, 3, 4, 6 and the gap blocks in 2, 3, 4, 6; smell reports)
-- [ ] 2. Tooling: preflight; tutorial-writing, voice:teaching, review-content; lint-prose, lint-keyboard, wordcount
-- [ ] 3. Do: apply the Step 21 changes through the build sources; resolve the matching CLAUDE_HELP blocks
-- [ ] 4. Verify: review-content, Vale no errors, keyboard clean, byte-for-byte rebuild
-- [ ] 5. Document: smell-reports.md
+- [x] 1. Scope defined (parts 1, 3, 4, 6 and the gap blocks in 2, 3, 4, 6; smell reports)
+- [x] 2. Tooling: preflight; tutorial-writing, voice:teaching, review-content; lint-prose, lint-keyboard, wordcount
+- [x] 3. Do: apply the Step 21 changes through the build sources; resolve the matching CLAUDE_HELP blocks
+- [x] 4. Verify: review-content, Vale no errors, keyboard clean, byte-for-byte rebuild
+- [x] 5. Document: smell-reports.md
 
 ### Step 22: Update The Root README And CLAUDE.md (task)
 

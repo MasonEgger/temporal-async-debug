@@ -28,12 +28,15 @@ To complete this tutorial, you need:
 - `py-spy`, which you run on demand with `uvx py-spy dump --pid <PID>`.
 
 The practice copy calls the public providers with the async `httpx.AsyncClient`, so the HTTP calls do not block.
-The call that blocks takes about a third of a second.
+The call that blocks takes a little over a third of a second.
 
 ## Step 1: Running the fleet
 
 The `get_location` Activity archives an audit trail for each lookup before it asks a provider for the location.
-The archiving compresses a block of bytes.
+The trail is 40,000 generated audit-log lines, about five megabytes, built once when the Worker starts.
+The archiving compresses those bytes with `zlib`.
+A real archiver would upload the compressed bytes and return a key for them.
+This one throws the bytes away, because the compression is the point.
 The same Worker also runs an `OrderReceiptWorkflow`, which does nothing slow.
 Do not read the Activity code yet.
 You find the cause with tools.
@@ -64,12 +67,12 @@ This is what the starter printed for the practice fleet in the capture of this e
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-receipt receipt-43ea837a-8d74-4f32-9594-6be2ddf15528: OrderReceiptOutput(receipt='order order-0: 59.97 USD')
-receipt receipt-5f6cbd4a-ccd0-4eca-aab8-0946c6faa313: OrderReceiptOutput(receipt='order order-1: 59.97 USD')
-receipt receipt-13b2c3b7-eaf3-4b35-8541-6c1b2f840a85: OrderReceiptOutput(receipt='order order-2: 59.97 USD')
-geo geo-cc81da64-304b-4899-8ab1-7b957cf80844: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy (22000 audit records)')
-geo geo-e4273f38-8968-4445-8634-0731ab8a420a: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy (22000 audit records)')
-geo geo-3bb56178-1e2f-4234-ad34-8098b6e75b04: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy (22000 audit records)')
+receipt receipt-afa2f200-1d9e-437b-bf7f-1f8cc2b395ec: OrderReceiptOutput(receipt='order order-0: 59.97 USD')
+receipt receipt-8a1ce51f-f349-4839-9faa-2600ade6eaaf: OrderReceiptOutput(receipt='order order-1: 59.97 USD')
+receipt receipt-ad4ab770-ea4b-4692-b6b9-041bcb022591: OrderReceiptOutput(receipt='order order-2: 59.97 USD')
+geo geo-36dd0c85-ee65-4922-a98e-6f6274f85a41: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy (40000 audit records)')
+geo geo-d785f5d4-1c83-4aed-9180-2b4c34e7e152: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy (40000 audit records)')
+geo geo-39537558-30f3-4e1e-a7d5-250dee96bfe9: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy (40000 audit records)')
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
@@ -82,49 +85,47 @@ To see what changed, you read the first Workflow Task of a receipt in each fleet
 Run `temporal workflow show -w <receipt workflow ID> --output json` for a receipt.
 Find the first `WORKFLOW_TASK_STARTED` event and the first `WORKFLOW_TASK_COMPLETED` event, and subtract their `eventTime` values.
 
-The next two captures hold those numbers for the receipts-only fleet and for the practice fleet.
-An author helper script computed them from each Event History, and the script is not in the repository.
-The `WT1 started->completed` field is the first Workflow Task.
+The repository ships a helper that does that subtraction for you.
+It reads each receipt's Event History and prints the Workflow Task time and the Activity waits.
+Run it from the repository root with the receipt Workflow IDs from your run:
 
-<CLAUDE_HELP>
-The captures have no `workflow show` output for this exercise, only the helper script output.
-A reader has to do the subtraction by hand from the JSON.
-Commit a small script, or add a captured JSON excerpt.
-</CLAUDE_HELP>
+```sh
+just receipt-gaps <receipt workflow ID> \
+  <receipt workflow ID> <receipt workflow ID>
+```
 
-This is the receipts-only fleet:
+The `WT1 started->completed` field in its output runs from the start of the first Workflow Task to the completion of the first Workflow Task that completed.
+Each capture below starts with the command line, which this tutorial drops, and keeps the three receipt lines.
+
+This is what `just receipt-gaps` printed for the receipts-only fleet:
 
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-receipt-ee390ee6 total 124ms | WT1 started->completed 19ms | validate_order: sched->started 4ms started->completed 17ms | compute_total: sched->started 4ms started->completed 4ms | format_receipt: sched->started 4ms started->completed 10ms
-receipt-53011e69 total 109ms | WT1 started->completed 20ms | validate_order: sched->started 7ms started->completed 10ms | compute_total: sched->started 3ms started->completed 7ms | format_receipt: sched->started 5ms started->completed 4ms
-receipt-5ae07bf1 total 117ms | WT1 started->completed 23ms | validate_order: sched->started 3ms started->completed 10ms | compute_total: sched->started 9ms started->completed 6ms | format_receipt: sched->started 3ms started->completed 9ms
+receipt-218b1925 total 134ms | WT1 started->completed 24ms | validate_order: sched->started 5ms started->completed 7ms | compute_total: sched->started 6ms started->completed 6ms | format_receipt: sched->started 6ms started->completed 12ms
+receipt-3c60412b total 116ms | WT1 started->completed 18ms | validate_order: sched->started 5ms started->completed 10ms | compute_total: sched->started 5ms started->completed 5ms | format_receipt: sched->started 3ms started->completed 10ms
+receipt-e3fec938 total 132ms | WT1 started->completed 18ms | validate_order: sched->started 4ms started->completed 9ms | compute_total: sched->started 5ms started->completed 6ms | format_receipt: sched->started 3ms started->completed 9ms
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
 
-This capture keeps only the first nine lines for the practice fleet, which hold nine receipts from three runs.
+This is what `just receipt-gaps` printed for the three receipts of the practice fleet, the same fleet as the starter output earlier:
 
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-receipt-9f186320 total 1268ms | WT1 started->completed 326ms | validate_order: sched->started 469ms started->completed 375ms | compute_total: sched->started 21ms started->completed 7ms | format_receipt: sched->started 4ms started->completed 6ms
-receipt-a5ad6d0d total 1228ms | WT1 started->completed 298ms | validate_order: sched->started 427ms started->completed 9ms | compute_total: sched->started 385ms started->completed 17ms | format_receipt: sched->started 20ms started->completed 9ms
-receipt-b5ea8600 total 1207ms | WT1 started->completed 313ms | validate_order: sched->started 20ms started->completed 6ms | compute_total: sched->started 19ms started->completed 9ms | format_receipt: sched->started 22ms started->completed 8ms
-receipt-e01d8ae5 total 490ms | WT1 started->completed 319ms | validate_order: sched->started 32ms started->completed 9ms | compute_total: sched->started 4ms started->completed 5ms | format_receipt: sched->started 4ms started->completed 7ms
-receipt-8c04abc3 total 524ms | WT1 started->completed 394ms | validate_order: sched->started 31ms started->completed 4ms | compute_total: sched->started 9ms started->completed 7ms | format_receipt: sched->started 4ms started->completed 8ms
-receipt-87dcf1cd total 487ms | WT1 started->completed 333ms | validate_order: sched->started 7ms started->completed 15ms | compute_total: sched->started 5ms started->completed 6ms | format_receipt: sched->started 4ms started->completed 5ms
-receipt-43ea837a total 481ms | WT1 started->completed 330ms | validate_order: sched->started 58ms started->completed 7ms | compute_total: sched->started 15ms started->completed 7ms | format_receipt: sched->started 6ms started->completed 8ms
-receipt-5f6cbd4a total 459ms | WT1 started->completed 320ms | validate_order: sched->started 44ms started->completed 8ms | compute_total: sched->started 13ms started->completed 7ms | format_receipt: sched->started 10ms started->completed 6ms
-receipt-13b2c3b7 total 442ms | WT1 started->completed 313ms | validate_order: sched->started 31ms started->completed 7ms | compute_total: sched->started 4ms started->completed 7ms | format_receipt: sched->started 13ms started->completed 6ms
+receipt-8a1ce51f total 859ms | WT1 started->completed 361ms | validate_order: sched->started 25ms started->completed 7ms | compute_total: sched->started 15ms started->completed 7ms | format_receipt: sched->started 19ms started->completed 13ms
+receipt-ad4ab770 total 833ms | WT1 started->completed 351ms | validate_order: sched->started 23ms started->completed 6ms | compute_total: sched->started 6ms started->completed 6ms | format_receipt: sched->started 14ms started->completed 12ms
+receipt-afa2f200 total 835ms | WT1 started->completed 368ms | validate_order: sched->started 5ms started->completed 10ms | compute_total: sched->started 6ms started->completed 356ms | format_receipt: sched->started 13ms started->completed 7ms
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
 
-Without geo runs, the first Workflow Task of a receipt takes 19 to 23 milliseconds.
-With them, it takes 298 to 394 milliseconds across the three runs in the capture.
-The Activities in the receipt still finish in milliseconds, with one 375-millisecond `validate_order` as the exception.
+Without geo runs, the first Workflow Task of a receipt takes 18 to 24 milliseconds.
+With them, it takes 351 to 368 milliseconds in this fleet.
+Across the three practice fleets in the capture, it takes 351 to 731 milliseconds.
+The 714 to 731 millisecond readings in one fleet are two archives back to back.
+The Activities in the receipt still finish in milliseconds, with one 356-millisecond `compute_total` as the exception.
 The slow part is the Workflow Task, before the Activities start.
 The receipt code is the same in both fleets, so something on the Worker holds up the Workflow Task.
 
@@ -152,26 +153,28 @@ uv run python starter.py --geo 3 --receipts 3 --rollups 0
 ```
 
 Debug mode prints a warning for each slow step.
-The capture holds six warnings for two practice fleets.
-This capture keeps only the first warning.
+The capture holds six archive warnings for two practice fleets.
+This capture keeps only the first one.
 
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-Executing <Task pending name='Task-37' coro=<_ActivityWorker._handle_start_activity_task() running at /home/ziggy/temporal-async-debug/.venv/lib/python3.14/site-packages/temporalio/worker/_activity.py:351> created at /home/ziggy/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/lib/python3.14/asyncio/tasks.py:395> took 0.367 seconds
+Executing <Task pending name='Task-37' coro=<_ActivityWorker._handle_start_activity_task() running at /home/ziggy/temporal-async-debug/.venv/lib/python3.14/site-packages/temporalio/worker/_activity.py:351> created at /home/ziggy/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/lib/python3.14/asyncio/tasks.py:395> took 0.397 seconds
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
 
 Read the warning from the left.
 It names a task, `_ActivityWorker._handle_start_activity_task`, running at `_activity.py:351` in the SDK.
-It ends with `took 0.367 seconds`.
-The six warnings in the capture ran from 0.355 to 0.384 seconds.
+It ends with `took 0.397 seconds`.
+The six warnings in the capture ran from 0.347 to 0.397 seconds.
+The first debug run also logged one startup entry, `Task-1 main()`, which took 0.126 seconds in this capture.
+That entry is the Worker starting and not an Activity.
 
 The warning tells you that an Activity ran on the loop for more than a third of a second.
-That matches the 298 to 394 millisecond gap you measured.
-The warning does not name your code.
-The SDK handler is the frame that calls your Activity, so the line that blocks sits further down.
+That matches the 351 millisecond or longer gap you measured.
+The warning does not name your code, and it does not name `get_location`.
+The SDK handler is the frame that calls your Activity, so the line that blocks is further down.
 Replace `<PID>` with the PID from the Worker banner in the next step.
 
 ## Step 4: Naming the line with py-spy
@@ -184,23 +187,24 @@ Run the dump several times while the fleet runs:
 uvx py-spy dump --pid <PID>
 ```
 
-The capture needed 12 tries before the main thread was inside the blocking call.
+The capture needed 9 tries before the main thread was inside the blocking call.
+It comes from its own practice run of the same fleet, so its PID differs from the debug-mode run in Step 3.
 This capture keeps only the `MainThread` stack.
 
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-Process 2682858: /home/ziggy/temporal-async-debug/.venv/bin/python worker.py
+Process 2798400: /home/ziggy/temporal-async-debug/.venv/bin/python worker.py
 Python v3.14.3 (/home/ziggy/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/bin/python3.14)
 
-Thread 2682858 (active): "MainThread"
-    _archive_audit_trail (activities.py:142)
-    get_location (activities.py:188)
+Thread 2798400 (active): "MainThread"
+    _archive_audit_trail (activities.py:182)
+    get_location (activities.py:228)
     _ActivityInboundImpl.execute_activity (temporalio/worker/_activity.py:889)
     _ActivityWorker._execute_activity (temporalio/worker/_activity.py:681)
     _ActivityWorker._handle_start_activity_task (temporalio/worker/_activity.py:351)
     Handle._run (asyncio/events.py:94)
-    BaseEventLoop._run_once (asyncio/base_events.py:2038)
+    BaseEventLoop._run_once (asyncio/base_events.py:2046)
     BaseEventLoop.run_forever (asyncio/base_events.py:677)
     BaseEventLoop.run_until_complete (asyncio/base_events.py:706)
     Runner.run (asyncio/runners.py:127)
@@ -210,33 +214,35 @@ Thread 2682858 (active): "MainThread"
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
 
-The top frame is `_archive_audit_trail` at `activities.py:142`, called by `get_location` at `activities.py:188`.
+The top frame is `_archive_audit_trail` at `activities.py:182`, called by `get_location` at `activities.py:228`.
 The state is `active`, and the thread is the `MainThread`, which runs the event loop.
-Line 142 is the `zlib.compress` call.
-The loop holds one call for about 350 milliseconds each time a geo run starts.
+Line 182 is the `zlib.compress` call.
+The loop holds one call for about 350 to 400 milliseconds each time a geo run starts.
 
 ## Step 5: Checking the dashboard
 
 Open http://localhost:3000 and find the **Workflow Task Execution Latency** panel.
-It shows the fleet-wide view of what the tools found, and here the view is weak.
+This panel plots Workflow Task latency for every Workflow type on the Worker.
+Here the panel is almost empty.
 
-![The Workflow Task Execution Latency panel during the practice fleets, with the receipt and geo lines between about 20 and 190 milliseconds.](../images/05-practice-stall-workflow-task-latency.png)
+![The Workflow Task Execution Latency panel during the practice fleets, with three points on the geo line near 6 milliseconds and no receipt line.](../images/05-practice-stall-workflow-task-latency.png)
 
-The lines sit between 20 and 190 milliseconds, with most readings near 100.
-That is a small number on a chart, and nothing on the panel alarms anyone.
-The debug-mode warning and the thread dump found what the panel could not.
+The geo line has three points near 6 milliseconds, and the receipt line has none.
+The fleets last only seconds, so the panel has too little data to draw the 351 millisecond stall.
+Nothing on the panel would alarm anyone, which is the point of this exercise.
+The debug-mode warning, the thread dump, and `just receipt-gaps` found what the panel could not.
 
 ## Step 6: Finding the cause in the code
 
 Open the file `exercises/05-catching-blockers-early/practice/activities.py` in your editor.
 Find `_archive_audit_trail`.
-It takes a block of bytes and calls `zlib.compress` on it, and most of its time goes to that one call.
+It takes the cached audit trail, the generated lines, and calls `zlib.compress` on it, and most of its time goes to that one call.
 
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 <!-- fmt:off -->
 ```python
-    trail = _audit_trail_bytes(records * RECORD_BYTES)
+    trail = _audit_trail(records)
     zlib.compress(trail, COMPRESSION_LEVEL)
     return records
 ```
@@ -264,7 +270,7 @@ The comment before it starts with `ANTIPATTERN (deliberate, for teaching)`.
 <!-- vale on -->
 
 A plain call inside an `async def` Activity runs on the event loop and holds it until the call returns.
-This one returns in a third of a second, so nothing times out.
+This one returns in about 350 to 400 milliseconds, so nothing times out.
 Every other task on the Worker waits it out anyway.
 
 The fix runs the call off the loop.
@@ -273,7 +279,7 @@ A thread runs it, and the event loop keeps running beside it.
 
 Part 5 showed what goes wrong when you do this with long work that a timeout must stop.
 Nothing stops a thread that `asyncio.to_thread` already started.
-Here the work lasts a third of a second and has no Heartbeat timeout, so waiting on a thread is safe.
+Here the work lasts a little over a third of a second and has no Heartbeat timeout, so waiting on a thread is safe.
 
 ## Step 7: Writing a test that probes every Activity
 
@@ -334,6 +340,20 @@ The `parametrize` decorator runs the check once for each Activity in that list.
 Run the tests again after you write yours.
 Your test fails for `get_location`, because the archiving holds the loop.
 
+The capture ran the finished test against the practice Activities.
+This capture keeps only the failed assertion.
+
+<!-- vale off -->
+<!-- vale MasonBase.CodeLineLength = NO -->
+```text
+E       assert 1.1786633972078562 < 0.2
+```
+<!-- vale MasonBase.CodeLineLength = YES -->
+<!-- vale on -->
+
+The gap is 1.18 seconds, longer than the 0.35 to 0.40 seconds of the live archive.
+The probe's payload is not cached yet, so the loop spends its time on building the trail as well as compressing it.
+
 ## Step 8: Moving the blocking call to a thread
 
 Open `activities.py` in the `practice` directory.
@@ -359,10 +379,10 @@ It probes every Activity that the Worker registers, so a new `async def` Activit
 
 ## Step 9: Verifying the fix
 
-Stop the old Worker with `CTRL+C`, and start it again from the `practice` directory:
+Stop the old Worker with `CTRL+C`, and start it again from the `practice` directory with debug mode on:
 
 ```sh
-uv run python worker.py
+PYTHONASYNCIODEBUG=1 uv run python worker.py
 ```
 
 Submit the same fleet from your second terminal:
@@ -371,84 +391,68 @@ Submit the same fleet from your second terminal:
 uv run python starter.py --geo 3 --receipts 3 --rollups 0
 ```
 
-This is what the starter printed in the capture of the solution copy, run with debug mode off.
+This is what the starter printed in the capture of the solution copy, with debug mode on.
 Every Workflow completes, as before.
 
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-receipt receipt-228b2574-1728-4e81-97e4-861517889fb3: OrderReceiptOutput(receipt='order order-0: 59.97 USD')
-receipt receipt-cb117a78-d48a-4c8e-bcdd-8a6be6faab19: OrderReceiptOutput(receipt='order order-1: 59.97 USD')
-receipt receipt-b6e5a47d-6413-491f-9858-5279c494c933: OrderReceiptOutput(receipt='order order-2: 59.97 USD')
-geo geo-074ea430-de27-491a-9e10-83060754a99d: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy (22000 audit records)')
-geo geo-177c77b1-8c32-4f3b-a3d0-35ad3a5c2fc2: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy (22000 audit records)')
-geo geo-994e0437-1911-420b-b20d-53c5491976dc: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy (22000 audit records)')
+receipt receipt-ece12cfb-729c-4bda-9d78-dc7d274351a1: OrderReceiptOutput(receipt='order order-0: 59.97 USD')
+receipt receipt-db318a45-c83d-4ac6-8fe9-2485dd7e97e7: OrderReceiptOutput(receipt='order order-1: 59.97 USD')
+receipt receipt-462e1ffe-6347-4718-9950-b3e7cb61f2b2: OrderReceiptOutput(receipt='order order-2: 59.97 USD')
+geo geo-729d8515-b460-4b92-95e2-1ca18f88f14a: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy (40000 audit records)')
+geo geo-dbb7dcee-cf17-496e-a348-91e19d178aa1: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy (40000 audit records)')
+geo geo-126ac90f-d162-47ed-a2a4-322d4fccf6c0: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy (40000 audit records)')
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
 
 Now read the first Workflow Task of the receipts.
-This capture also comes from the solution run with debug mode off.
-It keeps only the first nine lines, which hold nine receipts from three solution runs, from the same helper script as in Step 2.
+This is what `just receipt-gaps` printed for the three receipts of the first debug-mode solution fleet.
+This capture drops the command line the file starts with.
 
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-receipt-b29f5d20 total 2092ms | WT1 started->completed 12ms | validate_order: sched->started 2014ms started->completed 4ms | compute_total: sched->started 5ms started->completed 5ms | format_receipt: sched->started 4ms started->completed 6ms
-receipt-0d31cc28 total 577ms | WT1 started->completed 18ms | validate_order: sched->started 465ms started->completed 5ms | compute_total: sched->started 7ms started->completed 7ms | format_receipt: sched->started 5ms started->completed 6ms
-receipt-90752794 total 562ms | WT1 started->completed 14ms | validate_order: sched->started 407ms started->completed 7ms | compute_total: sched->started 48ms started->completed 8ms | format_receipt: sched->started 4ms started->completed 7ms
-receipt-2c961566 total 695ms | WT1 started->completed 13ms | validate_order: sched->started 523ms started->completed 14ms | compute_total: sched->started 11ms started->completed 23ms | format_receipt: sched->started 18ms started->completed 11ms
-receipt-d43e2957 total 704ms | WT1 started->completed 24ms | validate_order: sched->started 518ms started->completed 9ms | compute_total: sched->started 23ms started->completed 8ms | format_receipt: sched->started 21ms started->completed 8ms
-receipt-f326a4e1 total 685ms | WT1 started->completed 22ms | validate_order: sched->started 362ms started->completed 10ms | compute_total: sched->started 191ms started->completed 8ms | format_receipt: sched->started 27ms started->completed 9ms
-receipt-cb117a78 total 419ms | WT1 started->completed 37ms | validate_order: sched->started 10ms started->completed 27ms | compute_total: sched->started 32ms started->completed 14ms | format_receipt: sched->started 50ms started->completed 50ms
-receipt-b6e5a47d total 322ms | WT1 started->completed 31ms | validate_order: sched->started 67ms started->completed 18ms | compute_total: sched->started 15ms started->completed 7ms | format_receipt: sched->started 12ms started->completed 7ms
-receipt-228b2574 total 301ms | WT1 started->completed 61ms | validate_order: sched->started 7ms started->completed 12ms | compute_total: sched->started 68ms started->completed 15ms | format_receipt: sched->started 13ms started->completed 19ms
+receipt-462e1ffe total 820ms | WT1 started->completed 23ms | validate_order: sched->started 659ms started->completed 10ms | compute_total: sched->started 22ms started->completed 7ms | format_receipt: sched->started 9ms started->completed 12ms
+receipt-db318a45 total 804ms | WT1 started->completed 30ms | validate_order: sched->started 631ms started->completed 19ms | compute_total: sched->started 12ms started->completed 14ms | format_receipt: sched->started 17ms started->completed 11ms
+receipt-ece12cfb total 795ms | WT1 started->completed 24ms | validate_order: sched->started 154ms started->completed 9ms | compute_total: sched->started 474ms started->completed 16ms | format_receipt: sched->started 21ms started->completed 10ms
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
 
-All nine receipts read between 12 and 61 milliseconds.
-In the practice fleets, they read between 298 and 394.
+The first Workflow Task takes 23, 30, and 24 milliseconds here.
+Across the two debug-mode solution fleets, the six receipts read between 23 and 45 milliseconds.
+With debug mode off, the two solution fleets read between 19 and 35 milliseconds.
+In the three practice fleets from Step 2, receipts read from 351 to 731 milliseconds, and 324 to 330 in the debug-mode practice fleet.
 The loop stays free while the Worker archives the audit trail.
 
-Now check debug mode.
-Stop the Worker and start it again with the debug mode on:
-
-```sh
-PYTHONASYNCIODEBUG=1 uv run python worker.py
-```
-
-Submit the fleet twice more from your second terminal, the same way as before.
-In the debug-mode capture, the receipts read between 21 and 55 milliseconds, a little slower than with debug mode off.
 The debug-mode log is the other check.
-This capture keeps only the first nine lines of the Worker log from the solution copy, with debug mode on, during two fleets.
-The banner comes first, and the shutdown traceback follows it.
+This capture keeps only the lines that start with `Executing` from the first solution fleet's Worker log, with debug mode on.
 
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-========================================================================
-temporal-async-debug worker running with PID 2690262
-Inspect the live event loop from another terminal with either of:
-    python -m asyncio ps 2690262
-    python -m asyncio pstree 2690262
-Prometheus metrics: http://127.0.0.1:9464/metrics
-========================================================================
-Traceback (most recent call last):
-  File "/home/ziggy/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/lib/python3.14/asyncio/runners.py", line 127, in run
+Executing <Task pending name='Task-1' coro=<main() running at /home/ziggy/temporal-async-debug/exercises/05-catching-blockers-early/solution/worker.py:118> wait_for=<Future pending cb=[<builtins.PyDoneCallback object at 0x73e399f43d30>(), Task.task_wakeup()] created at /home/ziggy/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/lib/python3.14/asyncio/base_events.py:459> cb=[_run_until_complete_cb() at /home/ziggy/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/lib/python3.14/asyncio/base_events.py:181] created at /home/ziggy/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/lib/python3.14/asyncio/runners.py:109> took 0.141 seconds
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
 
-No slow-callback warning appears between the banner and the shutdown.
-The same fleet produced six warnings on the practice copy.
+The one entry is the Worker's own startup, `Task-1 main()`, which took 0.141 seconds.
+That entry is no Activity, and the first practice debug run logged it too.
+No 0.35 to 0.40 second warnings appear for the archive.
+The same fleets produced six of them on the practice copy.
+The second solution fleet logged one `_handle_start_activity_task` warning of 0.107 seconds, just over the 0.1 second threshold.
+That warning is not the archive, which runs on a thread, and the capture did not isolate its cause.
+So a clean debug run can still show a single callback near the threshold.
 
 Last, look at the **Workflow Task Execution Latency** panel again.
 
-![The Workflow Task Execution Latency panel after the fix, with the receipt and geo lines between 6 and 18 milliseconds.](../images/05-solution-live-workflow-task-latency.png)
+![The Workflow Task Execution Latency panel after the fix, with no points in the window.](../images/05-solution-live-workflow-task-latency.png)
 
-The lines now sit between 6 and 18 milliseconds, and the practice panel showed about 100.
-The panel is a weak signal in both states, and it moves in the right direction.
+The panel has no points in this window, because the fleet ran for too short a time to draw one.
+The panel is a weak signal in both states.
+`just receipt-gaps` and the debug-mode log carry the evidence here.
 
 ## Conclusion
 

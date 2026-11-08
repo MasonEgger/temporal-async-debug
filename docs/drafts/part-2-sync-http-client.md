@@ -560,14 +560,16 @@ The same `Client.get` call now sits on `ThreadPoolExecutor-0_0`, at `activities.
 The Worker still waits on the slow endpoint, but the event loop does not wait with it.
 
 The receipts no longer wait for their first Workflow Task.
-The next block holds the Workflow Task time and the Activity waits of each receipt in the solution capture.
-An author helper script produced these lines from each receipt's Event History, and the script is not in the repository.
+The repository ships a helper that reads each receipt's Event History and prints the Workflow Task time and the Activity waits.
+Run it from the repository root with the receipt Workflow IDs from your run.
 
-<CLAUDE_HELP>
-The helper script that produced `receipt-gaps.txt` is not committed.
-A reader cannot reproduce these lines without it.
-Commit a small script, or replace the block with `workflow show` excerpts.
-</CLAUDE_HELP>
+```sh
+just receipt-gaps <receipt workflow ID> <receipt workflow ID>
+```
+
+This block comes from an earlier script with the same output format, run on the two receipts in the solution capture.
+The capture predates the commit of `scripts/receipt_gaps.py`, so `just receipt-gaps` did not print it.
+The helper you run prints the same columns.
 
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
