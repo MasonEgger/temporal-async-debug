@@ -72,7 +72,7 @@ The capture machine has `docker` and `docker-compose` v1 (no `docker compose` v2
 
 Rules that hold across every phase of this repo.
 
-- paths: src/temporal_async_debug/**, tests/**, exercises/**, observability/**, docs/**, justfile, pyproject.toml, README.md, CLAUDE.md, .vale.ini, .github/workflows/ci.yml
+- paths: src/temporal_async_debug/**, tests/**, exercises/**, observability/**, docs/**, justfile, pyproject.toml, README.md, CLAUDE.md, .vale.ini, .github/workflows/ci.yml, spec.md, todo.md, plan.md, .ai-sessions/**, scripts/**
 - Python 3.14+ only; toolchain is uv + ruff + mypy (strict) + pytest, run through `just`; src layout with the hatchling build backend.
 - Temporal Python SDK (temporalio) is the only workflow engine; no second orchestration framework.
 - The Temporal server is always `temporal server start-dev` (the single-binary CLI); never a self-hosted cluster, never a Temporal server container, never Temporal Cloud. The compose stack under `observability/` holds Prometheus and Grafana and nothing else, and stays `docker-compose` v1 compatible.
@@ -156,8 +156,10 @@ These are candidates only, not tools declared in the session pool; fold one into
 - A `ProcessPoolExecutor` plus `SharedStateManager` exercise for CPU-bound work. Trigger: demand; the cpu exercise names it in prose and Temporal's docs discourage it.
 - A blocking-call-in-Workflow-code exercise (the sandbox and deadlock detector are a separate mechanism). Trigger: a seventh part after the series publishes.
 - Codespaces or devcontainer setup like the 102 repo. Trigger: the series is taught live.
-- A committed capture script under `scripts/` that reproduces the before-and-after runs and their disclosed trims. Trigger: the captures need re-taking after a dependency bump.
-- Temporal Web UI screenshots in the drafts. Trigger: a venue that prefers screenshots to CLI output; the tool story is CLI plus Grafana.
+- A committed capture script under `scripts/` that reproduces whole before-and-after runs and their disclosed trims. Trigger: the captures need re-taking after a dependency bump.
+  The small receipt-gap helper `scripts/receipt_gaps.py` (stdlib only) ships now so readers can reproduce every gap figure.
+  This read-only helper is not part of the deferred script.
+- Temporal Web UI screenshots beyond exercise 02. Trigger: a venue that prefers screenshots to CLI output; the tool story is CLI plus Grafana, with exercise 02's pending-activity screenshots as the one exception.
 - Publication venue and frontmatter for the drafts. Trigger: the venue decision; drafts carry no frontmatter and `TODO` cross-links until then.
 
 ## Design principles
@@ -210,7 +212,7 @@ The first step of the arc removes everything that is not the frozen loop:
 - `activities.py`: `_apply_mode` keeps `block` (`time.sleep`, marked) and `cpu` (busy loop, marked); the `slow`, `slow_heartbeat`, and `stuck_no_heartbeat` branches and the heartbeat helper go.
 - `workflow.py`: `geo_activity_options` collapses to one fixed set (120-second `start_to_close`, 150-second `schedule_to_close`), with no `heartbeat_timeout` and no `RetryPolicy(maximum_attempts=1)`; the geo activities keep the default retry policy like every other activity.
 - `quote.py` is deleted.
-- `worker.py`: registration drops the quote; `max_concurrent_activities=2` stays so the slot gauge readings in the freeze lessons stay small and readable, but it loses its antipattern marker and carries a plain comment saying it is small on purpose (decision: confirm at review).
+- `worker.py`: registration drops the quote; `max_concurrent_activities=2` stays so the slot gauge readings in the freeze lessons stay small and readable, but it loses its antipattern marker and carries a plain comment saying it is small on purpose (decision: kept, confirmed against the live captures).
 - `starter.py`: the saturation ordering, `SATURATION_MODES`, the concurrent fallback that only served them, and `--quotes` go; the freeze ordering, the `get_location` STARTED gate, and `os._exit(0)` stay.
 - `justfile`: `slow`, `slow-heartbeat`, and `stuck` go; `healthy`, `trigger`, `block`, and `cpu` stay.
 
@@ -237,23 +239,34 @@ The five exercises, in order of how often Temporal users hit them:
 
 - 01-sync-http-client: `get_location` is an `async def` Activity that calls a synchronous HTTP client (`httpx.Client`, standing in for `requests`).
   Healthy runs hit the real geo providers and finish fast, so the bug hides; the bad run's input points the provider at a local slow endpoint that answers after the configured delay.
-  The slow endpoint is a stdlib `http.server` the starter serves on 127.0.0.1 for the duration of the run (decision: served by the starter so the reader needs no extra terminal; confirm at review), in `slow_upstream.py`.
+  The slow endpoint is a stdlib `http.server` the starter serves on 127.0.0.1 for the duration of the run (decision: served by the starter so the reader needs no extra terminal), in `slow_upstream.py`.
   The fix: `get_ip` and `get_location` become plain `def` Activities on the same sync client, and `worker.py` passes `activity_executor=ThreadPoolExecutor(max_workers=...)` sized to `max_concurrent_activities`.
-- 02-sleep-between-heartbeats: `get_location` is an `async def` Activity that polls a slow job in a loop, calling `activity.heartbeat()` and then `time.sleep(...)` between polls, with a `heartbeat_timeout` on the call.
-  The heartbeats are recorded but the loop never runs to send them, so the server fails the attempt with a `Heartbeat` timeout while the Worker keeps running the Activity, because asyncio cancellation cannot interrupt `time.sleep`.
-  The poll interval is longer than the fixed `heartbeat_timeout` (decision: `heartbeat_timeout` 5 seconds, poll interval 8 seconds, a job of about 20 seconds keyed on the workflow run id so a retry observes the same job; confirm at review), so what the reader sees is a retry storm: the failed attempt keeps polling as a zombie while the default retry policy starts the next attempt beside it, `temporal workflow show` lists attempt after attempt ending in a `Heartbeat` timeout, and the bystanders fail in the same windows until the job finishes and an attempt completes.
-  The fix: wait in awaited 1-second ticks with a heartbeat on every tick (`activity.heartbeat()` then `await asyncio.sleep(1)` until the next poll is due), so heartbeats flush on the loop more often than the timeout and cancellation lands at the await (decision: the awaited tick loop replaces the one-line `await asyncio.sleep(poll_interval)`, which would still go 8 seconds without a heartbeat under a 5-second timeout; the Activity stays `async` and the `def` route is named in prose; confirm at review).
+- 02-sleep-between-heartbeats: `get_location` is an `async def` Activity that polls a slow job in a loop, with a `heartbeat_timeout` on the call.
+  Each poll starts with an awaited async status check (a real `await`, so the loop is live for an instant), then calls `activity.heartbeat()` and a blocking `time.sleep(poll_interval)`.
+  The heartbeat is recorded but the loop never runs to send it, so the server fails the attempt with a `Heartbeat` timeout while the Worker keeps running the Activity, because asyncio cancellation cannot interrupt `time.sleep`.
+  The poll interval is longer than the fixed `heartbeat_timeout` (decision, proved by a scratch spike: `heartbeat_timeout` 5 seconds, poll interval 8 seconds, a job of 60 seconds keyed on the workflow run id so a retry observes the same job), so what the reader sees is a retry storm.
+  The default retry policy starts the next attempt while the failed one is still polling, the `Attempt` counter climbs past 2 in the Web UI's pending-activity view and in `temporal workflow describe`, every attempt fails on `Heartbeat` timeout, and cancels land late so failed attempts keep polling as overlapping zombies.
+  The in-flight rollup fails, the receipts stall, and the Worker log shows `TMPRL1101 Potential deadlock detected` errors; the run completes after about 65 seconds.
+  Temporal writes no history event per retried Activity attempt, so `temporal workflow show` does not list attempt after attempt.
+  The storm shows in the Web UI pending-activity view, in `temporal workflow describe`, in the Worker log, and in the dashboard's `activity_timeout` panel.
+  The README calls out `TMPRL1101` as a frozen-loop clue: on an `async def` Worker it can mean the event loop is blocked, not that the Workflow code deadlocked.
+  The fix: wait in awaited 1-second ticks with a heartbeat on every tick (`activity.heartbeat()` then `await asyncio.sleep(1)` until the next poll is due), so heartbeats flush on the loop more often than the timeout and cancellation lands at the await (decision: the awaited tick loop replaces the blocking `time.sleep`, which would still go 8 seconds without a heartbeat under a 5-second timeout; the Activity stays `async` and the `def` route is named in prose).
 - 03-cpu-bound: `get_location` does pure-Python computation inside `async def` (the root `cpu` busy loop, recast as a realistic transform of the provider response), holding the GIL and pinning CPU at 100 percent.
   The fix: the `def` plus executor change from 01; the work runs on a pool thread, the loop stays live while `top` still shows the process near 100 percent, and the README names more Worker processes as the way to get real CPU parallelism.
-  The last part starts a second Worker process and re-runs the fleet, showing two CPU-bound runs progressing at once with the combined CPU above 100 percent (decision: confirm at review once captured).
+  The last part starts a second Worker process and re-runs the fleet, showing two CPU-bound runs progressing at once with the combined CPU above 100 percent.
+  The second Worker needs its own Prometheus port, so `worker.py` in both copies reads an `ASYNC_DEBUG_METRICS_PORT` environment variable (default 9464) and the extension runs from the repository.
 - 04-zombie-thread: the practice copy carries the fix many users ship first, and it looks right: `get_location` stays `async def` and wraps the blocking call in `asyncio.to_thread(...)`, with a `heartbeat_timeout` and no heartbeat.
   The loop stays live, so the bystanders are fine, but when the server times the attempt out the coroutine is cancelled and the thread keeps running, so the work finishes after the Activity has already failed and the retry runs the same work again beside it: the Activity runs twice.
   Part A also walks through the two startup traps on the way to the real fix: a `def` Activity registered without an `activity_executor` fails at Worker construction, and an executor smaller than `max_concurrent_activities` logs the SDK's warning; both messages are captured.
   The fix: a `def` Activity on a `ThreadPoolExecutor` sized to `max_concurrent_activities` that heartbeats from its own thread, so a timeout or cancel arrives as `CancelledError` inside the thread and the work stops.
-- 05-catching-blockers-early: the practice copy has a short blocker that ships unnoticed, a synchronous serialization of a large payload in an `async def` Activity that takes a few hundred milliseconds (decision: a pure-Python JSON round trip of a generated payload, sized to take 200 to 500 ms on the capture machine; confirm at review).
-  Nothing times out, but every run stalls the loop for that long, and every bystander dispatched into the stall waits it out: a receipt that completes in a few milliseconds in the healthy fleet takes a few hundred milliseconds on every run of this one, visible as the gap between its Activity's started and completed timestamps in `temporal workflow show`.
+- 05-catching-blockers-early: the practice copy has a short blocker that ships unnoticed, one `zlib.compress` at level 9 over generated audit-log lines in an `async def` Activity, taking about 350 ms on the capture machine.
+  The records are seeded, realistic JSON-lines audit entries built inside the Worker, so only `str` and `int` cross Temporal boundaries and `get_location(ip: str, payload_records: int) -> str` keeps its signature.
+  `zlib.compress` is the blocker because it releases the GIL: after the `asyncio.to_thread` fix the loop and the receipts recover, where a pure-Python JSON blocker kept receipts slow through GIL contention.
+  The README notes that a real archiver uploads the compressed bytes to blob storage and returns a key, never the blob.
+  Nothing times out, but every run stalls the loop for that long, and every bystander dispatched into the stall waits it out.
+  The symptom is the receipts' first Workflow Task gap, from `WorkflowTaskStarted` to `WorkflowTaskCompleted` in `temporal workflow show`: 298 to 394 ms in the captures where the healthy fleet shows 19 to 23 ms.
   This is the one detection lesson in the series and the only exercise that misbehaves without failing.
-  Part A runs the healthy fleet and then this one and compares the receipt timings; Part B runs the Worker with asyncio debug mode, captures the slow-callback warning that names the task, and confirms the line with `py-spy`; Part C moves the work off the loop; Part D adds the starvation-probe test over every registered `async def` Activity as the regression guard that would have caught it in CI.
+  Part A runs the healthy fleet and then this one and compares the receipt timings; Part B runs the Worker with asyncio debug mode, captures the slow-callback warning, which names the SDK handler `_ActivityWorker._handle_start_activity_task` rather than `get_location`, and confirms the line with `py-spy`; Part C moves the work off the loop; Part D adds the starvation-probe test over every registered `async def` Activity as the regression guard that would have caught it in CI.
 
 ### Observability
 
@@ -265,7 +278,7 @@ observability/
   grafana/dashboards/        one provisioned dashboard JSON
 ```
 
-`just server` becomes `temporal server start-dev --metrics-port 9465` (decision: 9465 sits next to the SDK's 9464 and collides with nothing the demo uses; confirm at review).
+`just server` becomes `temporal server start-dev --metrics-port 9465` (decision: 9465 sits next to the SDK's 9464 and collides with nothing the demo uses).
 `just metrics` runs `docker-compose -f observability/docker-compose.yml up -d`; `just metrics-down` tears it down.
 Grafana serves on `localhost:3000` with anonymous viewer access and the dashboard provisioned at startup; Prometheus serves on `localhost:9090`.
 The dashboard shows what a frozen loop does to the Worker over time: `temporal_activity_execution_latency`, `temporal_workflow_task_schedule_to_start_latency` and `temporal_workflow_task_execution_latency` (workflow tasks stall during a freeze), activity and workflow task failures and timeouts, `temporal_worker_task_slots_used` by `worker_type`, and the dev server's Task Queue backlog (metric names confirmed against the live `/metrics` output during the build; a panel whose metric the SDK or `start-dev` does not export is dropped and the README says so).
@@ -329,19 +342,21 @@ Both states are captured fresh from the copy (tool output, starter output, Worke
   `asyncio ps` shows the dead-ended task; `py-spy dump` names the `httpx.Client` call in `get_location` (frames down into the socket read); CPU near zero.
   After: the same fleet completes with no timeouts and no stalls; `asyncio ps` shows no task dead-ended; `py-spy dump` shows the main thread idle and the HTTP read on an executor thread.
 - 02-sleep-between-heartbeats.
-  Before: the history lists attempt after attempt failing with a `Heartbeat` timeout (the retry storm) while the Worker log keeps printing a dead attempt's poll lines after its failure (the zombie); bystanders stall and the in-flight rollup fails as in 01; `py-spy dump` names the `time.sleep` line inside the heartbeat loop; the storm ends when the job finishes and an attempt completes.
-  After: heartbeats reach the server (`temporal workflow describe` shows the last heartbeat time advancing every second), the Activity completes on its first attempt, and the bystanders complete normally.
+  Before: the `Attempt` counter climbs past 2 in the Web UI pending-activity view and in `temporal workflow describe`, each attempt failing with a `Heartbeat` timeout (the retry storm); the Worker log keeps printing a dead attempt's poll lines after its failure (the zombie) and shows `TMPRL1101 Potential deadlock detected`; bystanders stall and the in-flight rollup fails as in 01; `py-spy dump` names the `time.sleep` line inside the poll loop; the storm ends when the job finishes and an attempt completes.
+  `temporal workflow show` writes no event per retried attempt, and the README says so.
+  Web UI screenshots of the bad run's pending activity at two attempt counts are committed under `docs/images/` for this exercise only.
+  After: heartbeats reach the server (`temporal workflow describe` shows the last heartbeat time advancing about every 4 seconds, because the SDK throttles heartbeats sent every second to about 0.8 of the 5-second `heartbeat_timeout`), the Activity completes on its first attempt, and the bystanders complete normally.
 - 03-cpu-bound.
   Before: the root `cpu` signature from this copy (frozen shape, 100 percent CPU, `py-spy` in the compute loop, the rollup failure).
   After: the fleet completes with no timeouts; the loop stays live (bystanders complete while the computation runs); `py-spy dump` shows the computation on an executor thread holding the GIL and the main thread idle; `top` still shows the process near 100 percent.
-  With a second Worker process started, two `cpu` runs progress at the same time with the combined CPU above 100 percent (decision: confirm at review from the capture).
+  With a second Worker process started, two `cpu` runs progress at the same time with the combined CPU above 100 percent (confirmed in the capture).
 - 04-zombie-thread.
   Before: the bystanders complete (the loop is live), but the bad run's first attempt times out, the Worker log shows the thread's work still running and finishing after the server failed the attempt, and the retry's work overlaps it; `py-spy dump` shows the orphaned thread still inside the blocker after the failure.
   The two startup traps are captured verbatim: the error from a `def` Activity with no `activity_executor`, and the warning from an executor smaller than `max_concurrent_activities`.
   After: a forced timeout or cancel stops the work inside the thread (the Worker log shows the `CancelledError` and no work after it), and no attempt's work overlaps another's.
 - 05-catching-blockers-early.
-  Before: every run completes and nothing times out, yet the receipt Activities take a few hundred milliseconds from started to completed where the healthy fleet takes a few (the stall, read in `temporal workflow show`), asyncio debug mode logs a slow-step warning naming the Activity task at a few hundred milliseconds per run, and `py-spy` confirms the serialization line.
-  After: the receipt timings return to milliseconds, debug mode logs no slow step for the Activity, and the probe test passes over every `async def` Activity in the copy.
+  Before: every run completes and nothing times out, yet the receipts' first Workflow Task takes 298 to 394 ms where the healthy fleet takes 19 to 23 ms (the stall, read in `temporal workflow show`), asyncio debug mode logs a slow-callback warning at a few hundred milliseconds per run that names `_ActivityWorker._handle_start_activity_task`, and `py-spy` names the `zlib.compress` line.
+  After: the receipts' first Workflow Task returns to milliseconds, debug mode logs no slow callback, and the probe test passes over every `async def` Activity in the copy.
 - Each exercise README follows the 102 structure: title "Exercise N: <Doing the thing>", "During this exercise, you will" bullets, the `practice`/`solution` note, a prerequisites section pointing at the root README's setup and at `just metrics`, Parts A through E (run it; read the failure in the tooling and the dashboard; find the bug; write the test and fix it; redeploy and verify), and the closing "### This is the end of the exercise." line.
 - Each reader-written test in Part D:
   01 and 03, the probe test pattern from the root suite (a 50 ms ticker beside the Activity is not starved);
@@ -373,7 +388,7 @@ Tests must not require a running Temporal server unless using the SDK's own test
 - `build_worker(client)` coverage: a test builds the worker and asserts `max_concurrent_activities=2` and the full workflow and activity registration.
 - Starter tests cover `fleet_from_args` and the freeze submission order.
 - Tests for removed modes, the quote, the saturation ordering, and `maximum_attempts=1` are deleted with the code, not skipped.
-- Exercise gate: every `exercises/*/solution/` copy passes ruff, ruff format, mypy strict, and its own `tests/` under `just check`, run per directory so the near-identical module names in different copies never share one mypy or pytest invocation (decision: a `just` loop over the solution directories with `uv run mypy <dir>` and `uv run pytest <dir>/tests`, and the root pytest configuration excludes `exercises/`; confirm at review).
+- Exercise gate: every `exercises/*/solution/` copy passes ruff, ruff format, mypy strict, and its own `tests/` under `just check`, run per directory so the near-identical module names in different copies never share one mypy or pytest invocation (decision: a `just` loop over the solution directories with `uv run mypy <dir>` and `uv run pytest <dir>/tests`, and the root pytest configuration excludes `exercises/`).
   `practice/` copies are excluded from the gate because they carry the deliberate bug and the reader's unimplemented test; a lighter `just check-practice` runs ruff and mypy on them so they at least parse and type-check.
 - Solution-copy tests include the reader's Part D test for that exercise; exercise 01's tests serve the slow endpoint from a stdlib server inside the test, never the network.
 - Observability config tests assert only the stack's invariants, never that a file parses or a value we chose: `prometheus.yml` names exactly the two scrape targets on ports 9464 and 9465; the compose file defines exactly the services `prometheus` and `grafana` with no image whose name contains `temporal`; every dashboard panel expression references a metric from the allowed list.
@@ -401,7 +416,7 @@ Tests must not require a running Temporal server unless using the SDK's own test
 ## Non-goals
 
 - No lesson, exercise, or draft about slot exhaustion, Worker sizing for throughput, heartbeat or timeout tuning, schedule-to-start, or retry policy and idempotency; those are general Temporal topics covered elsewhere.
-- No detection library, watchdog, linter, or any maintained tooling; diagnosis uses read-only introspection the reader runs (native `asyncio ps` / `pstree`, `py-spy dump`, asyncio debug mode) and the Prometheus and Grafana stack, never tooling this repo builds or ships.
+- No detection library, watchdog, linter, or any maintained tooling; diagnosis uses read-only introspection the reader runs (native `asyncio ps` / `pstree`, `py-spy dump`, asyncio debug mode) and the Prometheus and Grafana stack, never tooling this repo builds or ships, apart from the read-only `scripts/receipt_gaps.py` helper that tabulates a receipt's Workflow Task gaps from `temporal workflow show` output.
 - No Flask or web front end; the Temporal Web UI, the metrics endpoint, and the Grafana dashboard are the visual layer.
 - No CI beyond the canonical application CI workflow (single pinned Python 3.14, `just check`, pip-audit, dependabot); CI does not start containers, run the dev server, or take captures.
 - No Temporal server in a container, no self-hosted cluster, and no Temporal Cloud; `temporal server start-dev` is the only server.

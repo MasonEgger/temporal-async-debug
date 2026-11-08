@@ -171,12 +171,12 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 14: Reconcile spec.md, plan.md, And .vale.ini With The Rulings (task)
 
-- [ ] 1. Scope defined (spec.md in place, plan.md header/recap/guidelines only, .vale.ini Headings scoping)
-- [ ] 2. Tooling: just lint-prose, just lint-keyboard, vale ls-config
-- [ ] 3. Do: spec 02 (spiked design and observed storm), 05 (zlib over generated audit lines, first-WT symptom, debug warning names the SDK handler, key note), 03 (port setting), Deferred (UI screenshots for 02 promoted; receipt-gap helper ships, full capture script stays deferred), paths: line, resolve confirmed checkpoints, 4 s heartbeat wording
-- [ ] 3. Do: plan.md header, recap rows, guidelines; .vale.ini MasonBase.Headings = NO for exercises and drafts
-- [ ] 4. Verify: stale-wording grep clean; vale ls-config; lint-prose spec.md no errors; lint-keyboard clean; pytest -q exits 0
-- [ ] 5. Document: none
+- [x] 1. Scope defined (spec.md in place, plan.md header/recap/guidelines only, .vale.ini Headings scoping)
+- [x] 2. Tooling: just lint-prose, just lint-keyboard, vale ls-config
+- [x] 3. Do: spec 02 (spiked design and observed storm), 05 (zlib over generated audit lines, first-WT symptom, debug warning names the SDK handler, key note), 03 (port setting), Deferred (UI screenshots for 02 promoted; receipt-gap helper ships, full capture script stays deferred), paths: line, resolve confirmed checkpoints, 4 s heartbeat wording
+- [x] 3. Do: plan.md header, recap rows, guidelines; .vale.ini MasonBase.Headings = NO for exercises and drafts
+- [x] 4. Verify: stale-wording grep clean; vale ls-config; lint-prose spec.md no errors; lint-keyboard clean; pytest -q exits 0
+- [x] 5. Document: none
 
 ### Step 15: Commit The Receipt-Gap Helper
 
