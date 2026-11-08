@@ -9,7 +9,7 @@ The starter submits a mixed fleet so the reader can watch one workflow type take
 - ``--rollups``: how many sales-rollup runs to submit alongside. Defaults to 0.
 
 Healthy geo runs ask the real providers and finish in well under a second. A bad run's get_location
-polls a simulated slow job that takes about 20 seconds, waiting 8 seconds between polls. Only a
+polls a simulated slow job that takes about 60 seconds, waiting 8 seconds between polls. Only a
 bystander already in flight when the freeze begins trips a timeout, so the starter submits the rollups
 first and waits for one of them to take an activity slot, then waits for the healthy geo runs to
 finish, then submits the bad run. The receipts go in only after the server reports the bad run's

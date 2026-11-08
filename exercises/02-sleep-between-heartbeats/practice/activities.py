@@ -2,12 +2,13 @@
 ABOUTME: Exercise 02 (02-sleep-between-heartbeats) copy.
 
 get_location either asks the public geo providers (the healthy runs) or, when ``slow_job`` is set,
-polls a simulated slow job until it finishes. Between polls it records a heartbeat and then waits
-with ``time.sleep``, under the workflow's fixed heartbeat_timeout.
+polls a simulated 60-second slow job until it finishes. Each poll pass awaits a small status check,
+records a heartbeat, and then waits with ``time.sleep``, under the workflow's fixed heartbeat_timeout.
 """
 
 from __future__ import annotations
 
+import asyncio
 import random
 import time
 from typing import TYPE_CHECKING
@@ -24,7 +25,7 @@ HTTP_TIMEOUT_SECONDS: float = 4.0
 httpx applies the value per phase, so a hung connect followed by a hung read still lands well inside
 the activity's start_to_close, and five providers at this timeout still fail over inside it too."""
 
-JOB_SECONDS: float = 20.0
+JOB_SECONDS: float = 60.0
 """How long the simulated slow job runs from its first poll before it reports done."""
 
 POLL_INTERVAL_SECONDS: float = 8.0
@@ -135,8 +136,11 @@ async def get_ip() -> str:
     raise RuntimeError(f"every IP provider failed: {'; '.join(errors)}")
 
 
-def _job_is_done(run_id: str, attempt: int, poll_number: int) -> bool:
-    """Poll the simulated slow job for this workflow run, starting it on the first poll.
+async def _job_is_done(run_id: str, attempt: int, poll_number: int) -> bool:
+    """Check the simulated slow job for this workflow run, starting it on the first check.
+
+    This stands in for an asynchronous status call: it awaits briefly so the event loop gets a turn,
+    and it never touches the network.
 
     Args:
         run_id: The workflow run id the job is keyed on.
@@ -146,6 +150,7 @@ def _job_is_done(run_id: str, attempt: int, poll_number: int) -> bool:
     Returns:
         True once JOB_SECONDS have passed since the run's first poll.
     """
+    await asyncio.sleep(0)
     now = time.monotonic()
     elapsed = now - _JOB_STARTED_AT.setdefault(run_id, now)
     print(
@@ -174,15 +179,15 @@ async def get_location(ip: str, slow_job: bool) -> str:
         poll_number = 0
         while True:
             poll_number += 1
-            if _job_is_done(f"{info.workflow_id}/{info.workflow_run_id}", info.attempt, poll_number):
+            if await _job_is_done(f"{info.workflow_id}/{info.workflow_run_id}", info.attempt, poll_number):
                 return JOB_RESULT
             if activity.in_activity():
                 activity.heartbeat()
             # ANTIPATTERN (deliberate, for teaching): the heartbeat above is only queued on the event loop, and
-            # time.sleep blocks that loop, so it cannot reach the server until the sleep ends and the heartbeat
-            # timeout fires first; the SDK's cancel is an asyncio cancel, which cannot interrupt time.sleep, so
-            # the failed attempt keeps polling as a zombie. Correct: wait in awaited ticks with a heartbeat per
-            # tick. Do not copy.
+            # time.sleep blocks that loop, so it cannot reach the server until the sleep ends and the 5-second
+            # heartbeat timeout fires first; the cancel then lands at the next await, after the sleep, so each
+            # failed attempt keeps polling as a zombie and every retry freezes the loop again. Correct: wait in
+            # awaited ticks with a heartbeat per tick. Do not copy.
             # TODO PART C: replace this single blocking sleep with a wait that heartbeats and can be cancelled.
             time.sleep(POLL_INTERVAL_SECONDS)
 

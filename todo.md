@@ -202,14 +202,14 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 17: Rebuild Exercise 02 For A Visible Retry Storm
 
-- [ ] 1. RED: solution tests updated for the status check and the 60 s job (shrunk in tests); same-job-across-attempts test
-- [ ] 2. Document: module docstrings in both copies
-- [ ] 3. GREEN: solution activities.py (awaited status check, JOB_SECONDS 60.0, tick wait); no marker
-- [ ] 4. Practice copy updated with time.sleep kept, rewritten marker, TODO PART C, Part D stub
-- [ ] 5. Integrate: `just check`, `just check-practice`
-- [ ] 6. REFACTOR: diff stays the wait plus the TODO
-- [ ] 7. Docs: none
-- [ ] 8. Verify: teeth check, gates, live smoke run shows Attempt past 2
+- [x] 1. RED: solution tests updated for the status check and the 60 s job (shrunk in tests); same-job-across-attempts test
+- [x] 2. Document: module docstrings in both copies
+- [x] 3. GREEN: solution activities.py (awaited status check, JOB_SECONDS 60.0, tick wait); no marker
+- [x] 4. Practice copy updated with time.sleep kept, rewritten marker, TODO PART C, Part D stub
+- [x] 5. Integrate: `just check`, `just check-practice`
+- [x] 6. REFACTOR: diff stays the wait plus the TODO
+- [x] 7. Docs: none
+- [x] 8. Verify: teeth check, gates, live smoke run shows Attempt past 2
 
 ### Step 18: Exercise 05 Realistic Audit Trail
 

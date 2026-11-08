@@ -63,6 +63,7 @@
 
 ## Tooling
 
+- TMPRL1101 "Potential deadlock detected" is timing-dependent: the exercise 02 spike logged it twice, the Step 17 smoke run logged 0 of it and 4 TMPRL1104 lines. Do not promise it on every run in prose; count appearances across several runs before wording a claim, and say "can show" (2026-11-08)
 - py-spy is not a project dependency, so `uv run py-spy` fails with "Failed to spawn"; capture with `uvx py-spy`, the form the README prints. Under ptrace_scope 1 both `uvx py-spy dump` and `python -m asyncio ps` refuse to attach (2026-11-08)
 - `sudo` through a `!` command cannot prompt for a password (no terminal), so a sysctl step needs the user's own terminal; `kernel.yama.ptrace_scope` is system-wide, so setting it there applies to this session. Read `/proc/sys/kernel/yama/ptrace_scope` to confirm instead of asking (2026-11-08)
 - `pkill -f review-server.py` matches the calling shell's own command line and kills it (exit 144); stop the BPE review server through `/tmp/bpe-review-server.pid` or `pgrep -af "scripts/review-server"` with a pattern the shell will not match. The BPE `review.css` caps `.review-section` at 760px and `.prose` at 68ch; a `<style>` override placed after the injected CSS (just before `</body>`) is what widens the page (2026-11-03)
