@@ -123,14 +123,16 @@ Compare it with Exercise 1, where the stuck task ended at the SDK handler with n
 Here the loop runs, and the Activity waits for a thread.
 
 The receipts say the same thing.
-The next block comes from the author helper script, which reads each receipt Event History.
-The script is not in the repository.
+Run the repository's helper from the repository root with the receipt Workflow IDs from your run.
+It reads each receipt's Event History.
 
-<CLAUDE_HELP>
-The helper script is not committed.
-A reader cannot reproduce these lines without writing it.
-Commit a small script, or swap the block for `workflow show` JSON excerpts.
-</CLAUDE_HELP>
+```sh
+just receipt-gaps <receipt workflow ID> <receipt workflow ID>
+```
+
+This block comes from an earlier script with the same output format, run on the two receipts in the capture.
+The capture predates the commit of `scripts/receipt_gaps.py`, so `just receipt-gaps` did not print it.
+The helper you run prints the same columns.
 
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
@@ -367,7 +369,7 @@ Write the tests before you change the code.
 
 Two mistakes in step 7 are common, and the Worker tells you about both at startup.
 If you make `get_location` a `def` and forget the executor, the Worker does not start.
-This is the last line of the error from the capture.
+This block keeps the four-line tail of the error from the capture, from the `raise ValueError(` line on.
 
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->

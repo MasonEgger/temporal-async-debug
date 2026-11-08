@@ -105,7 +105,8 @@ Progress:
 <!-- vale on -->
 
 The first Workflow Task started at 23:36:52.
-At 23:37:02 the history shows `WorkflowTaskTimedOut`: the Worker never replied to that first task.
+At 23:37:02 the history shows `WorkflowTaskTimedOut`.
+The Worker never replied to that first task.
 The next Workflow Task started at 23:37:12 and completed at 23:37:21.
 So the receipt's first decision took about 29 seconds.
 Treat the `WorkflowTaskTimedOut` event as a clue.
@@ -298,6 +299,10 @@ Write a test that fails for the right reason before you change the code.
    If you need a hint, the finished version is in `solution/tests/test_probe.py`.
 4. Run the tests again.
    Your test fails while `get_location` is an `async def`, because the hashing holds the loop.
+   The gap between two ticks is about as long as the hashing.
+   If you copy the hinted test from `solution/tests/test_probe.py`, it stops earlier, at `assert isinstance(executor, ThreadPoolExecutor)`.
+   The practice `build_worker` passes no `activity_executor` yet, so the hinted test fails on that line before the probe runs.
+   Both failures point at the same fix.
 5. Open `activities.py`.
    Remove the `async` keyword from `get_location`.
    Change the `async with httpx.AsyncClient(...)` line to `with httpx.Client(...)`, and remove the `await` before `client.get`.
@@ -399,14 +404,16 @@ The pool thread still holds the GIL while it hashes.
 The difference is that the event loop gets its turns, so the Worker keeps serving everything else.
 
 The receipts show what that means.
-The next block comes from the author helper script, which reads each receipt Event History.
-The script is not in the repository.
+The repository ships a helper that reads each receipt's Event History and prints the Workflow Task time and the Activity waits.
+Run it from the repository root with the receipt Workflow IDs from your run.
 
-<CLAUDE_HELP>
-The helper script is not committed.
-A reader cannot reproduce these lines without writing it.
-Commit a small script, or swap the block for `workflow show` JSON excerpts.
-</CLAUDE_HELP>
+```sh
+just receipt-gaps <receipt workflow ID> <receipt workflow ID>
+```
+
+This block comes from an earlier script with the same output format, run on the two receipts in the solution capture.
+The capture predates the commit of `scripts/receipt_gaps.py`, so `just receipt-gaps` did not print it.
+The helper you run prints the same columns.
 
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
@@ -436,55 +443,99 @@ The small rise is the GIL contention you read in the receipts.
 
 A thread cannot give you more than one core of hashing.
 More CPU needs more Worker processes.
-The capture below shows that, with two caveats you need to know first.
+The shipped `solution/worker.py` reads its Prometheus port from `ASYNC_DEBUG_METRICS_PORT`, so a second copy needs no edit.
+Leave the first Worker running on port 9464.
+In a third terminal, in the `solution` directory, start the second Worker on port 9466.
 
-The shipped `solution/worker.py` binds its metrics endpoint to port 9464, so a second copy fails to start unless you change `METRICS_BIND_ADDRESS`.
-The capture used scratch copies on ports 9466 and 9467, and each copy set `MAX_CONCURRENT_ACTIVITIES` to 1.
-The two bad runs only spread across the two processes when each Worker has a free slot for one of them.
-With the default two slots, one Worker can take both runs.
+```sh
+ASYNC_DEBUG_METRICS_PORT=9466 uv run python worker.py
+```
 
-<CLAUDE_HELP>
-The shipped solution cannot start a second Worker as is.
-The capture used scratch copies that are not in the repository.
-Should the exercise ship a port setting, or stay a described extension?
-</CLAUDE_HELP>
+Both Workers poll the same Task Queue, and each prints its own PID in the banner.
+In the capture, the first Worker (port 9464) is PID 2811953 and the second Worker (port 9466) is PID 2811952.
+Each Worker keeps the shipped two Activity slots.
 
-First, one Worker with two bad runs (`--bad 2`).
-The first block keeps only the column header and the process row of the first `top` reading.
-The second block is the run times.
+First, two bad runs (`--bad 2`).
+
+```sh
+uv run python starter.py --bad 2 --geo 0 --rollups 0 --receipts 0
+```
+
+This block keeps the column header and the two process rows of one `top` reading, taken about 18 seconds into the run.
 
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
     PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
-2628463 ziggy     20   0 1011780  82616  31680 S  90.9   0.5   0:38.99 python
-geo-b00eb5ae-ab96-41df-9d8f-bca09e54faac   RunTime         1m10.08s
-geo-97d24c9b-7b95-4246-abab-1b2e26a062ba   RunTime         1m9.73s
+2811953 ziggy     25   5  794824  74980  31492 S  93.0   0.5   0:19.92 python
+2811952 ziggy     25   5  725580  75704  31336 S   0.0   0.5   0:00.65 python
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
 
-One process stays near 91 percent, and the runs finish in about 70 seconds.
-Now two scratch Workers with one slot each.
-The first block keeps only the second `top` reading of both processes.
-The second block is the run times.
+This second block is the `temporal workflow describe` output for both runs at 10 seconds, keeping each run's Workflow ID and the identity of the Worker that started `get_location`.
+
+<!-- vale off -->
+<!-- vale MasonBase.CodeLineLength = NO -->
+```text
+  WorkflowId            geo-c09d5ff9-aa41-4f3a-804b-640cb1fe1598
+  LastWorkerIdentity  2811953@host
+  WorkflowId            geo-feb2b56c-2951-4154-af42-fdf4d0066c49
+  LastWorkerIdentity  2811953@host
+```
+<!-- vale MasonBase.CodeLineLength = YES -->
+<!-- vale on -->
+
+One process reads 93.0 percent and the other reads 0.0.
+Both runs report the same Worker identity, `2811953@host`, and it is the busy process in the `top` block.
+They share one core, so each run takes about 63 seconds.
+`temporal workflow describe` prints a RunTime field once a run closes, and this capture did not save that reading.
+The figure comes from a summary the capture computed over the run histories (the first event time subtracted from the last), not from saved JSON.
+The second Worker ran only the short `get_ip` call for each run, and both `get_location` calls landed on the first Worker.
+
+Now three bad runs (`--bad 3`).
+
+```sh
+uv run python starter.py --bad 3 --geo 0 --rollups 0 --receipts 0
+```
+
+In the capture, two runs filled the second Worker's two slots, and the third went to the first Worker.
+This block keeps the column header and the two process rows of the `top` reading from about 20 seconds in.
 
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
     PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
-2652201 ziggy     20   0  798468  75732  31308 S  95.5   0.5   0:11.49 python
-2652206 ziggy     20   0  798468  76428  31556 S  91.5   0.5   0:11.41 python
-geo-f2b9a037-2a2a-48fa-9793-bd8a8c16dfd8   RunTime         31.58s
-geo-103e4384-c7cd-4217-bf7b-cc29a40429fd   RunTime         31.55s
+2811953 ziggy     25   5  875572  78512  31736 S  96.0   0.5   1:22.33 python
+2811952 ziggy     25   5  944144  80464  31588 S  93.1   0.5   0:20.43 python
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
 
-Each process reads close to 95 and 92 percent, so the combined CPU is about 190 percent.
-Both runs finish in about 32 seconds.
-Two identical Workers with the default slots did not do this in the capture.
-Both bad runs landed on one process, and the other process sat idle.
+This second block is the `temporal workflow describe` output for the three runs at about 12 seconds, keeping each run's Workflow ID and Worker identity.
+
+<!-- vale off -->
+<!-- vale MasonBase.CodeLineLength = NO -->
+```text
+  WorkflowId            geo-a10b834b-0f34-4068-91df-144786d051a1
+  LastWorkerIdentity  2811953@host
+  WorkflowId            geo-f69b1568-cd2e-4aca-a827-d083d1529f4d
+  LastWorkerIdentity  2811952@host
+  WorkflowId            geo-fe437b36-3f7d-43f6-9403-fc187e472d19
+  LastWorkerIdentity  2811952@host
+```
+<!-- vale MasonBase.CodeLineLength = YES -->
+<!-- vale on -->
+
+The two processes read 96.0 and 93.1 percent, so the combined CPU is about 189 percent, more than one core can give.
+One run, the `geo-a10b834b` Workflow, is on `2811953@host`, and the other two are on `2811952@host`.
+Each Worker holds a busy `get_location`, which matches the two busy rows in `top`.
+The run that had a Worker to itself finished in 30.14 seconds.
+The two runs that shared a Worker took 73.53 and 73.83 seconds.
+Those three figures come from the same computed summary, not from saved tool output.
+
+In this capture, the second Worker took a `get_location` only when a third bad run arrived.
+The two processes then used about 189 percent CPU together.
 
 ## Conclusion
 

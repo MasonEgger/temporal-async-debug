@@ -236,11 +236,11 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 20: Update The Exercise READMEs (task)
 
-- [ ] 1. Scope defined (02 rewrite, 05 update, 01 and 03 Part D, 03 second Worker, 04 trap 1, gap blocks in all five, smell reports)
-- [ ] 2. Tooling: preflight; tutorial-writing, voice:teaching, review-content; lint-prose, lint-keyboard
-- [ ] 3. Do: apply the Step 20 changes through the build sources
-- [ ] 4. Verify: review-content, Vale no errors, keyboard clean, byte-for-byte rebuild
-- [ ] 5. Document: smell-reports.md
+- [x] 1. Scope defined (02 rewrite, 05 update, 01 and 03 Part D, 03 second Worker, 04 trap 1, gap blocks in all five, smell reports)
+- [x] 2. Tooling: preflight; tutorial-writing, voice:teaching, review-content; lint-prose, lint-keyboard
+- [x] 3. Do: apply the Step 20 changes through the build sources
+- [x] 4. Verify: review-content, Vale no errors, keyboard clean, byte-for-byte rebuild
+- [x] 5. Document: smell-reports.md
 
 ### Step 21: Update The Series Drafts (task)
 

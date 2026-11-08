@@ -115,7 +115,8 @@ Progress:
 <!-- vale on -->
 
 The first Workflow Task started at 23:26:03.
-At 23:26:13 the history shows `WorkflowTaskTimedOut`: the Worker never replied to that first task.
+At 23:26:13 the history shows `WorkflowTaskTimedOut`.
+The Worker never replied to that first task.
 The next Workflow Task started at 23:26:23 and completed at 23:26:32.
 So the receipt's first decision took about 29 seconds.
 Treat the `WorkflowTaskTimedOut` event as a clue, because a Worker that is healthy answers a Workflow Task in milliseconds.
@@ -374,6 +375,10 @@ Then you know the fix turned it green.
    If you need a hint, the finished version is in `solution/tests/test_probe.py`.
 4. Run the tests again.
    Your test fails while `get_location` is an `async def`, because the probe cannot tick while the call holds the loop.
+   The gap between two ticks is about as long as the upstream's wait.
+   If you copy the hinted test from `solution/tests/test_probe.py`, it stops earlier, at `assert isinstance(executor, ThreadPoolExecutor)`.
+   The practice `build_worker` passes no `activity_executor` yet, so the hinted test fails on that line before the probe runs.
+   Both failures point at the same fix.
 5. Open `activities.py`.
    Remove the `async` keyword from `get_ip` and from `get_location`.
    Delete the `ANTIPATTERN` comments and the `TODO PART C` comments.
@@ -491,15 +496,16 @@ The same `Client.get` call at `activities.py:148` now sits on `ThreadPoolExecuto
 The Worker still waits on the slow endpoint, but the event loop does not wait with it.
 
 Receipts no longer wait for their first Workflow Task.
-This is the Workflow Task time and the Activity waits for each receipt in the solution capture.
-The author's helper script produced these lines from each receipt's Event History.
-The script is not in the repository.
+Run the repository's helper from the repository root with the receipt Workflow IDs from your run.
+It reads each receipt's Event History and prints the Workflow Task time and the Activity waits.
 
-<CLAUDE_HELP>
-The helper script is not committed.
-A reader cannot reproduce these lines without writing it.
-Commit a small script, or swap the block for `workflow show` JSON excerpts.
-</CLAUDE_HELP>
+```sh
+just receipt-gaps <receipt workflow ID> <receipt workflow ID>
+```
+
+This block comes from an earlier script with the same output format, run on the two receipts in the solution capture.
+The capture predates the commit of `scripts/receipt_gaps.py`, so `just receipt-gaps` did not print it.
+The helper you run prints the same columns.
 
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->

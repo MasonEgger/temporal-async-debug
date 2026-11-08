@@ -32,6 +32,8 @@ Open questions sit inside CLAUDE_HELP tags.
 - Quote: `The Worker prints a banner with its PID`
   Rule: temporal-docs MCP unreachable.
   Capitalized primitives (Workflow, Activity, Worker, Task Queue, Workflow Task, Event History, Heartbeat timeout, Activity code) are now cased the same way in all five READMEs, and follow the tutorial-writing list and the facts file, not a live docs check.
+- Rule check: the review-content copy-editor agent could not run from the executor context, so a checklist pass took its place.
+  The validator also did a skill read of its own.
 
 ## exercises/01-sync-http-client/README.md
 
@@ -49,39 +51,52 @@ Open questions sit inside CLAUDE_HELP tags.
 - Quote: `uv run python starter.py --block-seconds 30 --bad 1 --geo 1 \`
   Rule: command line continuation.
   The capture shows the command on one line, and the README breaks it for the 80-column code rule.
-- Quote: the receipt-gaps block in Part E.
-  Rule: the numbers come from a scratch helper script that is not in the repository.
-  The README says so.
+- Resolved: the receipt-gaps block in Part E names `just receipt-gaps <receipt workflow ID> <receipt workflow ID>` as the command to run, because the helper is committed (`scripts/receipt_gaps.py`, commit 9073b93).
+  The printed block was captured on 2026-11-03 by an earlier script with the same output format, before the helper was committed, and the intro now says so rather than claiming `just receipt-gaps` printed it.
+  Exercises 3 and 4 carry the same wording for their blocks.
+  The Exercise 2 and 5 gap blocks are real `just receipt-gaps` output and are worded as such.
 
-<CLAUDE_HELP>
-Should the repository commit the receipt-gaps helper, or should Part E quote `workflow show` JSON instead?
-The same question applies to Exercises 3, 4, and 5.
-</CLAUDE_HELP>
-
-- Open for Mason: Part D step 4 says the hinted test fails because the probe cannot tick while `get_location` is an `async def`.
-  Against the practice copy, the solution test fails first at `assert isinstance(executor, ThreadPoolExecutor)`, because practice `build_worker` passes no `activity_executor`.
-  The drafts now say this.
-  The README wording was left alone, because it is out of scope for the draft step.
-- Still open for Mason (Step 13 left it alone, by instruction): the Part D test-failure wording in `exercises/01-sync-http-client/README.md`, described in the bullet above.
+- Resolved: Part D step 4 now says the hinted test fails first at `assert isinstance(executor, ThreadPoolExecutor)`, because practice `build_worker` passes no `activity_executor`, and that a probe over the `async def` fails on a gap about as long as the upstream's wait.
+  The ruling is the Step 20 instruction, matching the drafts.
 
 ## exercises/02-sleep-between-heartbeats/README.md
 
 - Quote: `The SDK uses that task to send a heartbeat to the server.`
   Rule: inference.
-  The capture lists Task-45 as `_ActivityWorker._heartbeat_async` with nothing beneath it, and says nothing more.
-- Quote: `The Worker throttles outgoing heartbeats against the Heartbeat timeout.`
-  Rule: sourced from the facts file, not from a capture.
-  The capture shows `lastHeartbeatTime` advancing about every four seconds.
-- Quote: `The capture comes from a second run of the same fleet, so its IDs differ from the starter output shown earlier.`
-  Rule: mixed runs.
-  The describe capture is from run 2, and the starter output, receipt, Worker log, and JSON are from run 1.
-- Resolved: Part E now says its heartbeat reads and Event History come from a second run, and the event-count sentence names the `get_location` Activity (events 11 to 13).
-- Quote: `The text output of `temporal workflow show` lists no failure for this run`
-  Rule: matches FINDINGS, and contradicts the plan's "retry storm" and "attempt after attempt".
-  The README describes one Heartbeat timeout, one retry that waits for the thaw, and a zombie.
-- Quote: `The Activity heartbeats every second, but the heartbeat time on the server advances about every four seconds.`
-  Rule: contradicts spec ("advancing every second").
-  The README follows the capture.
+  The capture lists Task-48 as `_ActivityWorker._heartbeat_async` with nothing beneath it, and says nothing more.
+- Resolved: the throttling sentence and the 4-second cadence reads are gone from Part E, as the Step 20 ruling keeps the cadence cut.
+  Part E now quotes the `LastHeartbeatTime` line from seven describe captures, which never ages past 3 seconds.
+- Resolved: Parts A, B, and E draw from one run per copy (practice run 2, solution run 1 of Step 19), and the Web UI screenshots are from that same practice run 2.
+  The two Grafana panel images in Part B are the exception: they come from practice run 1 of the same fleet, and the README says "an earlier run of the same fleet".
+- Resolved: the README no longer describes one timeout and one retry.
+  The ruling is the Step 19 retry-storm capture: the Attempt climbs to 4, the Web UI and `describe` show it, `workflow show` writes no event per retried attempt, and the README says so.
+- Quote: `The `TMPRL1101` ... depends on timing.`
+  Rule: frequency claim.
+  The README says it appeared in all four capture runs, once per run, and may not appear in the reader's run.
+  `TMPRL1104` is called the reliable signal and appeared in every run.
+- Quote: `The only Activity timeout on the panel is the rollup's ScheduleToClose`
+  Rule: dashboard gap, not changed here by instruction.
+  The failures panel plots `activity_timeout`, which does not count Heartbeat timeouts, so the retry storm is invisible on it.
+
+<CLAUDE_HELP>
+The Grafana failures panel plots `activity_timeout` and misses the Heartbeat timeout storm in Exercise 2.
+The server counter `activity_task_timeout{timeout_type="Heartbeat"}` counts it (1, 2, 3 across the run 1 window).
+Should the dashboard add that series?
+The README says plainly that the panel misses the storm and leaves the dashboard alone.
+</CLAUDE_HELP>
+
+- Quote: `The three points near 7.8 seconds at the left edge sit before the solution fleet started, so they are not from the solution run.`
+  Rule: weak panel capture.
+  The solution panel's window opens at 12:04:40, before the fleet started at 12:05:05, and the scale runs to 8 seconds because of those three points.
+
+<CLAUDE_HELP>
+The Exercise 2 solution panel image includes three pre-fleet points near 7.8 seconds, which stretch the scale so the solution lines read as zero.
+Should the panel be recaptured with a window that starts at the fleet start?
+</CLAUDE_HELP>
+
+- Quote: `temporal workflow list --query 'WorkflowType="GeoEnrichmentWorkflow" AND ExecutionStatus="Running"'`
+  Rule: command with no capture.
+  It is the standard visibility query and was not run for this README.
 - Quote: `That is a wait for a free slot and does not freeze the loop.`
   Rule: matches FINDINGS item 7.
 - Part lettering: `TODO PART C` is one line in `get_location`, and the whole edit happens in Part D.
@@ -95,25 +110,24 @@ The same question applies to Exercises 3, 4, and 5.
 - Quote: `In Exercise 1 the frozen loop read 0.0 percent, because the Worker waited on a socket.`
   Rule: cross-exercise reference without a quote.
   The reading comes from the Exercise 1 capture and is not quoted here, to keep each block from its own exercise.
-- Quote: `Optional: add CPU with a second Worker process`
-  Rule: not reproducible as shipped.
-  The solution Worker binds port 9464, and the captures used scratch copies with one slot each on ports 9466 and 9467.
-  The README states both caveats and quotes scratch captures.
-- Quote: `Two identical Workers with the default slots did not do this in the capture.`
-  Rule: matches FINDINGS (both bad runs landed on one process, 65 to 66 seconds).
-  The attempt1-skewed and attempt2 files are not quoted.
+- Resolved: the second-Worker section now uses `ASYNC_DEBUG_METRICS_PORT=9466 uv run python worker.py`, with no scratch copy and no `METRICS_BIND_ADDRESS` edit.
+  The ruling is the Step 19 capture of the shipped solution (`03-solution-second-worker`).
+- Quote: `In this capture, a second Worker added CPU only once a third bad run needed a slot that the first Worker no longer had.`
+  Rule: matches the Step 19 captures, worded as the capture's result and not as a rule.
+  The run times (about 63 seconds each, and 30.14, 73.53, and 73.83) are first and last event times subtracted from `temporal workflow show --output json`; no tool prints them, and the README says so.
+  The `describe` excerpts show the Worker identity of each run's `get_location`.
+  `--bad 2` put both runs on one Worker (93.0 and 0.0 percent, about 63 seconds each), and `--bad 3` spread them (96.0 and 93.1 percent, about 189 combined; 30.14, 73.53, and 73.83 seconds).
 - Quote: `The small rise is the GIL contention you read in the receipts.`
   Rule: inference.
   The panel peaks near 68 ms, and FINDINGS attributes the 79 to 110 ms first Workflow Tasks to GIL contention.
 
-<CLAUDE_HELP>
-Should the second-Worker extension ship a port setting in the solution copy, or stay a described extension?
-</CLAUDE_HELP>
+- Resolved: the second Worker needs no code change, because the solution Worker already ships the `ASYNC_DEBUG_METRICS_PORT` setting (commit 33e285b).
 
-- Open for Mason: the Part D test-failure wording in this README has the same problem as Exercise 1.
-  The hinted solution test fails against practice at the executor `isinstance` assert before any gap is measured.
-  The README was left alone.
-- Still open for Mason (Step 13 left it alone, by instruction): the Part D test-failure wording in `exercises/03-cpu-bound/README.md`, described in the bullet above.
+- Resolved: Mason ruled that `--bad 3` is the capture Part E uses, so the README describes no lowered `MAX_CONCURRENT_ACTIVITIES` and ships no setting for it.
+  The old "two bad runs, one slot each, about 32 seconds" capture cannot be reproduced on the shipped solution, because the Step 19 run put both `--bad 2` runs on one Worker at the shipped two slots.
+
+- Resolved: Part D step 4 now says the hinted test fails first at `assert isinstance(executor, ThreadPoolExecutor)`, because practice `build_worker` passes no `activity_executor`.
+  The ruling is the Step 20 instruction, matching Exercise 1.
 
 ## exercises/04-zombie-thread/README.md
 
@@ -141,36 +155,41 @@ Should the second-Worker extension ship a port setting in the solution copy, or 
   Rule: honest panel reading.
   The slot panel shows 2 then 1 for about 25 seconds in the practice run.
 - Rule check: the mechanism stays "work outliving its Activity attempt", which sits next to the blocked-loop theme because the fix most readers ship first is the one that removed the freeze.
-- Still open for Mason (Step 13 left it alone, by instruction): the startup trap 1 disclosure.
-  Quote: `This is the last line of the error from the capture.`
-  Rule: disclosure accuracy.
-  The block under it shows four lines (the `raise ValueError(` snippet and the final `ValueError:` line), so the sentence undercounts.
+- Resolved: the startup trap 1 disclosure now reads `This block keeps the four-line tail of the error from the capture, from the `raise ValueError(` line on.`
+  The old sentence called a four-line block the last line, and the Step 20 instruction named the fix.
 
 ## exercises/05-catching-blockers-early/README.md
 
-- Quote: `The loop holds one call for about 350 milliseconds each time a geo run starts.`
-  Rule: derived from the 355 to 384 ms warnings and the 298 to 394 ms gaps.
+- Quote: `The loop holds one call for about 350 to 400 milliseconds each time a geo run starts.`
+  Rule: derived from the 0.347 to 0.397 second warnings and the 351 to 368 ms gaps in the shown fleet.
 - Quote: `In that mode, the event loop logs a warning for every callback that runs longer than 0.1 seconds.`
   Rule: sourced from Python documentation (linked), not from a capture.
   The captured warnings are all above 0.35 seconds.
 - Quote: `The warning does not name your code.`
   Rule: matches FINDINGS, and contradicts spec (get_location).
   The warning names `_ActivityWorker._handle_start_activity_task`.
-- Quote: `The capture needed 12 tries before the main thread was inside the blocking call.`
-  Rule: matches FINDINGS.
+- Quote: `The capture needed 9 tries before the main thread was inside the blocking call.`
+  Rule: matches FINDINGS (looped, hit on try 9).
   The README gives no loop command, only "run the dump several times".
-- Quote: `This panel is the fleet-wide view of what the tooling found.`
+- Quote: `Here the view is almost empty.`
   Rule: weak panel.
-  The README says the practice panel reads near 100 ms and the solution about 10 ms.
-- Resolved: the humor line now reads `A delay this short does not show up as a failure.`
-- Resolved: `Nothing stops a thread that asyncio.to_thread already started.` replaces the claim that contradicted Exercise 4.
-- Quote: the receipts-only and practice-fleet gap blocks.
-  Rule: helper script output, and the README tells the reader to subtract JSON event times by hand.
+  The practice panel has three geo points near 6 ms and no receipt line, and the solution panel has no points in its window.
+  The old claim of lines between 20 and 190 ms is gone.
 
 <CLAUDE_HELP>
-Exercise 5 has no `workflow show` capture, only the helper output.
-Should I commit a small script, or should a later capture step add JSON excerpts?
+The Exercise 5 Workflow Task panels have almost no points because the fleets last only a few seconds.
+Should the images be recaptured over a longer run, or dropped in favor of the receipt-gaps block?
 </CLAUDE_HELP>
+
+- Quote: `No 0.35 to 0.40 second warnings appear for the archive.`
+  Rule: matches the Step 19 finding that a solution debug run can show one 0.1 second callback (0.107 seconds in the second fleet), so the README does not say zero warnings.
+- Quote: `The gap is 1.18 seconds, longer than the 0.35 to 0.40 seconds of the live archive.`
+  Rule: matches the measured probe failure (`assert 1.1786633972078562 < 0.2`).
+  The probe's own docstring in the solution test may still say 0.6 seconds, which the README does not repeat.
+- Resolved: the humor line now reads `A delay this short does not show up as a failure.`
+- Resolved: `Nothing stops a thread that asyncio.to_thread already started.` replaces the claim that contradicted Exercise 4.
+- Resolved: the receipts-only and practice-fleet gap blocks name `just receipt-gaps <receipt workflow ID> ...`, and the README no longer tells the reader to subtract JSON event times by hand.
+  The helper is committed.
 
 ## docs/drafts/part-1-healthy-worker.md
 

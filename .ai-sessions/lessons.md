@@ -14,6 +14,8 @@
 - Spreading CPU-bound runs across Worker processes needs a free slot on each process, or the server can place both runs on one and the second Worker adds nothing (2026-11-03)
 - Moving pure-Python CPU work to a thread unblocks the event loop (the probe test is green, no asyncio debug-mode warning) but does not restore bystander latency, because the thread still holds the GIL against the workflow-task thread (receipts' first workflow task stayed at 357 to 617 ms). A "short blocker" example that a thread fixes needs GIL-releasing C work (one large `zlib.compress` or `hashlib` call over prebuilt bytes: practice 267 to 345 ms, solution 18 to 49 ms), and recovery must be measured live, since a probe test alone passes either way (2026-11-03)
 - An `async def` activity that `time.sleep`s in a loop without ever awaiting produces one Heartbeat timeout plus a zombie that holds the loop until it finishes, not a retry storm, because the retry cannot run Python until the loop thaws; reasoning about retry timing on a frozen loop needs a live capture (it was wrong here in spec.md and plan.md) (2026-11-03)
+- A validator can misread a log. The iteration 2 TMPRL1101 claim counted a failed legacy query as a failed Workflow Task; check a contested count against the raw log before applying the suggested wording (2026-11-08)
+- When a README names the command that produced a block, check the capture's timestamp against when that command existed; the 01, 03, and 04 gap blocks came from the prototype script, so the prose must say so instead of naming `just receipt-gaps` as the source (2026-11-08)
 
 ## Testing
 
