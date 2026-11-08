@@ -46,6 +46,7 @@ COOPERATIVE_GAP_CEILING_SECONDS: float = 0.2
 
 def _records_for(seconds: float) -> int:
     """Return the record count whose archiving takes about ``seconds`` on this machine."""
+    _archive_audit_trail("calibration", CALIBRATION_RECORDS)  # warm-up: builds and caches the trail
     started = time.perf_counter()
     _archive_audit_trail("calibration", CALIBRATION_RECORDS)
     elapsed = time.perf_counter() - started

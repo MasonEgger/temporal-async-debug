@@ -6,9 +6,10 @@ audit-trail archiving at the top of get_location runs on a thread through ``asyn
 instead, so the loop stays live while it works. The work is mostly one big ``zlib.compress`` call,
 which releases the GIL, so the thread and the loop run side by side.
 Each activity fetches from a short round-robin list of providers and falls back to the next on
-failure. get_location first archives an audit trail for the lookup: it takes a large stand-in
-payload and compresses it with zlib. The number of records comes from the workflow
-input and bounds the work, a few hundred milliseconds on every run, and then the lookup carries on.
+failure. get_location first archives an audit trail for the lookup: it builds a realistic
+audit trail (seeded JSON lines, cached at import) and compresses it with zlib. The number of
+records comes from the workflow input and bounds the work, a few hundred milliseconds on every run,
+and then the lookup carries on.
 Nothing times out and nothing fails, and with the work off the loop nothing else waits either.
 The regression guard is tests/test_probe_all_activities.py, which runs every ``async def`` activity
 registered on the worker under a 50 ms probe and fails if any of them holds the loop.
@@ -18,7 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import functools
-import os
+import json
 import random
 import zlib
 from typing import TYPE_CHECKING
@@ -107,29 +108,68 @@ def _rotated[ProviderT](providers: tuple[ProviderT, ...]) -> list[ProviderT]:
     return [*providers[offset:], *providers[:offset]]
 
 
-RECORD_BYTES: int = 480
-"""Bytes of audit trail per record. Random bytes, so the compressor has real work to do on every one."""
+TRAIL_SEED: int = 20260101
+"""Seed for the audit-trail generator, so every Worker builds the same bytes."""
 
 COMPRESSION_LEVEL: int = 9
 """zlib's slowest, tightest level, so the compression dominates the cost of archiving."""
 
+_ACTIONS: tuple[str, ...] = ("login", "logout", "read", "create", "update", "delete", "export", "search")
+_STATUSES: tuple[int, ...] = (200, 200, 200, 200, 201, 204, 301, 400, 401, 403, 404, 500)
+_EPOCH_START: int = 1_767_225_600  # 2026-01-01T00:00:00Z
+
+
+def build_audit_trail(records: int, seed: int = TRAIL_SEED) -> bytes:
+    """Build ``records`` audit-log lines as UTF-8 JSON lines, the same bytes for the same seed.
+
+    Each line carries a timestamp, a request id, a client IP, an action, a status, and a latency in
+    milliseconds. The timestamps climb, the request ids are hex, and the actions, statuses, and clients
+    repeat, so the trail compresses the way real logs do.
+
+    Args:
+        records: How many lines to generate.
+        seed: Seed for the random generator.
+
+    Returns:
+        The lines joined by newlines, with a trailing newline when there is at least one.
+    """
+    rng = random.Random(seed)
+    clients = [f"10.{rng.randrange(256)}.{rng.randrange(256)}.{rng.randrange(1, 255)}" for _ in range(200)]
+    timestamp = _EPOCH_START
+    lines: list[str] = []
+    for _ in range(records):
+        timestamp += rng.randrange(0, 3)
+        entry = {
+            "ts": timestamp,
+            "request_id": f"{rng.getrandbits(64):016x}",
+            "client_ip": rng.choice(clients),
+            "action": rng.choice(_ACTIONS),
+            "status": rng.choice(_STATUSES),
+            "latency_ms": round(rng.lognormvariate(3.5, 0.8), 1),
+        }
+        lines.append(json.dumps(entry, separators=(",", ":")))
+    return "".join(f"{line}\n" for line in lines).encode()
+
 
 @functools.cache
-def _audit_trail_bytes(size: int) -> bytes:
-    """Return ``size`` bytes of stand-in audit trail, built once per size and then reused.
+def _audit_trail(records: int) -> bytes:
+    """Return the audit trail for ``records`` lines, built once per size and then reused.
 
-    The trail is stand-in bytes from a single ``os.urandom`` call, built once at import, so the per-call
-    cost of archiving is the compression that follows and nothing else.
+    The trail is built in the Worker and never crosses a Temporal boundary, so only the record count
+    travels in the Workflow input. It is built once at import for PAYLOAD_RECORDS, so the per-call cost
+    of archiving is the compression that follows and nothing else.
     """
-    return os.urandom(size)
+    return build_audit_trail(records)
 
 
-_audit_trail_bytes(PAYLOAD_RECORDS * RECORD_BYTES)  # prebuilt at import so no call pays for it
+_audit_trail(PAYLOAD_RECORDS)  # prebuilt at import so no call pays for it
 
 
 def _archive_audit_trail(ip: str, records: int) -> int:
-    """Take the stand-in audit trail for the lookup and compress it with zlib.
+    """Compress the audit trail for the lookup with zlib and discard the result.
 
+    A real archiver would upload the compressed bytes and return a key for them. This one throws the
+    bytes away, because the compression is the point.
     This is the exercise's short blocker: synchronous, bounded by ``records`` and never by a clock.
     Nearly all of the time goes to one large ``zlib.compress`` call, which releases the GIL while it
     works, so run on a thread it leaves the loop free to run.
@@ -141,7 +181,7 @@ def _archive_audit_trail(ip: str, records: int) -> int:
     Returns:
         How many records went into the archive.
     """
-    trail = _audit_trail_bytes(records * RECORD_BYTES)
+    trail = _audit_trail(records)
     zlib.compress(trail, COMPRESSION_LEVEL)
     return records
 

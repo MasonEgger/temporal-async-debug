@@ -213,14 +213,14 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 18: Exercise 05 Realistic Audit Trail
 
-- [ ] 1. RED: generator tests (JSON lines with fields, count, determinism, compressible); probe kept
-- [ ] 2. Document: trail and archive docstrings, the key note, PAYLOAD_RECORDS docstring
-- [ ] 3. GREEN: seeded generator in solution activities.py, sized to about 300 to 400 ms
-- [ ] 4. Mirror into practice with marker and TODOs
-- [ ] 5. Integrate: `just check`, `just check-practice`
-- [ ] 6. REFACTOR: diff stays the to_thread line plus the TODO
-- [ ] 7. Docs: none
-- [ ] 8. Verify: teeth check, gates, measured compress time recorded
+- [x] 1. RED: generator tests (JSON lines with fields, count, determinism, compressible); probe kept
+- [x] 2. Document: trail and archive docstrings, the key note, PAYLOAD_RECORDS docstring
+- [x] 3. GREEN: seeded generator in solution activities.py, sized to about 300 to 400 ms
+- [x] 4. Mirror into practice with marker and TODOs
+- [x] 5. Integrate: `just check`, `just check-practice`
+- [x] 6. REFACTOR: diff stays the to_thread line plus the TODO
+- [x] 7. Docs: none
+- [x] 8. Verify: teeth check, gates, measured compress time recorded
 
 ### Step 19: Recapture For The Rework (task)
 
