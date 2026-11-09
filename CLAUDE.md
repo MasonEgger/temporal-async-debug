@@ -15,6 +15,10 @@ The whole repository is about one mechanism: blocking the shared asyncio event l
 The spec's Invariants forbid any slot-exhaustion, heartbeat-tuning, timeout-tuning, or retry-policy lesson.
 The failure-mode catalog that preceded this layout lives under `.ai-sessions/failure-mode-catalog/`.
 
+The repository is public.
+No committed file (code, prose, `.ai-sessions/` records, commit messages) may name a customer, a real or invented company, a namespace, a ticket number, or a specific field use case.
+Field evidence is summarized in aggregate only, as in `.ai-sessions/research-20261109-field-evidence.md`; raw research notes stay outside the repository.
+
 ## Layout
 
 The repository has four layers:
@@ -107,6 +111,7 @@ just lint-keyboard   # flag non-keyboard characters (em-dashes, smart quotes, ar
 `.vale.ini` turns `MasonBase.Headings` off under `docs/drafts/` and `exercises/` only.
 In the root `README.md` and `CLAUDE.md` it still fires, and both it and `MasonBase.SentenceCapitalization` are ruled false positives there.
 Run `just preflight` before any prose step.
+`.vale.ini` sets a Linux `StylesPath` (`/home/mmegger/...`), so `just preflight` and `just lint-prose` fail on macOS; lint there with a temporary copy of the config whose `StylesPath` points at the local Mason styles.
 
 ## Architecture
 
