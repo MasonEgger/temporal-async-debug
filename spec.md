@@ -79,6 +79,10 @@ The field symptoms were Workflow Task timeouts in nearly every case, `TMPRL1101`
 Field diagnosis ran on a code question ("are these `async def`, and what do they call?"), code reading, bisecting from a sample, local reproduction, profiling, and matching failures to one host; asyncio debug mode was suggested and never reported as used, py-spy appeared once, and missing SDK metrics stalled several cases.
 Every source independently flagged finding the frozen Worker in a fleet as the missing skill, and the owner ruled it gets its own exercise ("Own exercise") rather than a step inside 01.
 
+The owner then ruled on the review's open items (November 9, 2026): the exercises keep their numbering, one shared recognition block is written once and linked from each exercise's Part B, four fold-ins land in exercises 01, 02, and 03 and in the primer, and the production loop-lag canary is deferred.
+On `TMPRL1101`, in the owner's words: "I don't think we need to lead with TMPRL1101 but if it's related we 100% need to mention it somewhere."
+A scratch spike of the two-Worker `sqlite3` design ran the same day (five freeze runs and one healthy run) and replaced the capture assumptions with results; see Exercise requirements.
+
 ## Invariants
 
 Rules that hold across every phase of this repo.
@@ -89,7 +93,7 @@ Rules that hold across every phase of this repo.
 - The Temporal server is always `temporal server start-dev` (the single-binary CLI); never a self-hosted cluster, never a Temporal server container, never Temporal Cloud. The compose stack under `observability/` holds Prometheus and Grafana and nothing else, and stays `docker-compose` v1 compatible.
 - Python: per the python:python skill (strict typing, Google docstrings, no single-letter names, canonical ruff/mypy/pytest config verbatim).
 - Prose (README, CLAUDE.md, exercise READMEs, tutorial drafts, comments, commit messages): per the writing hard rules (no em-dash or en-dash, no banned AI-tell vocabulary, straight quotes, one sentence per line in committed Markdown).
-- Privacy: the repository is public, so no committed file names a customer, a real or invented company, a namespace, or a specific field use case; research evidence is summarized only in aggregate (blocker categories, symptoms, counts).
+- Privacy: the repository is public, so no committed file or commit message names a customer, a real or invented company, a namespace, a ticket number, or a specific field use case; none names an internal system, an internal document, or internal training or course material (course codes and runbooks included); research evidence is summarized only in aggregate (blocker categories, symptoms, counts), without saying where it was gathered.
 - Scope: every lesson, exercise, and draft is about blocking the shared asyncio event loop. No slot-exhaustion, heartbeat-tuning, timeout-tuning, or retry-policy lesson, even as a contrast case.
 - Every exercise's bug is an execution failure the reader sees without a dashboard (bystanders fail, attempts fail and retry, the same work runs twice, a bystander is visibly delayed on every run), diagnosed with the Python tooling the reader runs (`asyncio ps`, `pstree`, `py-spy dump`, the CPU reading, asyncio debug mode). A metrics blip alone is not a bug; Grafana corroborates and never teaches. Exercise 05 is the one detection lesson and the only exercise that misbehaves without failing.
 - Every deliberate bug, mistuning, or antipattern carries the fixed greppable marker on or immediately above the offending line: `# ANTIPATTERN (deliberate, for teaching): <why it is wrong>. Correct: <the right approach>. Do not copy.` Do not "fix" a marked antipattern in the root package or in a `practice/` copy; it is the demo. A `solution/` copy carries no antipattern and no marker.
@@ -157,6 +161,7 @@ These are candidates only, not tools declared in the session pool; fold one into
 - fleet-localization: teach the skill a production reader needs before any process tooling, finding which Worker in a fleet froze, from the Worker identity in Event Histories.
   A new exercise, 06-finding-the-frozen-worker, runs two Workers with a synchronous `sqlite3` lookup blocking one of them, `scripts/receipt_gaps.py` gains an opt-in identity view, and a seventh draft carries the exercise plus a short note on production fleets.
   Builds on event-loop-exercises (see the fleet-localization items under Architecture, Exercise requirements, Test requirements, and Documentation requirements below).
+  The phase also carries the review rulings of November 9, 2026: the shared recognition block, and the fold-ins in exercises 01, 02, and 03 and in the event loop primer.
 
 **Deferred:** (a lab mode turning the demo into a whodunit; decisions recorded September 2026, build deferred until after the tutorial publishes)
 
@@ -182,6 +187,7 @@ These are candidates only, not tools declared in the session pool; fold one into
 - A registration guard: a short CI test that fails when any Activity registered on the Worker is `async def`, answering a recurring field question and following Temporal's default-to-`def` guidance. Trigger: the owner's ruling after the fleet-localization research; it would sit beside exercise 05's probe test, which already filters registered Activities with `inspect.iscoroutinefunction`.
 - A blocking payload codec or data converter as a way to freeze the loop, named in field guidance but never confirmed as a root cause. Trigger: a confirmed field case, or a seventh part after the series publishes.
 - A per-Worker Grafana view (a third scrape target for the second Worker's port, split by Prometheus `instance`). Trigger: the owner relaxes the two-target invariant; until then the second Worker is not scraped and the histories, not the dashboard, localize the freeze.
+- A production loop-lag canary: a background task that measures how late the loop wakes it and exports the lag, the production counterpart to exercise 05's CI probe (one team in the field evidence built its own). Trigger: the owner lifts the Non-goal against shipping a watchdog or maintained tooling, or a part after the series publishes covers production monitoring; until then exercise 05 keeps the probe test and asyncio debug mode (owner ruling, November 9, 2026).
 
 ## Design principles
 
@@ -194,8 +200,9 @@ These are candidates only, not tools declared in the session pool; fold one into
 - One mechanism.
   Every lesson and exercise is a way to block the shared asyncio event loop, shown failing, diagnosed from the tooling, and fixed.
   Timeouts appear only as symptoms of a frozen loop, never as the subject.
-- The most likely trip-ups first.
-  The exercises are the mistakes Temporal users actually report, in order of how often they come up, not a taxonomy.
+- The most likely trip-ups, not a taxonomy.
+  The exercises are mistakes Temporal users actually report, and exercise 01 is the most common of them by a wide margin.
+  The numbering after 01 is a teaching order, not a frequency ranking: field evidence puts CPU-bound work second and a blocking sleep between heartbeats far below it, and the owner ruled against reordering (November 9, 2026).
 - Deliberately broken lines carry the greppable antipattern marker, a source-hygiene device that does not spoon-feed the runtime diagnosis.
 - Observe, find, fix, verify.
   Every exercise and every tutorial part after the first ends with the reader changing code in `practice/` and re-running the same recipe to see the failure gone.
@@ -257,12 +264,17 @@ A copy replaces the root's `block`/`cpu` switch with its exercise's bug, keeps t
 `practice/` keeps the antipattern marker for its bug and adds `# TODO PART X:` comments at every line the README asks the reader to change, including a `TODO` test stub in `tests/`.
 `solution/` is the completed copy: no antipattern, no marker, the reader's test implemented and green.
 
-The first five exercises, in order of how often Temporal users hit them, then the fleet exercise:
+The six exercises, in teaching order (the Design principles say why the order is not a frequency ranking):
 
 - 01-sync-http-client: `get_location` is an `async def` Activity that calls a synchronous HTTP client (`httpx.Client`, standing in for `requests`).
   Healthy runs hit the real geo providers and finish fast, so the bug hides; the bad run's input points the provider at a local slow endpoint that answers after the configured delay.
   The slow endpoint is a stdlib `http.server` the starter serves on 127.0.0.1 for the duration of the run (decision: served by the starter so the reader needs no extra terminal), in `slow_upstream.py`.
   The fix: `get_ip` and `get_location` become plain `def` Activities on the same sync client, and `worker.py` passes `activity_executor=ThreadPoolExecutor(max_workers=...)` sized to `max_concurrent_activities`.
+  Part C ends with a "same bug, other library" table, because a reader's own blocker is rarely an HTTP client: one row per category the field evidence names (database drivers and ORMs, cloud SDKs, LLM SDKs, message producers that flush synchronously), each with the synchronous call shape to look for.
+  Decision: every row is a blocking call on the event loop with the diagnosis and fix this exercise teaches, so the table stays inside the one-mechanism invariant; no row gets a capture or an exercise of its own (confirm at review).
+  Decision: a row names a category and a call shape, and a Python package only where the package name is not also a company name; the LLM row stays generic (confirm at review).
+  Part D, where the executor is introduced, states that `activity_executor` runs only `def` Activities: an `async def` Activity always runs on the event loop, so a thread pool passed to a Worker whose Activities are all `async def` runs nothing, however large it is.
+  The event loop primer carries the same point in one sentence under "Getting blocking work off the loop".
 - 02-sleep-between-heartbeats: `get_location` is an `async def` Activity that polls a slow job in a loop, with a `heartbeat_timeout` on the call.
   Each poll starts with an awaited async status check (a real `await`, so the loop is live for an instant), then calls `activity.heartbeat()` and a blocking `time.sleep(poll_interval)`.
   The heartbeat is recorded but the loop never runs to send it, so the server fails the attempt with a `Heartbeat` timeout while the Worker keeps running the Activity, because asyncio cancellation cannot interrupt `time.sleep`.
@@ -272,11 +284,17 @@ The first five exercises, in order of how often Temporal users hit them, then th
   Temporal writes no history event per retried Activity attempt, so `temporal workflow show` does not list attempt after attempt.
   The storm shows in the Web UI pending-activity view, in `temporal workflow describe`, in the Worker log, and in the dashboard's `activity_timeout` panel.
   The README calls out `TMPRL1101` as a frozen-loop clue: on an `async def` Worker it can mean the event loop is blocked, not that the Workflow code deadlocked.
+  Where Part C reads the heartbeat call, the README sharpens one sentence: calling `activity.heartbeat()` is not sending a heartbeat, because the call only records it and the loop has to run before it is sent, so a heartbeat in the code is no proof that the server received one.
+  Decision: the retry storm and the exercise's opening stay as they are, and `TMPRL1101` is not the lead; the shared recognition block names it and points here (owner ruling, November 9, 2026).
   The fix: wait in awaited 1-second ticks with a heartbeat on every tick (`activity.heartbeat()` then `await asyncio.sleep(1)` until the next poll is due), so heartbeats flush on the loop more often than the timeout and cancellation lands at the await (decision: the awaited tick loop replaces the blocking `time.sleep`, which would still go 8 seconds without a heartbeat under a 5-second timeout; the Activity stays `async` and the `def` route is named in prose).
 - 03-cpu-bound: `get_location` does pure-Python computation inside `async def` (the root `cpu` busy loop, recast as a realistic transform of the provider response), holding the GIL and pinning CPU at 100 percent.
-  The fix: the `def` plus executor change from 01; the work runs on a pool thread, the loop stays live while `top` still shows the process near 100 percent, and the README names more Worker processes as the way to get real CPU parallelism.
-  The last part starts a second Worker process and re-runs the fleet, showing two CPU-bound runs progressing at once with the combined CPU above 100 percent.
-  The second Worker needs its own Prometheus port, so `worker.py` in both copies reads an `ASYNC_DEBUG_METRICS_PORT` environment variable (default 9464) and the extension runs from the repository.
+  The fix has two required steps.
+  The first is the `def` plus executor change from 01: the work runs on a pool thread and the loop stays live, while `top` still shows the process near 100 percent.
+  The README says what that step leaves unsolved: the pool thread still holds the GIL while it computes, so the loop is free but the process gains no CPU parallelism.
+  The second step starts a second Worker process and re-runs the fleet: each process has its own GIL, so two CPU-bound runs progress at once with the combined CPU above 100 percent.
+  Decision: the second Worker is a step of the main fix path, no longer an optional section, because field evidence shows that moving CPU-bound work to threads alone falls short (owner ruling, November 9, 2026).
+  Decision: the step is framed as GIL isolation (one GIL per process) and never as sizing a fleet for throughput, which stays a Non-goal (confirm the framing at review).
+  The second Worker needs its own Prometheus port, so `worker.py` in both copies reads an `ASYNC_DEBUG_METRICS_PORT` environment variable (default 9464) and the step runs from the repository.
 - 04-zombie-thread: the practice copy carries the fix many users ship first, and it looks right: `get_location` stays `async def` and wraps the blocking call in `asyncio.to_thread(...)`, with a `heartbeat_timeout` and no heartbeat.
   The loop stays live, so the bystanders are fine, but when the server times the attempt out the coroutine is cancelled and the thread keeps running, so the work finishes after the Activity has already failed and the retry runs the same work again beside it: the Activity runs twice.
   Part A also walks through the two startup traps on the way to the real fix: a `def` Activity registered without an `activity_executor` fails at Worker construction, and an executor smaller than `max_concurrent_activities` logs the SDK's warning; both messages are captured.
@@ -291,15 +309,27 @@ The first five exercises, in order of how often Temporal users hit them, then th
   Part A runs the healthy fleet and then this one and compares the receipt timings; Part B runs the Worker with asyncio debug mode, captures the slow-callback warning, which names the SDK handler `_ActivityWorker._handle_start_activity_task` rather than `get_location`, and confirms the line with `py-spy`; Part C moves the work off the loop; Part D adds the starvation-probe test over every registered `async def` Activity as the regression guard that would have caught it in CI.
 - 06-finding-the-frozen-worker (fleet-localization phase): the fleet runs as two Workers on the one Task Queue, and the reader has to find the frozen one from the Event Histories before attaching any process tool, because a production fleet does not hand over the PID that the single Worker's banner prints in exercises 01 to 05.
   Decision: this is its own exercise, not a step inside 01, because localization is a distinct skill (reading a partial stall across a fleet and grouping it by Worker identity) that field evidence showed readers need, and folding it into 01 would make 01 carry two lessons (owner ruling, November 9, 2026).
-  Decision: the exercise is numbered 06 and appended after 05, so no existing directory, README, or draft is renumbered; whether to reorder the series by field frequency is a separate ruling (confirm at review).
+  Decision: the exercise is numbered 06 and appended after 05, so no existing directory, README, or draft is renumbered, and the series is not reordered by field frequency (owner ruling, November 9, 2026).
   The bug: `get_location` is an `async def` Activity that looks up a cached location through the standard library's `sqlite3` driver, a synchronous database call, and the bad run's input makes that lookup wait on a database lock the starter holds for the configured delay.
-  Decision: `sqlite3` is the blocker because synchronous database drivers are a common blocker in the field, it adds no dependency, and a lock wait gives the idle-CPU freeze of a call that waits rather than computes; a scratch spike confirms, before the plan is written, that the lock wait freezes only the Worker running the bad run and that its duration follows the starter's delay (confirm at review).
+  Decision: `sqlite3` is the blocker because synchronous database drivers are a common blocker in the field, it adds no dependency, and a lock wait gives the idle-CPU freeze of a call that waits rather than computes.
+  A scratch spike confirmed the design before the plan was written (five two-Worker freeze runs and one healthy run, November 9, 2026): the lock wait froze only the Worker that ran the bad run's `get_location`, for 29.4 to 30.0 seconds against a 30-second delay, both Workers read 0.0 percent CPU in state `S` at every sample, and every Workflow completed.
+  Which Worker freezes changes from run to run (the second Worker in three spike runs, the first in two), so the README never names one in advance.
+  The lock lives in `db_lock.py`: a holder thread in the starter opens a temporary database file in rollback-journal mode and holds a `BEGIN EXCLUSIVE` transaction, and `get_location` connects with a `timeout` longer than the hold, so its `SELECT` waits where a shorter timeout would raise `database is locked`.
+  Decision: the hold is counted from the moment the starter submits the bad run, so the freeze is a little shorter than `--block-seconds` (confirm at review).
+  Decision: `get_ip` keeps the root package's async client, so the `sqlite3` lookup is the copy's only blocker; the spike was built on the 01 practice copy, whose synchronous client added a half-second first Workflow Task to three receipts in the healthy run (confirm at review).
   The lock lives only for the bad run, so healthy runs on either Worker finish fast and the bug hides in development, the same "it worked in dev" shape as 01.
   `worker.py` in both copies reads `ASYNC_DEBUG_METRICS_PORT` exactly as exercise 03's does (default 9464), and the second Worker starts with `ASYNC_DEBUG_METRICS_PORT=9466 uv run python worker.py` from the same directory.
   The second Worker is not scraped; Prometheus keeps its two targets.
-  Decision: the starter keeps the freeze ordering and the bystander fleet, with `--receipts` raised so receipts land on both Workers; the count is set from the capture so each Worker gets at least two receipts (default 8).
-  Part A runs the two-Worker fleet and reads the partial stall as an operator meets it: some receipts fast and some stalled, one rollup failing while another completes, and the frozen Worker still listed among the Task Queue's pollers.
-  Part B localizes the freeze with `just receipt-gaps --by-identity`, takes the PID from the frozen identity (`PID@host`), and only then attaches `asyncio ps` and `py-spy dump` to that process, while the other Worker's `asyncio ps` shows no task dead-ended.
+  Decision: the starter keeps the freeze ordering and the bystander fleet, and `--receipts` defaults to 8 so receipts land on both Workers; in each of the five spike runs four of the eight had their first Workflow Task on the frozen Worker.
+  Decision: the exercise's recipe runs one rollup (confirm at review).
+  With two rollups in flight, one spike run had both of the healthy Worker's Activity slots held for 5 seconds and three healthy receipts waited 3.2 seconds for a slot; that is slot noise, which the Scope invariant keeps out of every lesson, and with one rollup or none the healthy Worker's receipts were clean.
+  Decision: the starter's bystander gate asks the server, not the metrics port (confirm at review).
+  The inherited gate scrapes port 9464 for a busy Activity slot, and in two spike runs it waited its full 20 seconds and printed its warning, because the rollup's Activity ran on the other Worker or the run had no rollup.
+  The 06 starter waits until the server reports the rollup's Activity STARTED, the check the freeze ordering already uses for the bad run's `get_location`, so the gate does not depend on which Worker took the task.
+  Part A runs the two-Worker fleet and reads the partial stall as an operator meets it: nothing fails, about half the receipts are fast, the rest finish late in steps of about 10 seconds, and both Workers are still listed among the Task Queue's pollers.
+  Part B localizes the freeze with `just receipt-gaps --by-identity`: the frozen Worker is the identity on the `WorkflowTaskStarted` before each `WorkflowTaskTimedOut`, and on the bad run's `ActivityTaskStarted` for `get_location`.
+  The reader takes the PID from that identity (`PID@host`), and only then attaches `asyncio ps` and `py-spy dump` to that process, while the other Worker's `asyncio ps` shows no task dead-ended.
+  Part B also reads the two Worker logs: the frozen Worker prints its "Task not found when completing" warnings together at the thaw, and the other Worker prints none.
   Part B ends with a short note on production fleets (see Documentation requirements).
   Part C finds the `sqlite3` call; Part D writes the probe test and applies the 01 fix (`def` Activities on a sized `ThreadPoolExecutor`); Part E re-runs the two-Worker fleet and reads fast receipts on both identities.
 
@@ -323,7 +353,9 @@ The compose file defines exactly two services, `prometheus` and `grafana`; a tes
 
 `scripts/receipt_gaps.py` stays stdlib-only and read-only.
 Decision: the identity view is opt-in behind one flag, `--by-identity`, so the default output, which the READMEs already quote, does not change.
-With the flag, each history's line also prints the Worker identity from the first `WorkflowTaskStarted`, from the `WorkflowTaskStarted` that completed WT1 when a retry moved it, and from each `ActivityTaskStarted`.
+With the flag, each history's line also prints the Worker identity from the first `WorkflowTaskStarted`, from the `WorkflowTaskStarted` that completed WT1 when a retry moved it, and from each `ActivityTaskStarted` with its `attempt`.
+It also prints the `attempt` recorded on the `WorkflowTaskScheduled` that completed WT1, because the server writes no events for the retries in between: after a `WorkflowTaskTimedOut`, the next scheduled event in history is the attempt that completed (attempt 2 or 3 in the spike).
+A timeout is attributed to the identity on the `WorkflowTaskStarted` before it, since `WorkflowTaskTimedOut` carries no identity, and that holds for a later Workflow Task as well as the first (a rollup stalls this way through sticky affinity).
 After the per-history lines it prints one summary line per identity: how many first Workflow Tasks it started, the largest WT1, and how many Workflow Task timeouts it holds.
 `just receipt-gaps` passes the flag through unchanged.
 A rollup or geo history is read the same way when its Workflow ID is named, since the helper reads any history.
@@ -335,12 +367,15 @@ docs/
   drafts/
     README.md                         what each file is, the venue note, the provenance of the original draft
     tutorial-original-draft.md        unchanged, provenance only
+    event-loop-primer.md              optional explanation page read before part 1, unnumbered
     part-1-healthy-worker.md
     part-2-sync-http-client.md
     part-3-sleep-between-heartbeats.md
     part-4-cpu-bound.md
     part-5-zombie-thread.md
     part-6-catching-blockers-early.md
+    part-7-finding-the-frozen-worker.md   fleet-localization phase
+    smell-reports.md                  the voice:teaching smell reports and open questions
     output/                           the tutorial-writing skill's working files (outline, sections), gitignored
   images/                             Grafana screenshots (PNG), named <exercise>-<state>-<panel>.png
 ```
@@ -393,7 +428,7 @@ Both states are captured fresh from the copy (tool output, starter output, Worke
 - 03-cpu-bound.
   Before: the root `cpu` signature from this copy (frozen shape, 100 percent CPU, `py-spy` in the compute loop, the rollup failure).
   After: the fleet completes with no timeouts; the loop stays live (bystanders complete while the computation runs); `py-spy dump` shows the computation on an executor thread holding the GIL and the main thread idle; `top` still shows the process near 100 percent.
-  With a second Worker process started, two `cpu` runs progress at the same time with the combined CPU above 100 percent (confirmed in the capture).
+  With the second Worker process started (a required step of the fix), two `cpu` runs progress at the same time with the combined CPU above 100 percent (confirmed in the capture).
 - 04-zombie-thread.
   Before: the bystanders complete (the loop is live), but the bad run's first attempt times out, the Worker log shows the thread's work still running and finishing after the server failed the attempt, and the retry's work overlaps it; `py-spy dump` shows the orphaned thread still inside the blocker after the failure.
   The two startup traps are captured verbatim: the error from a `def` Activity with no `activity_executor`, and the warning from an executor smaller than `max_concurrent_activities`.
@@ -402,12 +437,24 @@ Both states are captured fresh from the copy (tool output, starter output, Worke
   Before: every run completes and nothing times out, yet the receipts' first Workflow Task takes 298 to 394 ms where the healthy fleet takes 19 to 23 ms (the stall, read in `temporal workflow show`), asyncio debug mode logs a slow-callback warning at a few hundred milliseconds per run that names `_ActivityWorker._handle_start_activity_task`, and `py-spy` names the `zlib.compress` line.
   After: the receipts' first Workflow Task returns to milliseconds, debug mode logs no slow callback, and the probe test passes over every `async def` Activity in the copy.
 - 06-finding-the-frozen-worker.
-  Before (two Workers): `just receipt-gaps --by-identity` over the run's receipts, plus the rollup's history, names one Worker identity on every stalled first Workflow Task and on the timed-out rollup Activity, and the other identity on the fast receipts.
+  Before (two Workers): nothing fails, and the run is a partial stall.
+  The figures below come from the five spike runs of eight receipts each; the README quotes its own capture, with counts, and never says "always".
+  The frozen Worker keeps receiving dispatches, because its Rust-core pollers keep long-polling: in every spike run four of the eight receipts had their first Workflow Task started on the frozen Worker, and each timed out at the 10-second default Workflow Task timeout.
+  A retry can go to either Worker, so the stalled receipts finish in steps: two at about 10 seconds and one at about 20 seconds, each completed by the healthy Worker, and one at 28 to 29 seconds, whose retry started on the frozen Worker again and completed at the thaw.
+  The server writes no history events for the retries in between, so a stalled receipt's history holds one `WorkflowTaskTimedOut` and then a `WorkflowTaskScheduled` whose `attempt` is 2 or 3.
+  Receipts whose first Workflow Task started on the healthy Worker complete in under half a second.
+  `just receipt-gaps --by-identity` over the run's receipts names one Worker identity on every `WorkflowTaskStarted` that precedes a timeout, and the same identity is on the bad run's `ActivityTaskStarted` for `get_location`.
+  The bad run's first Workflow Task is not the signal: the healthy Worker started it in three of the five runs.
   The reader takes the PID from that identity (`PID@host`) and attaches `asyncio ps` and `py-spy dump` to that process only; the other Worker's `asyncio ps` shows no task dead-ended.
   `py-spy dump` names the `sqlite3` call in `get_location`, and CPU reads near zero because the call waits on a lock.
-  Assumption, to be settled by the capture before any prose: the frozen Worker keeps receiving dispatches during the freeze, because its Rust-core pollers keep long-polling, so some receipts still land on it and stall.
-  Assumption, to be settled by the capture: when a receipt's first Workflow Task times out on the frozen Worker, its retry can go to the healthy Worker, so that receipt's history names both identities and its WT1 is about the Workflow Task timeout rather than the full freeze; the step teaches whatever the capture shows, and the capture is repeated over several runs before any count or "always" is written, as with `TMPRL1101`.
-  Assumption, to be settled by the capture: rollups that landed on the healthy Worker complete, so the blast radius is every bystander on the frozen Worker and none on the other.
+  The healthy Worker does not isolate its share of the fleet, and the README says so with whichever of these the capture shows.
+  Sticky affinity: a rollup whose first Workflow Task ran on the Worker that later froze stalls on its next Workflow Task, although its Activity ran on the healthy Worker (three runs, completing at 15 to 31 seconds where a clean rollup takes about 5).
+  One caught Activity: the bad run holds one of the frozen Worker's two Activity slots, and one more Activity sits in the other until its `start_to_close` fires and the retry runs on the healthy Worker.
+  In three runs that was a receipt's `validate_order` (history shows only attempt 2, started 6 seconds after scheduling), and in two it was a rollup's Activity (attempt 2 started 11 seconds after scheduling, and the rollup completed at about 16 seconds, inside its 20-second `schedule_to_close`).
+  No rollup failed in any run: the second Worker picks the work up after a timeout, so the failure that exercises 01 to 03 show becomes a late, uneven stall, and the README does not promise a failed rollup.
+  `temporal task-queue describe` during the freeze lists both Workers under both poller types, so the poller list does not localize the freeze (checked in four runs).
+  The frozen Worker's log prints "Task not found when completing" five or six times per run, all at the thaw; the healthy Worker's log prints none, and a healthy two-Worker run adds no line to either log.
+  `TMPRL1101` appeared in no spike run, so the 06 README does not list it as a symptom of this exercise.
   After: the same two-Worker run on the solution copy shows fast receipts on both identities and no timeouts.
   The README states plainly that the dashboard cannot localize the freeze, because only the first Worker is scraped, and that the histories can.
 - Each exercise README follows the 102 structure: title "Exercise N: <Doing the thing>", "During this exercise, you will" bullets, the `practice`/`solution` note, a prerequisites section pointing at the root README's setup and at `just metrics`, Parts A through E (run it; read the failure in the tooling and the dashboard; find the bug; write the test and fix it; redeploy and verify), and the closing "### This is the end of the exercise." line.
@@ -446,7 +493,8 @@ Tests must not require a running Temporal server unless using the SDK's own test
   `practice/` copies are excluded from the gate because they carry the deliberate bug and the reader's unimplemented test; a lighter `just check-practice` runs ruff and mypy on them so they at least parse and type-check.
 - Solution-copy tests include the reader's Part D test for that exercise; exercise 01's tests serve the slow endpoint from a stdlib server inside the test, never the network.
 - Fleet localization: exercise 06's port-resolution tests mirror exercise 03's (default 9464, override, invalid values raise) in both copies, and its solution tests hold the lock from inside the test with a temporary database file, never a shared one.
-  `tests/test_receipt_gaps.py` covers the identity view against a fixture history captured from the two-Worker run: the per-line identities of the first `WorkflowTaskStarted` and of each `ActivityTaskStarted`, a retried first Workflow Task whose two attempts carry different identities (when the capture shows one), and the per-identity summary.
+  Its starter tests cover the bystander gate against a mocked `describe` result (the rollup's Activity STARTED, not yet started, and the timeout path), with no metrics scrape.
+  `tests/test_receipt_gaps.py` covers the identity view against a fixture history captured from the two-Worker run: the per-line identities of the first `WorkflowTaskStarted` and of each `ActivityTaskStarted`, a retried first Workflow Task whose two attempts carry different identities (when the capture shows one), the `attempt` on the `WorkflowTaskScheduled` that completed WT1, a timeout attributed to the identity on the `WorkflowTaskStarted` before it, and the per-identity summary.
   A test asserts the default output is unchanged byte for byte against the existing `tests/fixtures/receipt-gaps.txt`, so the blocks already quoted in the READMEs stay valid.
 - Observability config tests assert only the stack's invariants, never that a file parses or a value we chose: `prometheus.yml` names exactly the two scrape targets on ports 9464 and 9465; the compose file defines exactly the services `prometheus` and `grafana` with no image whose name contains `temporal`; every dashboard panel expression references a metric from the allowed list.
 - The live failure signatures (cross-type blast radius, CPU pinning, the heartbeat retry storm, the zombie-thread overlap, the debug-mode warning) and the after-fix states are demonstrated live and captured during the build, not asserted in CI.
@@ -463,14 +511,23 @@ Tests must not require a running Temporal server unless using the SDK's own test
 - README additions for this arc: an "Exercises" table in the 102 root-README shape linking each `exercises/<NN-name>/README.md`, an "Observability" section (what `just metrics` starts, where the dashboard is, the dev server metrics port and why `just server` sets it), and the series title with a `TODO` link.
 - The two-tool framing stated plainly: `asyncio ps` / `pstree` identify the frozen loop and which task is wedged with zero instrumentation; `py-spy dump` names the exact file and line, because a task stuck in synchronous code is not at an await and so its frames are off the asyncio stack.
 - Platform gotchas (including that `py-spy` and `asyncio ps` both need `ptrace_scope=0` or sudo on Linux) and a tutorial link placeholder.
-- Exercise READMEs: five, in the 102 structure described under Exercise requirements, quoting only that exercise's captures, with the Grafana panel named in the observe and verify parts.
-- Tutorial drafts: six, under `docs/drafts/`, written with the content-design:tutorial-writing skill from the exercise READMEs and the captures (Title H1, Introduction H3, Prerequisites H2, "Step N: Gerund phrase" H2, Conclusion H2; sentence case; second person; code sandwich; Temporal primitives capitalized), each linking the previous and next parts with `TODO` placeholders, each Vale-clean (MasonBase plus MasonTechnical) and passed through `/review-content`.
-  Part 1 covers install, `ptrace_scope`, `just server`, `just worker`, `just metrics`, `just healthy`, and the baseline readings including the dashboard; parts 2 to 6 follow exercises 01 to 05 and end with the reader's fix and its verification.
+- Recognition block (owner ruling, November 9, 2026): one shared "recognize it" section, written in the root README and in the event loop primer, tells a reader how a blocked loop looks before any tool is attached.
+  It holds the symptom list (Workflow Task timeouts on Workflows whose code is fine, Workers that stay alive and stay listed as pollers but stop completing work, an Activity marked Started long before its code runs, the Worker log line "Task not found when completing", and `TMPRL1101`), then the code question to ask first: are these Activities `async def`, and what do they call?
+  The root README quotes the "Task not found when completing" line from its own `just block` Worker log and says the Worker prints it at the thaw.
+  It says a healthy run prints none only after a healthy-only root Worker log, taken fresh at the capture step, shows that; the two-Worker spike's healthy run printed none.
+  `TMPRL1101` is named in prose, never quoted from a root capture, as a related symptom that depends on timing: on a Worker with `async def` Activities it can mean the event loop is blocked, not that the Workflow code deadlocked; a reader's run may not show it; and the block points to exercise 02, the one place it is captured.
+  Each symptom is stated only where a capture of that copy or the documented SDK mechanism supports it.
+  The primer carries the same list and question in its "What a frozen loop looks like from outside" section and links to the README's capture.
+  Each exercise README links to the block in one line at the top of Part B; the five finished Part Bs otherwise stay as they are.
+- Fold-ins (owner ruling, November 9, 2026): the exercise 01 table and `activity_executor` note, the exercise 02 heartbeat sentence, and exercise 03's required second-Worker step (all under Architecture) land in the exercise READMEs and in draft parts 2, 3, and 4 together, so a draft never disagrees with its exercise.
+- Exercise READMEs: six (five in the event-loop-exercises arc, and exercise 06 in the fleet-localization phase), in the 102 structure described under Exercise requirements, quoting only that exercise's captures, with the Grafana panel named in the observe and verify parts.
+- Tutorial drafts: seven (six in the event-loop-exercises arc, and part 7 in the fleet-localization phase), under `docs/drafts/`, written with the content-design:tutorial-writing skill from the exercise READMEs and the captures (Title H1, Introduction H3, Prerequisites H2, "Step N: Gerund phrase" H2, Conclusion H2; sentence case; second person; code sandwich; Temporal primitives capitalized), each linking the previous and next parts with `TODO` placeholders, each Vale-clean (MasonBase plus MasonTechnical) and passed through `/review-content`.
+  Part 1 covers install, `ptrace_scope`, `just server`, `just worker`, `just metrics`, `just healthy`, and the baseline readings including the dashboard; parts 2 to 7 follow exercises 01 to 06 and end with the reader's fix and its verification.
   The series title is "Debugging blocking calls in Temporal async Activities".
   Drafts carry no frontmatter.
-- `docs/drafts/README.md` lists the six drafts, keeps the provenance note on the original draft, and keeps the venue as not yet chosen.
+- `docs/drafts/README.md` lists the seven drafts, the unnumbered event loop primer, and `smell-reports.md`, keeps the provenance note on the original draft, and keeps the venue as not yet chosen.
 - README and draft prose follows the repo owner's writing rules: no em-dashes, one sentence per line in committed Markdown.
-- Update CLAUDE.md to the trimmed package, the three-layer layout (root reference, exercises, observability), the solution-copy carve-out, and the current `just` recipes.
+- Update CLAUDE.md to the trimmed package, the four-layer layout (root reference, exercises, scripts, observability), the solution-copy carve-out, and the current `just` recipes.
 - MIT license (already present).
 
 ## Non-goals
@@ -498,10 +555,10 @@ Tests must not require a running Temporal server unless using the SDK's own test
   Depends on `just server` exposing port 9465.
 - Captures (scratchpad during the build, trimmed into the READMEs, drafts, and `docs/images/`): input is the trimmed root package's three scenarios and each copy's before and after runs with the stack up; output is the quoted blocks and screenshots, with the trims disclosed in the root README's "About the captured output" section.
   Depends on the exercise copies and the stack.
-- Tutorial drafts (`docs/drafts/part-N-*.md`): input is the exercise READMEs and the captures; output is the six drafts and the Vale and copy-editor passes.
+- Tutorial drafts (`docs/drafts/part-N-*.md`): input is the exercise READMEs and the captures; output is the drafts (six in the event-loop-exercises arc, part 7 in the fleet-localization phase) and the Vale and copy-editor passes.
   Depends on every capture and README being final.
 - Root docs (`README.md`, `CLAUDE.md`, `docs/drafts/README.md`): input is the trimmed package, the finished layout, and the root captures; output is the three-lesson README, the exercises table, the observability section, and the architecture refresh.
-- Fleet localization (`exercises/06-finding-the-frozen-worker/`, `scripts/receipt_gaps.py`, `tests/`, draft part 7, root docs): input is a two-Worker run of each 06 copy; output is the two copies with the port setting, the `--by-identity` view and its tests, the captures, the 06 README with its production note, and the draft.
+- Fleet localization (`exercises/06-finding-the-frozen-worker/`, `scripts/receipt_gaps.py`, `tests/`, draft part 7, root docs): input is a two-Worker run of each 06 copy; output is the two copies with the port setting, the `--by-identity` view and its tests, the captures, the 06 README with its production note, and the draft, plus the recognition block and the fold-ins in exercises 01, 02, and 03.
   Depends on the event-loop-exercises arc being complete; the helper change lands before the captures, and the prose lands after them.
 - Gate (`justfile`, `pyproject.toml`): input is the solution copies and config files; output is `just check` covering them and `just check-practice` covering the practice copies lightly.
 
@@ -511,7 +568,8 @@ Tests must not require a running Temporal server unless using the SDK's own test
 - `grep -rn "slow_heartbeat\|stuck_no_heartbeat\|PriceQuote\|maximum_attempts" src tests justfile` returns nothing.
 - Each exercise runs from its own directory: the `practice/` copy reproduces its failure, and the `solution/` copy produces its after-state, both captured and quoted.
 - `just metrics` brings up the dashboard on a machine with `docker-compose` v1, with both scrape targets up and every panel populated during a scenario.
-- Fleet localization: from a two-Worker run of the 06 practice copy, `just receipt-gaps --by-identity` names the frozen Worker, and the reader reaches `asyncio ps` and `py-spy dump` on that PID without reading the Worker banner; `just receipt-gaps` without the flag prints exactly what it printed before; `grep -rn "ANTIPATTERN (deliberate, for teaching)" exercises/06-finding-the-frozen-worker/solution` returns nothing; the 06 README and draft part 7 quote only those captures and name no customer.
-- Five exercise READMEs and six tutorial drafts exist, quote only captures of their own exercise, pass Vale, and have been through `/review-content`.
-- The root README has exactly three lessons, all recaptured; the README and CLAUDE.md describe the three-layer layout; and `grep -rn "ANTIPATTERN (deliberate, for teaching)" exercises/*/solution` returns nothing.
+- Fleet localization: from a two-Worker run of the 06 practice copy, `just receipt-gaps --by-identity` names the frozen Worker, and the reader reaches `asyncio ps` and `py-spy dump` on that PID without reading the Worker banner; `just receipt-gaps` without the flag prints exactly what it printed before; `grep -rn "ANTIPATTERN (deliberate, for teaching)" exercises/06-finding-the-frozen-worker/solution` returns nothing; the 06 README and draft part 7 quote only those captures and satisfy the Privacy invariant.
+- The recognition block exists in the root README and the primer, every exercise README's Part B links to it in one line, and exercise 03's second-Worker step is no longer marked optional.
+- Six exercise READMEs and seven tutorial drafts exist, quote only captures of their own exercise, pass Vale, and have been through `/review-content`.
+- The root README has exactly three lessons, all recaptured; the README and CLAUDE.md describe the four-layer layout; and `grep -rn "ANTIPATTERN (deliberate, for teaching)" exercises/*/solution` returns nothing.
 - The arc ships as commits on the `scaffold` branch (PR #4 against `main`), with a session summary per commit.

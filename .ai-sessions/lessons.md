@@ -2,16 +2,16 @@
 
 ## Recent
 
+- A second Worker on the same Task Queue hides a frozen Worker's failures: in five two-Worker freeze runs no bystander failed, the frozen Worker still took half the first Workflow Tasks, and the stalls came in 10-second steps as retries landed on either Worker. Spike a fleet exercise's symptom before writing its capture requirements; the spec's assumed "one rollup fails" was wrong (2026-11-09)
+- After a `WorkflowTaskTimedOut`, the server writes no history events for the retries in between; the next `WorkflowTaskScheduled` in history carries `attempt` 2 or 3 and is the attempt that completed. `WorkflowTaskTimedOut` has no identity, so attribute it to the `WorkflowTaskStarted` before it (2026-11-09)
+- A starter gate that scrapes one Worker's metrics port breaks as soon as a second Worker shares the Task Queue (it waited its full timeout in two of five runs); gate on the server's `describe()` so the check does not depend on which Worker took the task (2026-11-09)
+- `pkill -f <pattern>` matches the shell that runs it when the pattern appears in that command line, and kills it (exit 144); stop processes by recorded PID, then confirm with `pgrep` and `ss` (2026-11-09)
 - This repository is public: never commit a customer name, a real or invented company, a namespace, a ticket number, or a specific field use case, in spec, prose, session records, or commit messages; summarize field research in aggregate and grep the diff for names before committing (2026-11-09)
 - Research subagents can spawn their own helpers and multiply cost (one research agent's three helpers used about 1.3M tokens); brief research agents with no helper agents, a document cap, and a time limit, and have them write findings to disk as they go (2026-11-09)
 - A message to a subagent only lands at its next tool step, so an agent blocked on its own helpers cannot hear a wrap-up request; enforce a timeout with a file watch, then TaskStop, and recover helper reports from the stopped agent's transcript (2026-11-09)
 - Google Drive `read_file_content` returns no text at all for very large Docs (about 1 MB and up), with no error; plan for those documents to be unreadable through the tool (2026-11-09)
 - `.vale.ini` hard-codes a Linux `StylesPath`, so `just lint-prose` and `just preflight` fail on macOS; lint with a temporary copy of the config whose path points at the local styles (2026-11-09)
 - Before a page says what runs on the Python Worker's event loop, check the SDK source: Workflow code runs on the `workflow_task_executor` thread pool (`_workflow.py` `run_in_executor`), and only the hand-off and completion run on the loop; `def` Activities are also dispatched from the loop with `run_in_executor` (2026-11-09)
-- When a later step edits code that the drafts splice by line number, the FILE line ranges drift and the drafts stop rebuilding; re-run the draft build after any code step, not only at the prose step (2026-11-08)
-- A dashboard counter can silently miss a failure type: the failures panel plots `activity_timeout`, which never counts Heartbeat timeouts, so it hid the exercise 02 retry storm that `activity_task_timeout{timeout_type="Heartbeat"}` counts. Check that a panel shows the symptom the prose will cite before you write the prose (2026-11-08)
-- When a plan says a test runs against captures and no machine-readable capture exists, capture one live (`temporal workflow show --output json`) instead of reconstructing fixtures backward from the expected output; a fixture built to match the expected result makes a circular test. Step 15's first validator pass caught it (2026-11-08)
-- `sudo` through a `!` command cannot prompt for a password (no terminal), so a sysctl step needs the user's own terminal; `kernel.yama.ptrace_scope` is system-wide, so setting it there applies to this session. Read `/proc/sys/kernel/yama/ptrace_scope` to confirm instead of asking (2026-11-08)
 
 ## Testing
 
@@ -26,6 +26,9 @@
 
 ## Temporal
 
+- A second Worker on the same Task Queue hides a frozen Worker's failures: in five two-Worker freeze runs no bystander failed, the frozen Worker still took half the first Workflow Tasks, and the stalls came in 10-second steps as retries landed on either Worker. Spike a fleet exercise's symptom before writing its capture requirements; the spec's assumed "one rollup fails" was wrong (2026-11-09)
+- After a `WorkflowTaskTimedOut`, the server writes no history events for the retries in between; the next `WorkflowTaskScheduled` in history carries `attempt` 2 or 3 and is the attempt that completed. `WorkflowTaskTimedOut` has no identity, so attribute it to the `WorkflowTaskStarted` before it (2026-11-09)
+- A starter gate that scrapes one Worker's metrics port breaks as soon as a second Worker shares the Task Queue (it waited its full timeout in two of five runs); gate on the server's `describe()` so the check does not depend on which Worker took the task (2026-11-09)
 - The Temporal Python SDK reports latency histograms in milliseconds, so a Grafana panel with unit "s" misreads by 1000x; check the unit against a live scrape before trusting a panel (2026-11-03)
 - A frozen event loop fails no worker-side activity, so worker failure counters stay empty; plot the dev server's `activity_timeout` series as the failure signal (2026-11-03)
 - A retried activity writes no history event per failed attempt; the failed attempts show in the Web UI pending-activity view, `temporal workflow describe` (Attempt, LastFailure), and the Worker log, so a retry storm is visible without history events and needs UI screenshots in the captures (2026-11-08)
@@ -56,6 +59,8 @@
 
 ## Documentation
 
+- When a later step edits code that the drafts splice by line number, the FILE line ranges drift and the drafts stop rebuilding; re-run the draft build after any code step, not only at the prose step (2026-11-08)
+- A dashboard counter can silently miss a failure type: the failures panel plots `activity_timeout`, which never counts Heartbeat timeouts, so it hid the exercise 02 retry storm that `activity_task_timeout{timeout_type="Heartbeat"}` counts. Check that a panel shows the symptom the prose will cite before you write the prose (2026-11-08)
 - This repository is public: never commit a customer name, a real or invented company, a namespace, a ticket number, or a specific field use case, in spec, prose, session records, or commit messages; summarize field research in aggregate and grep the diff for names before committing (2026-11-09)
 - Every teaching exercise needs an execution-level symptom the reader sees without a dashboard (a bystander fails, attempts fail and retry, the same work runs twice, a bystander is visibly delayed); a metrics blip alone was rejected as "not a bug", and one detection-only exercise is the cap (2026-11-03)
 - A tutorial that promises verbatim captured output needs a validator step that DIFFS every quoted block against its capture file and checks that every trim is disclosed; internal-consistency and line-number checks are not enough (an altered value, inserted punctuation, and four reconstructed blocks got through the first time) (2026-10-07)
@@ -63,6 +68,7 @@
 
 ## Tooling
 
+- `pkill -f <pattern>` matches the shell that runs it when the pattern appears in that command line, and kills it (exit 144); stop processes by recorded PID, then confirm with `pgrep` and `ss` (2026-11-09)
 - Google Drive `read_file_content` returns no text at all for very large Docs (about 1 MB and up), with no error; plan for those documents to be unreadable through the tool (2026-11-09)
 - `.vale.ini` hard-codes a Linux `StylesPath`, so `just lint-prose` and `just preflight` fail on macOS; lint with a temporary copy of the config whose path points at the local styles (2026-11-09)
 - TMPRL1101 "Potential deadlock detected" is timing-dependent: the exercise 02 spike logged it twice, the Step 17 smoke run logged 0 of it and 4 TMPRL1104 lines. Do not promise it on every run in prose; count appearances across several runs before wording a claim, and say "can show" (2026-11-08)

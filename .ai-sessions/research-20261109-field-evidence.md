@@ -99,8 +99,19 @@ Experienced Python developers hit it too.
 ## Decisions
 
 - Ruled: fleet localization becomes its own exercise, `06-finding-the-frozen-worker`, appended after 05 (spec.md).
-- Open: reorder the exercises by field frequency (CPU second, the heartbeat exercise lower), or keep the numbering until publication.
-- Open: open each Part B with the cheap diagnosis path (the code question, the histories, "Task not found when completing", Started versus the first log line) and use `asyncio ps` and `py-spy` as confirmation.
-- Open: apply the per-exercise fold-ins in the table above.
+- Ruled (November 9, 2026): no reorder.
+  The exercises keep their numbering, and spec.md no longer says the order follows field frequency.
+- Ruled: one shared recognition block (the symptom list, the code question, and the "Task not found when completing" log line) in the event loop primer and the root README, linked in one line from each exercise's Part B.
+  The five finished Part Bs stay as they are.
+- Ruled: four fold-ins.
+  Exercise 01 gets the "same bug, other library" table and, in Part D, the note that `activity_executor` only runs `def` Activities, which the primer repeats in one sentence.
+  Exercise 02 sharpens "calling `heartbeat()` is not sending it" and keeps its retry storm and its opening.
+  Exercise 03 moves the second Worker process into the main fix path, framed as GIL isolation.
+- Ruled: `TMPRL1101` does not lead exercise 02; the recognition block names it as a related, timing-dependent symptom and points to exercise 02.
+- Ruled: the production loop-lag canary is deferred, with its trigger recorded in spec.md.
+- Not taken: framing exercise 01's slow upstream as an LLM API, and shrinking exercise 05's debug-mode step.
+  Both stay as built.
+- Settled by a scratch spike (November 9, 2026): the three capture assumptions for exercise 06.
+  The results are in spec.md under Exercise requirements.
 - Kept out of scope: gevent compatibility, and loop overload from too many asyncio tasks, which is not a blocking call.
 - Kept deferred: the codec and key-management blocker, and the registration guard (`flake8-async` covers part of it).

@@ -17,7 +17,8 @@ The failure-mode catalog that preceded this layout lives under `.ai-sessions/fai
 
 The repository is public.
 No committed file (code, prose, `.ai-sessions/` records, commit messages) may name a customer, a real or invented company, a namespace, a ticket number, or a specific field use case.
-Field evidence is summarized in aggregate only, as in `.ai-sessions/research-20261109-field-evidence.md`; raw research notes stay outside the repository.
+None may name an internal system, an internal document, or internal training or course material, course codes and runbooks included.
+Field evidence is summarized in aggregate only, as in `.ai-sessions/research-20261109-field-evidence.md`, without saying where it was gathered; raw research notes stay outside the repository.
 
 ## Layout
 
