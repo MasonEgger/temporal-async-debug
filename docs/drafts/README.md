@@ -10,6 +10,8 @@ The series title is "Debugging blocking calls in Temporal async Activities".
 Each part quotes only captured output.
 The captures came from the root package or from the exercise copy the part teaches.
 
+- `event-loop-primer.md`: an optional explanation of the asyncio event loop and what shares it in a Temporal Worker, read before part 1.
+  The primer is not a numbered part, because it teaches by explaining, not by running the demo.
 - `part-1-healthy-worker.md`: set up the demo, start a healthy Worker, and record the baseline readings.
 - `part-2-sync-http-client.md`: fix a blocking HTTP client in an `async def` Activity (exercise 01).
 - `part-3-sleep-between-heartbeats.md`: fix a sleep between heartbeats in an `async def` Activity (exercise 02).

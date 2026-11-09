@@ -30,7 +30,7 @@ The repository has four layers:
   The directory holds that one script, and it reproduces no whole run.
 - `observability/`: `docker-compose.yml` (Prometheus and Grafana only, docker-compose v1), `prometheus.yml`, and the provisioned `grafana/` dashboard.
 
-Other directories: `docs/drafts/` holds the six-part series drafts, `smell-reports.md` (the voice:teaching smell reports and open questions for Mason), and the provenance draft `tutorial-original-draft.md`; `docs/images/` holds the Grafana captures.
+Other directories: `docs/drafts/` holds the six-part series drafts, the optional unnumbered `event-loop-primer.md` (a Diataxis explanation page read before part 1), `smell-reports.md` (the voice:teaching smell reports and open questions for Mason), and the provenance draft `tutorial-original-draft.md`; `docs/images/` holds the Grafana captures.
 After Step 1 of the plan, the root package stays frozen: new code lands under `exercises/` or `observability/`.
 
 ## Antipattern marker convention

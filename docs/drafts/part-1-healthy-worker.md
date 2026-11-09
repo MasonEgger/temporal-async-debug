@@ -7,6 +7,7 @@ A Temporal Worker runs your Activities, and every `async def` Activity runs on o
 One blocking call on that loop can stop everything else the Worker does, including Workflows that have nothing to do with the broken code.
 This is part 1 of the series "Debugging blocking calls in Temporal async Activities".
 The series teaches one mechanism: how a call that blocks the event loop hurts a Worker, and how you find it.
+If you are new to the asyncio event loop, read the optional primer [Understanding the asyncio event loop in a Temporal Worker](event-loop-primer.md) first.
 
 In this tutorial, you set up the demo, start a healthy Worker, and run a fleet of Workflows that all complete.
 You read the Worker with Python's asyncio tools, `top`, `temporal task-queue describe`, and a Grafana dashboard.

@@ -12,6 +12,9 @@ You reproduce the failure, then diagnose it from outside the process.
 You use Python 3.14's native tooling (`python -m asyncio ps` and `pstree`), `py-spy dump`, the `temporal` command-line tool, and the Temporal SDK's Prometheus metrics.
 The code carries no instrumentation for the diagnosis.
 
+If you are new to the asyncio event loop, start with the optional primer [Understanding the asyncio event loop in a Temporal Worker](docs/drafts/event-loop-primer.md).
+It explains how `await` hands control back to the loop, what a blocking call does to it, and which parts of a Temporal Worker share it.
+
 Series: TODO (add the link when the series goes up).
 
 ## What is in this repository

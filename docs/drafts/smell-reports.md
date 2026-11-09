@@ -191,6 +191,45 @@ Should the images be recaptured over a longer run, or dropped in favor of the re
 - Resolved: the receipts-only and practice-fleet gap blocks name `just receipt-gaps <receipt workflow ID> ...`, and the README no longer tells the reader to subtract JSON event times by hand.
   The helper is committed.
 
+## docs/drafts/event-loop-primer.md
+
+Draft status: waits for Mason's review.
+Nothing here publishes.
+The copy-editor agent reviewed the first draft, and its reasoning-gap, overclaim, and diagram findings are applied.
+
+- Quote: `# Understanding the asyncio event loop in a Temporal Worker`
+  Rule: Diataxis type.
+  The page is an explanation, not a tutorial, so it has no Prerequisites section and no steps.
+  `MasonTechnical.Prerequisites` still suggests one, because `.vale.ini` applies `MasonTechnical` to all of `docs/drafts/`.
+- Quote: `The [Temporal Python documentation](...) puts it this way: "the event loop can only pass the flow of control when the `await` keyword is executed."`
+  Rule: `MasonBase.Passive` and `MasonBase.Modals` fire inside the two direct quotes from Temporal's documentation.
+  I left the quotes verbatim.
+- Quote: `await asyncio.sleep(work_seconds)` and `time.sleep(block_seconds)`
+  Rule: never generate new code.
+  Both lines come from the root package, dedented from their source indentation so they read on their own.
+- Quote: `Server->>Server: first Workflow Task times out after 10 seconds`
+  Rule: captures win.
+  The 10 seconds is the gap between `WorkflowTaskStarted` and `WorkflowTaskTimedOut` in the receipt history quoted in README.md (18:11:59 to 18:12:09).
+  The diagram simplifies the timing; the prose under it gives the real sequence.
+- Quote: `Python hands the GIL between threads every 5 milliseconds by default`
+  Rule: name a source.
+  `sys.getswitchinterval()` returned 0.005 under the repository's Python 3.14.3.
+- Quote: `Every poll result passes through the event loop thread, even when the work then runs somewhere else.`
+  Rule: claims checked against source.
+  The SDK's `_activity.py` dispatches a `def` Activity with `loop.run_in_executor`, and `_workflow.py` hands each activation to the Workflow Task pool the same way.
+  No capture shows a `def` Activity stalling during a freeze, because no exercise runs one next to a blocking `async def` Activity.
+
+<CLAUDE_HELP>
+Placement: the primer is unnumbered and linked from part 1's introduction and the root README's opening.
+If you want it as part 0 instead, the drafts README list and the part 1 link need one edit each.
+</CLAUDE_HELP>
+
+<CLAUDE_HELP>
+Diagram 3 shows `def` Activities dispatched from the loop to their own thread pool.
+That follows the SDK source, but no capture in this repository shows it.
+Keep the edge, or drop `def` Activities from the diagram so it shows only what the captures show?
+</CLAUDE_HELP>
+
 ## docs/drafts/part-1-healthy-worker.md
 
 Draft status: waits for Mason's review.

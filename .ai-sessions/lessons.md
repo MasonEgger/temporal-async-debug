@@ -2,6 +2,7 @@
 
 ## Recent
 
+- Before a page says what runs on the Python Worker's event loop, check the SDK source: Workflow code runs on the `workflow_task_executor` thread pool (`_workflow.py` `run_in_executor`), and only the hand-off and completion run on the loop; `def` Activities are also dispatched from the loop with `run_in_executor` (2026-11-09)
 - When a later step edits code that the drafts splice by line number, the FILE line ranges drift and the drafts stop rebuilding; re-run the draft build after any code step, not only at the prose step (2026-11-08)
 - A dashboard counter can silently miss a failure type: the failures panel plots `activity_timeout`, which never counts Heartbeat timeouts, so it hid the exercise 02 retry storm that `activity_task_timeout{timeout_type="Heartbeat"}` counts. Check that a panel shows the symptom the prose will cite before you write the prose (2026-11-08)
 - When a plan says a test runs against captures and no machine-readable capture exists, capture one live (`temporal workflow show --output json`) instead of reconstructing fixtures backward from the expected output; a fixture built to match the expected result makes a circular test. Step 15's first validator pass caught it (2026-11-08)
