@@ -98,7 +98,8 @@ The third ran exercise 03's solution copy eight times on one and two Workers to 
 On November 10, 2026 a check of this spec against the saved spike output found 13 figures that did not match it, three claims with no saved output behind them, and four that the saved output could not settle.
 This revision corrects them in place, and a claim with no saved output now says so.
 The owner ruled on four points the same day.
-The spec correction comes first; then the fleet checks that never ran (the dashboard and the Web UI with two Workers, `scripts/receipt_gaps.py` on a fleet's histories, and the after-fix flood) run as scratch spikes, and the builder reports them before writing the plan.
+The spec correction came first; then the fleet checks that had never run (the dashboard and the Web UI with two Workers, `scripts/receipt_gaps.py` on a fleet's histories, and the after-fix flood) ran as scratch spikes on November 10, 2026, with a second pass at exercise 03's placement.
+Their results are under Architecture and Exercise requirements, and the builder reports them to the owner before writing the plan.
 Exercise 02 still leads with the climbing Attempt count and names `TMPRL1101` without leading on it.
 The owner reviews once, after the build.
 The builder decides the open questions left from the earlier arcs and lists each choice in one pull request comment, where the owner can overrule any of them.
@@ -322,9 +323,12 @@ The six exercises, in teaching order (the Design principles say why the order is
   The second step shows the GIL as the limit and then lifts it with a second Worker process.
   On one Worker, `--bad 2` runs two CPU-bound `get_location` calls on two pool threads that share one GIL: in the spike one process read 60 to 100 percent CPU and each run took 59 to 60 seconds, about twice the 27 to 31 seconds a run takes with a GIL to itself.
   With a second Worker started, `--bad 4` fills all four Activity slots, two per Worker: in three spike invocations both processes read mostly 90 to 100 percent CPU, and each run took about 65 to 67 seconds (64.82 to 67.35).
-  The spike printed two `get_location` calls per identity in all three, but that printout was not saved; the saved durations fit it, and the build's capture records the placement.
-  Two processes did twice the hashing in about the same wall time, because each has its own GIL.
-  Decision: the two-Worker step runs four bad runs, not two, because the placement of two runs across two Workers varies (both on one Worker in the earlier README capture; in four spike invocations the durations of 27.04 to 30.52 seconds fit one per Worker, though the identity printout was not saved), and four runs fill every slot whatever the placement (owner ruling, November 9, 2026, on placement trouble: run more).
+  The spike printed two `get_location` calls per identity in all three, but that printout was not saved.
+  A rerun on November 10, 2026 saved it: two invocations of `--bad 4`, each with two `get_location` calls per identity, every one completing on its first attempt.
+  Those runs took 91.0 to 93.7 seconds each on a busier machine (a load average of 6.8 on four cores), and the build's capture records its own placement and timing.
+  Two processes did twice the hashing in well under twice the wall time, because each has its own GIL.
+  Four runs on two Workers took about 1.1 times as long as two runs on one Worker on November 9, and 1.3 to 1.4 times as long on the busier machine on November 10.
+  Decision: the two-Worker step runs four bad runs, not two, because the placement of two runs across two Workers varies (both on one Worker in the earlier README capture and in two saved invocations on November 10, 2026, at 67.5 and 71.6 seconds a run; in four spike invocations on November 9 the durations of 27.04 to 30.52 seconds fit one per Worker, though the identity printout was not saved), and four runs fill every slot whatever the placement (owner ruling, November 9, 2026, on placement trouble: run more).
   Decision: the single-Worker step never runs `--bad 4`, because the third and fourth runs would wait for a slot and finish close to the 150-second `schedule_to_close` (an estimate of about 120 seconds or more, twice the 59 to 60 seconds two runs took; not run).
   Decision: the second Worker is a step of the main fix path, no longer an optional section, because field evidence shows that moving CPU-bound work to threads alone falls short (owner ruling, November 9, 2026).
   Decision: the step is framed as GIL isolation (one GIL per process) and never as sizing a fleet for throughput, which stays a Non-goal (confirm the framing at review).
@@ -407,14 +411,21 @@ observability/
 `just metrics` runs `docker-compose -f observability/docker-compose.yml up -d`; `just metrics-down` tears it down.
 Grafana serves on `localhost:3000` with anonymous viewer access and the dashboard provisioned at startup; Prometheus serves on `localhost:9090`.
 The dashboard shows what a frozen loop does to the Worker over time: `temporal_activity_execution_latency`, `temporal_workflow_task_schedule_to_start_latency` and `temporal_workflow_task_execution_latency` (workflow tasks stall during a freeze), activity and workflow task failures and timeouts, `temporal_worker_task_slots_used` by `worker_type`, and the dev server's Task Queue backlog (metric names confirmed against the live `/metrics` output during the build; a panel whose metric the SDK or `start-dev` does not export is dropped and the README says so).
-Fleet-localization phase: Prometheus gains a third scrape target, 127.0.0.1:9466, the port the second Worker takes in exercises 03 and 06, and the dashboard gains one per-Worker panel, `temporal_worker_task_slots_used` for the `WorkflowWorker` type split by Prometheus `instance`.
+Fleet-localization phase: Prometheus gains a third scrape target, 127.0.0.1:9466, the port the second Worker takes in exercises 03 and 06, and the dashboard gains one per-Worker panel, `temporal_worker_task_slots_used{worker_type="WorkflowWorker", task_queue="async-debug-task-queue"}`, one line per Prometheus `instance`.
+Decision: the panel's query carries the Task Queue filter, because without it the query also returns six all-zero series from the dev server's own system Workers on 127.0.0.1:9465 (checked on November 10, 2026; confirm at review).
 Decision: the third target is always configured and reads as down whenever no second Worker runs, which is harmless in exercises 01, 02, 04, and 05; any README that shows the Prometheus targets page says so (confirm at review).
 Decision: the per-Worker view moves out of Deferred and into this phase, because the owner asked that the series' tools be checked in a fleet and which Worker freezes varies by run, so a dashboard that scrapes one Worker shows the freeze only when that Worker is the frozen one (confirm at review).
 The panel corroborates the histories and does not replace them.
 In the flood spike the frozen Worker's line climbed (31 of 100 Workflow Task slots in use 4 seconds into the freeze in one run, 95 of 100 later in another) while the healthy Worker's stayed low (its highest sampled reading was 3 to 6 across five freeze runs, against 95 or 96 on the frozen Worker), and the `ActivityWorker` gauge did not separate the two Workers (at most 2 in use on the frozen one, and up to 3 on the healthy one).
+In the fleet check of November 10, 2026, read from Prometheus at a 5-second step, the frozen Worker's line read 2, 5, 31, 59, 95, 95, 95, and then 1 after the thaw, and the healthy Worker's peaked at 5.
 The README words the panel as Workflow Tasks handed to a Worker that cannot complete them, and draws no slot-sizing lesson from it.
 Decision: the existing panel expressions stay as they are.
 The slots panel sums across Workers by `worker_type`, and the latency panels divide rates per series, so with two Workers scraped they draw one line per Worker; the 06 README says how each panel reads with two Workers, from its capture.
+In the fleet check of November 10, 2026 the existing panels read as follows.
+The slots panel's `WorkflowWorker` sum climbed to 100, and it does not say which Worker holds the tasks.
+The failures panel showed `ScheduleToClose` rising to 17, the count of failed receipts, with no Worker-side failure series.
+The backlog panel held two samples, both 0.
+The latency panels did not pick out the frozen Worker during the freeze; its Workflow Task execution line for receipts stayed near 7 ms and jumped to about 16 seconds only at the thaw.
 The compose file defines exactly two services, `prometheus` and `grafana`; a test asserts that.
 
 ### Receipt-gap helper identity view (fleet-localization phase)
@@ -429,7 +440,11 @@ A failed Activity is attributed to the identity on the `ActivityTaskStarted` tha
 A retried Activity's history keeps only its last attempt's `ActivityTaskStarted`, so an attempt that a frozen Worker swallowed before a retry completed elsewhere is not counted, and the README says so.
 Decision: a second flag, `--summary`, used with `--by-identity`, prints the per-identity summary alone, because a flood has about 500 receipt histories and the reader needs the lines at the end (confirm at review).
 The helper runs one `temporal workflow show` per history, so a flood's summary takes about 500 CLI calls; the README gives the wall time from its capture, and `--limit` bounds the run.
-Decision: the helper stays sequential unless that wall time is over about two minutes at the capture step, in which case it fetches histories on a small standard-library thread pool, which changes no output (confirm at review).
+Decision: the helper stays sequential, because the script as it stands read a flood's 518 receipt histories in 37.7 seconds on November 10, 2026, well under the two minutes that would have called for a thread pool.
+That run also showed what the default output leaves out on a fleet.
+No line names an identity or marks a failure, and 13 of the 17 failed receipts' lines print no Activity at all, because the helper prints completed Activities only.
+Of the 79 receipts with a Workflow Task timeout, 4 show a WT1 of 11 to 20 ms, because the timeout fell on a later Workflow Task.
+Decision: with `--by-identity`, each history's line therefore also reports a timeout on any of its Workflow Tasks, with the attributed identity, and marks an Activity that timed out or failed; the default output stays unchanged (confirm at review).
 `just receipt-gaps` passes the flag through unchanged.
 A rollup or geo history is read the same way when its Workflow ID is named, since the helper reads any history.
 
@@ -503,7 +518,8 @@ Both states are captured fresh from the copy (tool output, starter output, Worke
   After: the fleet completes with no timeouts; the loop stays live (bystanders complete while the computation runs); `py-spy dump` shows the computation on an executor thread holding the GIL and the main thread idle; `top` still shows the process near 100 percent.
   The second-Worker step (a required step of the fix) is captured in two runs, and the README quotes its own figures.
   One Worker with `--bad 2`: one process near 100 percent CPU, and each bad run takes about twice as long as a run with a GIL to itself (59 to 60 seconds against 27 to 31 in the spike).
-  Two Workers with `--bad 4`: both processes near 100 percent, two `get_location` calls started by each identity, and each run in about the time the two-run case took (about 65 to 67 seconds in the spike), so the fleet did twice the work in the same wall time.
+  Two Workers with `--bad 4`: both processes busy (mostly 90 to 100 percent CPU on November 9, and 30 to 100 percent on a busier machine on November 10), two `get_location` calls started by each identity, and each run in well under twice the time the two-run case took.
+  The spikes read about 65 to 67 seconds against 59 to 60 on November 9, and 91.0 to 93.7 against 67.5 to 71.6 on November 10, so the fleet did twice the work in 1.1 to 1.4 times the wall time.
   The README states the placement with counts from its capture and does not promise an even split.
 - 04-zombie-thread.
   Before: the bystanders complete (the loop is live), but the bad run's first attempt times out, the Worker log shows the thread's work still running and finishing after the server failed the attempt, and the retry's work overlaps it; `py-spy dump` shows the orphaned thread still inside the blocker after the failure.
@@ -513,7 +529,7 @@ Both states are captured fresh from the copy (tool output, starter output, Worke
   Before: every run completes and nothing times out, yet the receipts' first Workflow Task takes 298 to 394 ms where the healthy fleet takes 19 to 23 ms (the stall, read in `temporal workflow show`), asyncio debug mode logs a slow-callback warning at a few hundred milliseconds per run that names `_ActivityWorker._handle_start_activity_task`, and `py-spy` names the `zlib.compress` line.
   After: the receipts' first Workflow Task returns to milliseconds, debug mode logs no slow callback, and the probe test passes over every `async def` Activity in the copy.
 - 06-finding-the-frozen-worker.
-  The figures below come from the spikes of November 9, 2026; the README quotes its own captures, with counts, and never says "always".
+  The figures below come from the spikes of November 9 and 10, 2026; the README quotes its own captures, with counts, and never says "always".
   The design matrix, one 30-second freeze per run, with receipts as the bystanders:
 
   | Workers | Activity slots each | Receipt traffic | Receipts failed | Workflow Task timeouts |
@@ -561,6 +577,8 @@ Both states are captured fresh from the copy (tool output, starter output, Worke
   The frozen Worker's log gains 273 to 277 lines in a flood run (five runs), 95 or 96 of them "Task not found when completing" and 78 to 82 of them `TMPRL1104`.
   Nearly all arrive at the thaw; two runs logged one more line 4 to 5 seconds after it.
   The healthy Worker's log gains none, and a healthy flood adds no line to either log.
+  A seventh freeze run on November 10, 2026, made for the fleet checks, fell inside these ranges except in two timeline buckets: 17 of 518 receipts failed, 81 Workflow Tasks timed out on the frozen identity, and the rollup completed.
+  It had 3 failures among the receipts submitted 5 to 10 seconds after the freeze, where the three earlier runs had 4 to 8, and no slow receipt among those submitted 15 to 20 seconds after it, where they had 1 or 2.
   `TMPRL1101` appeared in no spike run at either scale, so the 06 README does not list it as a symptom of this exercise.
   The tools in a fleet, checked on two Workers at eight receipts and under the flood; Part B of the 06 README walks through them and quotes its own capture:
 
@@ -578,12 +596,25 @@ Both states are captured fresh from the copy (tool output, starter output, Worke
   - The slot gauges, per Worker: the frozen Worker's `WorkflowWorker` gauge climbs (31 of 100 in use 4 seconds into the freeze, 95 of 100 later in another run) and the healthy Worker's stays low (highest sampled reading 3 to 6 across five freeze runs).
     The `ActivityWorker` gauge reads at most 2 in use on the frozen Worker and up to 3 on the healthy one, so it does not separate them.
   - `scripts/receipt_gaps.py` without flags reads one history at a time and prints no identity, so it cannot say which Worker; `--by-identity` can.
-    The repository script was not run against a fleet's histories in these spikes (they used a scratch analyzer), so the fleet check that precedes the plan runs it.
+    Run as it stands on a flood's histories on November 10, 2026, it read 518 receipts in 37.7 seconds with `--limit 600`, and eight named IDs in 0.7 seconds.
+    Its lines show the stall without naming a Worker: 75 of the 79 receipts with a Workflow Task timeout show a WT1 near 10 or 20 seconds, and 53 lines show an Activity that waited about 6 seconds from scheduled to started, which is the retried attempt.
+    No line marks a failure, and 13 of the 17 failed receipts print no Activity.
+  - The Web UI, checked about four minutes after the thaw and not during the freeze: the Workflow list filtered to `ExecutionStatus = Failed` shows the 17 failed receipts, and a failed receipt's page shows `Activity task timed out` with both timeout causes.
+    The Task Queue page and a Workflow's Workers tab list both Workers with the same last-access second, so neither names the frozen Worker.
+    In the stalled receipt opened for the check, the `Workflow Task Timed Out` rows show no identity; the frozen identity is on that receipt's earlier `Workflow Task Completed` rows and in the sticky Task Queue name on its `Workflow Task Scheduled` rows.
+  - The dashboard, with both Workers scraped: only the per-Worker panel separates the two Workers, and the other panels read as listed under Observability.
   - The Worker log: only the frozen Worker prints "Task not found when completing" and `TMPRL1104`, at the thaw.
 
   The order of work changes with a fleet: in exercises 01 to 05 the reader starts at the process, and in exercise 06 the histories come first because they name the process.
-  After (the bad flood on the solution copy, two Workers): not measured in the spike.
-  Assumption: it matches the healthy flood (no failed receipt, no Workflow Task timeout, the slowest receipt about a second), with the lookup waiting out the lock on an executor thread.
+  After (the bad flood on the solution copy, two Workers): no receipt fails, no Workflow Task times out, and the lookup waits out the lock on an executor thread.
+  A solution-shaped scratch copy ran the bad flood six times on November 10, 2026.
+  In five of the runs 0 of 512 or 513 receipts failed, no Workflow Task timed out, the median receipt took 0.33 to 0.40 seconds, and the slowest took 0.55 to 1.25 seconds.
+  The rollup completed in all six, and in those five the bad run completed about 41 seconds into the flood, once the lock released.
+  `py-spy dump` showed each Worker's main thread idle in the selector and the lookup on a `ThreadPoolExecutor` thread inside `get_location`, and `temporal task-queue describe` read a backlog of 0.
+  One run was slow: the fourth of five back-to-back floods on one dev server, with the process tools attached.
+  None of its 528 receipts failed, but 260 took longer than 2 seconds (median 1.36 seconds, slowest 23.63) and one Workflow Task timed out.
+  The cause was not identified and the result did not recur: the next flood on the same server was clean, and so was a rerun with the tools attached on a fresh server.
+  Decision: each capture flood runs against a freshly started dev server, and the healthy flood stays the rate check (confirm at review).
   The README quotes what the capture shows; if a receipt fails or stalls after the fix, the build stops and this spec is corrected before the README is written.
   The README says what the dashboard adds: the per-Worker panel shows one Worker holding Workflow Tasks, after the histories have named it.
   It leads with the histories because after an incident they are often all there is.
