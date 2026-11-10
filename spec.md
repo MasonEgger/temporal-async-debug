@@ -15,9 +15,11 @@ Slot exhaustion, heartbeat and timeout tuning, and retry policy are general Temp
 The repo has three layers.
 The root package under `src/temporal_async_debug/` is the frozen-loop reference: a healthy fleet plus the `block` and `cpu` modes, documented lesson by lesson in `README.md`.
 `exercises/` holds six hands-on exercises in the Temporal 101/102 course layout (a `README.md`, a `practice/` copy with the bug, a `solution/` copy with the fix), five of them one per common way developers block the loop and the sixth on finding the frozen Worker in a fleet, so the reader observes the failure, finds it with the tooling, fixes the code, and verifies the fix.
+Exercises 01 to 05 run one Worker with two Activity slots, so one blocking call fails loudly, where the reader can see the mechanism; exercise 06 runs the same kind of bug under steady traffic on two Workers at the SDK's default slot counts, where the second Worker masks most of the damage.
 `observability/` holds a Prometheus and Grafana stack that graphs the SDK and dev-server metrics over time, so the effect of a frozen loop is visible as it happens instead of only as one-off `curl` readings.
 The repo is the companion to a seven-part tutorial series, "Debugging blocking calls in Temporal async Activities" (part 1 is the setup and healthy baseline, parts 2 to 7 are the six exercises); the publication venue is not yet chosen.
 It is a teaching artifact, not a maintained tool, and will never be published to PyPI.
+The code is built to teach one mechanism, so parts of it are simplified or altered to make a point, and it is not a template for a production system.
 
 ## Starting context
 
@@ -82,6 +84,17 @@ Every source independently flagged finding the frozen Worker in a fleet as the m
 The owner then ruled on the review's open items (November 9, 2026): the exercises keep their numbering, one shared recognition block is written once and linked from each exercise's Part B, four fold-ins land in exercises 01, 02, and 03 and in the primer, and the production loop-lag canary is deferred.
 On `TMPRL1101`, in the owner's words: "I don't think we need to lead with TMPRL1101 but if it's related we 100% need to mention it somewhere."
 A scratch spike of the two-Worker `sqlite3` design ran the same day (five freeze runs and one healthy run) and replaced the capture assumptions with results; see Exercise requirements.
+
+That spike also showed that a second Worker turns the loud failure of exercises 01 to 05 into a partial stall, and the owner ruled on the single-Worker shape the same day (November 9, 2026).
+In the owner's words: "I think it's totally reasonable to leave single worker for the beginning, then in the final exercise show a real world scenario where the results are hard to figure out."
+On how the final exercise opens: "Now if everything in the real world crashed this easy, that would be great. But it doesn't, there are more workers. These errors can mask".
+On the code, the owner pointed to the note that the Temporal 101 and 102 course material carries: "this code is for teaching purposes, so things may be incorrect or altered to demonstrate a point".
+On the tooling: "We also need to make sure our tools/suggestions work in a multi-worker environment and still give us the results we expect."
+On scale: "If we are having issues with placement, just run more exercises. If we need more size to show the issues, flood it.", and "if we need a flood or tsunami to see this at 06 let's architect that out. Because in reality, an issue that only happens at that scale is all the more damaging for customers."
+Three more scratch spikes ran that day, and their results are under Architecture and Exercise requirements.
+The first checked every tool the series teaches against two Workers, at eight receipts and under a flood.
+The second was a design matrix for exercise 06's flood: bursts and steady traffic, two and four Workers, two and 100 Activity slots, ending in six freeze runs and one healthy run of the chosen design.
+The third ran exercise 03's solution copy eight times on one and two Workers to settle the second-Worker step.
 
 ## Invariants
 
@@ -159,9 +172,10 @@ These are candidates only, not tools declared in the session pool; fold one into
 - event-loop-exercises: trim the root catalog to the frozen-loop reference, then the five practice/solution exercises, the Prometheus and Grafana stack, fresh before-and-after captures, the root README and CLAUDE.md refresh, and the six-part tutorial series drafts.
   This is the current arc (see Architecture, Exercise requirements, Observability requirements, Test requirements, and Documentation requirements below).
 - fleet-localization: teach the skill a production reader needs before any process tooling, finding which Worker in a fleet froze, from the Worker identity in Event Histories.
-  A new exercise, 06-finding-the-frozen-worker, runs two Workers with a synchronous `sqlite3` lookup blocking one of them, `scripts/receipt_gaps.py` gains an opt-in identity view, and a seventh draft carries the exercise plus a short note on production fleets.
-  Builds on event-loop-exercises (see the fleet-localization items under Architecture, Exercise requirements, Test requirements, and Documentation requirements below).
-  The phase also carries the review rulings of November 9, 2026: the shared recognition block, and the fold-ins in exercises 01, 02, and 03 and in the event loop primer.
+  A new exercise, 06-finding-the-frozen-worker, runs steady receipt traffic on two Workers at the SDK's default slot counts with a synchronous `sqlite3` lookup blocking one of them, so a few percent of the receipts fail and the rest mostly hide it.
+  `scripts/receipt_gaps.py` gains an opt-in identity view, Prometheus gains a third scrape target and the dashboard a per-Worker panel, and a seventh draft carries the exercise plus a short note on production fleets.
+  Builds on event-loop-exercises (see the fleet-localization items under Architecture, Exercise requirements, Observability requirements, Test requirements, and Documentation requirements below).
+  The phase also carries the rulings of November 9, 2026: the shared recognition block, the fold-ins in exercises 01, 02, and 03 and in the event loop primer, the teaching-code note in the root README, and the single-Worker sentence in exercises 01 to 05.
 
 **Deferred:** (a lab mode turning the demo into a whodunit; decisions recorded September 2026, build deferred until after the tutorial publishes)
 
@@ -186,7 +200,7 @@ These are candidates only, not tools declared in the session pool; fold one into
 
 - A registration guard: a short CI test that fails when any Activity registered on the Worker is `async def`, answering a recurring field question and following Temporal's default-to-`def` guidance. Trigger: the owner's ruling after the fleet-localization research; it would sit beside exercise 05's probe test, which already filters registered Activities with `inspect.iscoroutinefunction`.
 - A blocking payload codec or data converter as a way to freeze the loop, named in field guidance but never confirmed as a root cause. Trigger: a confirmed field case, or a seventh part after the series publishes.
-- A per-Worker Grafana view (a third scrape target for the second Worker's port, split by Prometheus `instance`). Trigger: the owner relaxes the two-target invariant; until then the second Worker is not scraped and the histories, not the dashboard, localize the freeze.
+- A flood on more than two Workers or faster than 10 receipts per second. Trigger: a capture machine that holds a flat healthy baseline at that load; on the spike machine 30 receipts per second overloaded the run, and four Workers at 10 per second cut the failures to 11 of 512, so two Workers at 10 per second is the shape exercise 06 ships.
 - A production loop-lag canary: a background task that measures how late the loop wakes it and exports the lag, the production counterpart to exercise 05's CI probe (one team in the field evidence built its own). Trigger: the owner lifts the Non-goal against shipping a watchdog or maintained tooling, or a part after the series publishes covers production monitoring; until then exercise 05 keeps the probe test and asyncio debug mode (owner ruling, November 9, 2026).
 
 ## Design principles
@@ -213,6 +227,10 @@ These are candidates only, not tools declared in the session pool; fold one into
   No fix introduces a dependency or a pattern the docs discourage.
 - Each exercise copy is small.
   A copy carries only the code its exercise needs and the bystander fleet, so the reader reads one failure, not the whole catalog.
+- Loud first, then realistic.
+  Exercises 01 to 05 run one Worker with two Activity slots, so a single blocking call fails where the reader can see it.
+  Exercise 06 puts the same kind of bug in a two-Worker fleet under steady traffic, where it is partly masked, because that is how it arrives in production.
+  The simplification is stated to the reader, never hidden.
 
 ## Foundation already in place
 
@@ -260,7 +278,9 @@ exercises/
 
 Each `practice/` and `solution/` directory is a flat, standalone copy in the 102 shape: `shared.py`, `activities.py`, `workflow.py`, `receipt.py`, `rollup.py`, `worker.py`, `starter.py`, and `tests/`, plus any file named for that exercise below.
 It runs from its own directory with `uv run python worker.py` and `uv run python starter.py ...`, using the root project's virtual environment (the root `pyproject.toml` is the only one; copies are scripts, not packages).
-A copy replaces the root's `block`/`cpu` switch with its exercise's bug, keeps the bystander fleet (receipts and rollups), and keeps the starter's freeze ordering so the blast radius is visible the same way in every exercise.
+A copy replaces the root's `block`/`cpu` switch with its exercise's bug and keeps the bystander fleet (receipts and rollups).
+Exercises 01 to 05 keep the starter's freeze ordering, one Worker, and the root's `max_concurrent_activities=2`, so one blocking call takes the whole fleet down and the blast radius is visible the same way in each.
+That shape is a teaching choice, and each of those READMEs says so in one sentence (see Documentation requirements); exercise 06 swaps it for steady traffic on two Workers at the SDK's default slot counts.
 `practice/` keeps the antipattern marker for its bug and adds `# TODO PART X:` comments at every line the README asks the reader to change, including a `TODO` test stub in `tests/`.
 `solution/` is the completed copy: no antipattern, no marker, the reader's test implemented and green.
 
@@ -291,7 +311,12 @@ The six exercises, in teaching order (the Design principles say why the order is
   The fix has two required steps.
   The first is the `def` plus executor change from 01: the work runs on a pool thread and the loop stays live, while `top` still shows the process near 100 percent.
   The README says what that step leaves unsolved: the pool thread still holds the GIL while it computes, so the loop is free but the process gains no CPU parallelism.
-  The second step starts a second Worker process and re-runs the fleet: each process has its own GIL, so two CPU-bound runs progress at once with the combined CPU above 100 percent.
+  The second step shows the GIL as the limit and then lifts it with a second Worker process.
+  On one Worker, `--bad 2` runs two CPU-bound `get_location` calls on two pool threads that share one GIL: in the spike one process read 60 to 100 percent CPU and each run took 59 to 60 seconds, about twice the 27 to 31 seconds a run takes with a GIL to itself.
+  With a second Worker started, `--bad 4` fills all four Activity slots, two per Worker: in three of three spike runs each identity started two `get_location` calls, both processes read mostly 90 to 100 percent CPU, and each run took 65 to 68 seconds.
+  Two processes did twice the hashing in about the same wall time, because each has its own GIL.
+  Decision: the two-Worker step runs four bad runs, not two, because the placement of two runs across two Workers varies (one per Worker in four of four spike runs, both on one Worker in the earlier README capture), and four runs fill every slot whatever the placement (owner ruling, November 9, 2026, on placement trouble: run more).
+  Decision: the single-Worker step never runs `--bad 4`, because the third and fourth runs would wait for a slot and finish at about 130 seconds against the 150-second `schedule_to_close`.
   Decision: the second Worker is a step of the main fix path, no longer an optional section, because field evidence shows that moving CPU-bound work to threads alone falls short (owner ruling, November 9, 2026).
   Decision: the step is framed as GIL isolation (one GIL per process) and never as sizing a fleet for throughput, which stays a Non-goal (confirm the framing at review).
   The second Worker needs its own Prometheus port, so `worker.py` in both copies reads an `ASYNC_DEBUG_METRICS_PORT` environment variable (default 9464) and the step runs from the repository.
@@ -307,38 +332,60 @@ The six exercises, in teaching order (the Design principles say why the order is
   The symptom is the receipts' first Workflow Task gap, from `WorkflowTaskStarted` to `WorkflowTaskCompleted` in `temporal workflow show`: 298 to 394 ms in the captures where the healthy fleet shows 19 to 23 ms.
   This is the one detection lesson in the series and the only exercise that misbehaves without failing.
   Part A runs the healthy fleet and then this one and compares the receipt timings; Part B runs the Worker with asyncio debug mode, captures the slow-callback warning, which names the SDK handler `_ActivityWorker._handle_start_activity_task` rather than `get_location`, and confirms the line with `py-spy`; Part C moves the work off the loop; Part D adds the starvation-probe test over every registered `async def` Activity as the regression guard that would have caught it in CI.
-- 06-finding-the-frozen-worker (fleet-localization phase): the fleet runs as two Workers on the one Task Queue, and the reader has to find the frozen one from the Event Histories before attaching any process tool, because a production fleet does not hand over the PID that the single Worker's banner prints in exercises 01 to 05.
+- 06-finding-the-frozen-worker (fleet-localization phase): the real-world shape of the bug the first five exercises teach.
+  Exercises 01 to 05 run one Worker with two Activity slots, so one blocking call fails loudly.
+  A production fleet has more Workers and far more slots, the healthy Workers absorb most of the work, and the same frozen loop shows up as a few percent of failed Workflows and a band of slow ones.
+  The exercise runs steady receipt traffic on two Workers on the one Task Queue, and the reader has to find the frozen Worker from the Event Histories before attaching any process tool, because a production fleet does not hand over the PID that the single Worker's banner prints in exercises 01 to 05.
+  Decision: the 06 README opens with that contrast, in the owner's framing (a failure this easy to see would be welcome in production, but more Workers mask it), and exercises 01 to 05 point forward to it (owner ruling, November 9, 2026).
   Decision: this is its own exercise, not a step inside 01, because localization is a distinct skill (reading a partial stall across a fleet and grouping it by Worker identity) that field evidence showed readers need, and folding it into 01 would make 01 carry two lessons (owner ruling, November 9, 2026).
   Decision: the exercise is numbered 06 and appended after 05, so no existing directory, README, or draft is renumbered, and the series is not reordered by field frequency (owner ruling, November 9, 2026).
   The bug: `get_location` is an `async def` Activity that looks up a cached location through the standard library's `sqlite3` driver, a synchronous database call, and the bad run's input makes that lookup wait on a database lock the starter holds for the configured delay.
   Decision: `sqlite3` is the blocker because synchronous database drivers are a common blocker in the field, it adds no dependency, and a lock wait gives the idle-CPU freeze of a call that waits rather than computes.
-  A scratch spike confirmed the design before the plan was written (five two-Worker freeze runs and one healthy run, November 9, 2026): the lock wait froze only the Worker that ran the bad run's `get_location`, for 29.4 to 30.0 seconds against a 30-second delay, both Workers read 0.0 percent CPU in state `S` at every sample, and every Workflow completed.
-  Which Worker freezes changes from run to run (the second Worker in three spike runs, the first in two), so the README never names one in advance.
+  Two scratch spikes shaped the design before the plan was written (November 9, 2026).
+  The first ran five freeze runs and one healthy run of eight receipts on two Workers with two Activity slots each: the lock wait froze only the Worker that ran the bad run's `get_location`, for 29.4 to 30.0 seconds against a 30-second delay, both Workers read 0.0 percent CPU in state `S` at every sample, and every Workflow completed.
+  Nothing failed at that scale, so the second spike varied the load and the slot counts and settled the flood described below; its matrix is under Exercise requirements.
+  Which Worker freezes changes from run to run (the second Worker in three of the small runs and the first in two, and it varied across the flood runs as well), so the README never names one in advance.
   The lock lives in `db_lock.py`: a holder thread in the starter opens a temporary database file in rollback-journal mode and holds a `BEGIN EXCLUSIVE` transaction, and `get_location` connects with a `timeout` longer than the hold, so its `SELECT` waits where a shorter timeout would raise `database is locked`.
   Decision: the hold is counted from the moment the starter submits the bad run, so the freeze is a little shorter than `--block-seconds` (confirm at review).
   Decision: `get_ip` keeps the root package's async client, so the `sqlite3` lookup is the copy's only blocker; the spike was built on the 01 practice copy, whose synchronous client added a half-second first Workflow Task to three receipts in the healthy run (confirm at review).
   The lock lives only for the bad run, so healthy runs on either Worker finish fast and the bug hides in development, the same "it worked in dev" shape as 01.
   `worker.py` in both copies reads `ASYNC_DEBUG_METRICS_PORT` exactly as exercise 03's does (default 9464), and the second Worker starts with `ASYNC_DEBUG_METRICS_PORT=9466 uv run python worker.py` from the same directory.
-  The second Worker is not scraped; Prometheus keeps its two targets.
-  Decision: the starter keeps the freeze ordering and the bystander fleet, and `--receipts` defaults to 8 so receipts land on both Workers; in each of the five spike runs four of the eight had their first Workflow Task on the frozen Worker.
+  Prometheus scrapes both Workers: `observability/prometheus.yml` gains 127.0.0.1:9466 as a third target (see Observability).
+  Decision: the 06 copies run the SDK's default slot counts, 100 Activity slots and 100 Workflow Task slots in temporalio 1.33.0, in place of the root's `max_concurrent_activities=2` (confirm at review).
+  The setting of 2 exists only to keep a single Worker's readings short, a real Worker runs the defaults, and the spike needed them: with two Activity slots no receipt failed at any load, and with the defaults a few percent failed in every freeze run.
+  The practice copy passes no `max_concurrent_activities`.
+  The solution copy sets its constant to 100, the SDK default, with a plain comment, so its `ThreadPoolExecutor` is sized to it.
+  Decision: the 06 starter is a flood, not the freeze ordering (owner ruling, November 9, 2026: "If we need more size to show the issues, flood it."; confirm the shape and the defaults at review).
+  It submits receipts at a steady rate for the whole run: `--rate` receipts per second (default 10), for `--lead` seconds before the bad run (default 10), through the freeze of `--block-seconds` (default 30), and for `--tail` seconds after the bad run returns (default 10), about 500 receipts in all.
+  After the lead it submits `--rollups` rollups (default 1), waits 1 second, submits `--bad` bad runs (default 1), and waits until the server reports the bad run's `get_location` STARTED.
+  That moment is the confirmed freeze, the zero point of the starter's timeline.
+  `--bad 0` is the healthy flood: the same stream for the same length with no lock held.
+  Decision: steady traffic, not a burst.
+  A burst of 100 or 500 receipts overloaded the healthy Worker and hid the effect (with 100 slots a burst of 500 failed nothing while the median receipt took 13 seconds), and 10 receipts per second held a flat baseline on the spike machine where 30 per second did not.
+  Decision: the healthy flood is the rate check.
+  If its slowest receipt takes longer than about 1 second, the reader lowers `--rate` before running the bad flood, and the README says so (confirm at review).
+  Decision: the starter prints a closing summary in place of a line per Workflow.
+  The summary holds the receipts submitted, how many failed, the first failure's message, the outcome of the rollup and of the bad run, and a timeline by submit time relative to the confirmed freeze, in 5-second buckets with the count, the failed count, the count slower than 2 seconds, and the median and slowest latency for each.
+  The flood plan (when each receipt is due, for a rate and a duration) and the summary (the bucketing and the counts, from a list of results) are pure functions, so both are unit tested without a server.
   Decision: the exercise's recipe runs one rollup (confirm at review).
-  With two rollups in flight, one spike run had both of the healthy Worker's Activity slots held for 5 seconds and three healthy receipts waited 3.2 seconds for a slot; that is slot noise, which the Scope invariant keeps out of every lesson, and with one rollup or none the healthy Worker's receipts were clean.
-  Decision: the starter's bystander gate asks the server, not the metrics port (confirm at review).
-  The inherited gate scrapes port 9464 for a busy Activity slot, and in two spike runs it waited its full 20 seconds and printed its warning, because the rollup's Activity ran on the other Worker or the run had no rollup.
-  The 06 starter waits until the server reports the rollup's Activity STARTED, the check the freeze ordering already uses for the bad run's `get_location`, so the gate does not depend on which Worker took the task.
-  Part A runs the two-Worker fleet and reads the partial stall as an operator meets it: nothing fails, about half the receipts are fast, the rest finish late in steps of about 10 seconds, and both Workers are still listed among the Task Queue's pollers.
-  Part B localizes the freeze with `just receipt-gaps --by-identity`: the frozen Worker is the identity on the `WorkflowTaskStarted` before each `WorkflowTaskTimedOut`, and on the bad run's `ActivityTaskStarted` for `get_location`.
+  The rollup failed in two of the five flood freeze runs that recorded it, so the README promises neither outcome.
+  Decision: the flood has one gate, the server-side check that the bad run's `get_location` has STARTED, which the freeze ordering already uses (confirm at review).
+  The inherited bystander gate scrapes port 9464 for a busy Activity slot, and with two Workers it fails open: in two of the small spike runs it waited its full 20 seconds and printed its warning, because the rollup's Activity ran on the other Worker.
+  The flood drops that gate, since its receipts are already in flight when the freeze lands.
+  Part A runs the healthy flood and then the bad flood on the two-Worker fleet, and reads the result as an operator meets it: most receipts are fast, a few percent fail with an Activity timeout, a band of receipts submitted around the freeze finishes late, the fleet looks clean again while one Worker is still frozen, and both Workers are still listed among the Task Queue's pollers.
+  Part B localizes the freeze with `just receipt-gaps --by-identity --summary`: one identity holds every Workflow Task timeout and every failed Activity.
+  The frozen Worker is the identity on the `WorkflowTaskStarted` before each `WorkflowTaskTimedOut`, on the `ActivityTaskStarted` of each timed-out receipt Activity, and on the bad run's `ActivityTaskStarted` for `get_location`.
   The reader takes the PID from that identity (`PID@host`), and only then attaches `asyncio ps` and `py-spy dump` to that process, while the other Worker's `asyncio ps` shows no task dead-ended.
   Part B also reads the two Worker logs: the frozen Worker prints its "Task not found when completing" warnings together at the thaw, and the other Worker prints none.
-  Part B ends with a short note on production fleets (see Documentation requirements).
-  Part C finds the `sqlite3` call; Part D writes the probe test and applies the 01 fix (`def` Activities on a sized `ThreadPoolExecutor`); Part E re-runs the two-Worker fleet and reads fast receipts on both identities.
+  Part B then checks the tools from the earlier exercises against the fleet (see "The tools in a fleet" under Exercise requirements) and ends with a short note on production fleets (see Documentation requirements).
+  Part C finds the `sqlite3` call; Part D writes the probe test and applies the 01 fix (`def` Activities on a sized `ThreadPoolExecutor`); Part E re-runs the bad flood on the two-Worker fleet and reads the summary and the per-identity view again.
 
 ### Observability
 
 ```text
 observability/
   docker-compose.yml         Prometheus and Grafana only, docker-compose v1 syntax, host networking on Linux
-  prometheus.yml             scrapes 127.0.0.1:9464 (SDK) and 127.0.0.1:9465 (dev server)
+  prometheus.yml             scrapes 127.0.0.1:9464 (SDK), 127.0.0.1:9465 (dev server), and 127.0.0.1:9466 (a second Worker, when one runs)
   grafana/provisioning/      datasource (Prometheus) and dashboard provider
   grafana/dashboards/        one provisioned dashboard JSON
 ```
@@ -347,6 +394,14 @@ observability/
 `just metrics` runs `docker-compose -f observability/docker-compose.yml up -d`; `just metrics-down` tears it down.
 Grafana serves on `localhost:3000` with anonymous viewer access and the dashboard provisioned at startup; Prometheus serves on `localhost:9090`.
 The dashboard shows what a frozen loop does to the Worker over time: `temporal_activity_execution_latency`, `temporal_workflow_task_schedule_to_start_latency` and `temporal_workflow_task_execution_latency` (workflow tasks stall during a freeze), activity and workflow task failures and timeouts, `temporal_worker_task_slots_used` by `worker_type`, and the dev server's Task Queue backlog (metric names confirmed against the live `/metrics` output during the build; a panel whose metric the SDK or `start-dev` does not export is dropped and the README says so).
+Fleet-localization phase: Prometheus gains a third scrape target, 127.0.0.1:9466, the port the second Worker takes in exercises 03 and 06, and the dashboard gains one per-Worker panel, `temporal_worker_task_slots_used` for the `WorkflowWorker` type split by Prometheus `instance`.
+Decision: the third target is always configured and reads as down whenever no second Worker runs, which is harmless in exercises 01, 02, 04, and 05; any README that shows the Prometheus targets page says so (confirm at review).
+Decision: the per-Worker view moves out of Deferred and into this phase, because the owner asked that the series' tools be checked in a fleet and which Worker freezes varies by run, so a dashboard that scrapes one Worker shows the freeze only when that Worker is the frozen one (confirm at review).
+The panel corroborates the histories and does not replace them.
+In the flood spike the frozen Worker's line climbed (31 of 100 Workflow Task slots in use 4 seconds into the freeze in one run, 95 of 100 later in another) while the healthy Worker's stayed at 0 to 2, and the `ActivityWorker` gauge did not separate the two Workers (1 or 2 in use on the frozen one).
+The README words the panel as Workflow Tasks handed to a Worker that cannot complete them, and draws no slot-sizing lesson from it.
+Decision: the existing panel expressions stay as they are.
+The slots panel sums across Workers by `worker_type`, and the latency panels divide rates per series, so with two Workers scraped they draw one line per Worker; the 06 README says how each panel reads with two Workers, from its capture.
 The compose file defines exactly two services, `prometheus` and `grafana`; a test asserts that.
 
 ### Receipt-gap helper identity view (fleet-localization phase)
@@ -356,7 +411,12 @@ Decision: the identity view is opt-in behind one flag, `--by-identity`, so the d
 With the flag, each history's line also prints the Worker identity from the first `WorkflowTaskStarted`, from the `WorkflowTaskStarted` that completed WT1 when a retry moved it, and from each `ActivityTaskStarted` with its `attempt`.
 It also prints the `attempt` recorded on the `WorkflowTaskScheduled` that completed WT1, because the server writes no events for the retries in between: after a `WorkflowTaskTimedOut`, the next scheduled event in history is the attempt that completed (attempt 2 or 3 in the spike).
 A timeout is attributed to the identity on the `WorkflowTaskStarted` before it, since `WorkflowTaskTimedOut` carries no identity, and that holds for a later Workflow Task as well as the first (a rollup stalls this way through sticky affinity).
-After the per-history lines it prints one summary line per identity: how many first Workflow Tasks it started, the largest WT1, and how many Workflow Task timeouts it holds.
+After the per-history lines it prints one summary line per identity: how many first Workflow Tasks it started, how many Workflow Task timeouts it holds, how many Activities failed on it, and the largest WT1.
+A failed Activity is attributed to the identity on the `ActivityTaskStarted` that shares its scheduled event with the `ActivityTaskTimedOut` or `ActivityTaskFailed`.
+A retried Activity's history keeps only its last attempt's `ActivityTaskStarted`, so an attempt that a frozen Worker swallowed before a retry completed elsewhere is not counted, and the README says so.
+Decision: a second flag, `--summary`, used with `--by-identity`, prints the per-identity summary alone, because a flood has about 500 receipt histories and the reader needs the lines at the end (confirm at review).
+The helper runs one `temporal workflow show` per history, so a flood's summary takes about 500 CLI calls; the README gives the wall time from its capture, and `--limit` bounds the run.
+Decision: the helper stays sequential unless that wall time is over about two minutes at the capture step, in which case it fetches histories on a small standard-library thread pool, which changes no output (confirm at review).
 `just receipt-gaps` passes the flag through unchanged.
 A rollup or geo history is read the same way when its Workflow ID is named, since the helper reads any history.
 
@@ -428,7 +488,10 @@ Both states are captured fresh from the copy (tool output, starter output, Worke
 - 03-cpu-bound.
   Before: the root `cpu` signature from this copy (frozen shape, 100 percent CPU, `py-spy` in the compute loop, the rollup failure).
   After: the fleet completes with no timeouts; the loop stays live (bystanders complete while the computation runs); `py-spy dump` shows the computation on an executor thread holding the GIL and the main thread idle; `top` still shows the process near 100 percent.
-  With the second Worker process started (a required step of the fix), two `cpu` runs progress at the same time with the combined CPU above 100 percent (confirmed in the capture).
+  The second-Worker step (a required step of the fix) is captured in two runs, and the README quotes its own figures.
+  One Worker with `--bad 2`: one process near 100 percent CPU, and each bad run takes about twice as long as a run with a GIL to itself (59 to 60 seconds against 27 to 31 in the spike).
+  Two Workers with `--bad 4`: both processes near 100 percent, two `get_location` calls started by each identity, and each run in about the time the two-run case took (65 to 68 seconds in the spike), so the fleet did twice the work in the same wall time.
+  The README states the placement with counts from its capture and does not promise an even split.
 - 04-zombie-thread.
   Before: the bystanders complete (the loop is live), but the bad run's first attempt times out, the Worker log shows the thread's work still running and finishing after the server failed the attempt, and the retry's work overlaps it; `py-spy dump` shows the orphaned thread still inside the blocker after the failure.
   The two startup traps are captured verbatim: the error from a `def` Activity with no `activity_executor`, and the warning from an executor smaller than `max_concurrent_activities`.
@@ -437,26 +500,74 @@ Both states are captured fresh from the copy (tool output, starter output, Worke
   Before: every run completes and nothing times out, yet the receipts' first Workflow Task takes 298 to 394 ms where the healthy fleet takes 19 to 23 ms (the stall, read in `temporal workflow show`), asyncio debug mode logs a slow-callback warning at a few hundred milliseconds per run that names `_ActivityWorker._handle_start_activity_task`, and `py-spy` names the `zlib.compress` line.
   After: the receipts' first Workflow Task returns to milliseconds, debug mode logs no slow callback, and the probe test passes over every `async def` Activity in the copy.
 - 06-finding-the-frozen-worker.
-  Before (two Workers): nothing fails, and the run is a partial stall.
-  The figures below come from the five spike runs of eight receipts each; the README quotes its own capture, with counts, and never says "always".
-  The frozen Worker keeps receiving dispatches, because its Rust-core pollers keep long-polling: in every spike run four of the eight receipts had their first Workflow Task started on the frozen Worker, and each timed out at the 10-second default Workflow Task timeout.
-  A retry can go to either Worker, so the stalled receipts finish in steps: two at about 10 seconds and one at about 20 seconds, each completed by the healthy Worker, and one at 28 to 29 seconds, whose retry started on the frozen Worker again and completed at the thaw.
-  The server writes no history events for the retries in between, so a stalled receipt's history holds one `WorkflowTaskTimedOut` and then a `WorkflowTaskScheduled` whose `attempt` is 2 or 3.
-  Receipts whose first Workflow Task started on the healthy Worker complete in under half a second.
-  `just receipt-gaps --by-identity` over the run's receipts names one Worker identity on every `WorkflowTaskStarted` that precedes a timeout, and the same identity is on the bad run's `ActivityTaskStarted` for `get_location`.
-  The bad run's first Workflow Task is not the signal: the healthy Worker started it in three of the five runs.
-  The reader takes the PID from that identity (`PID@host`) and attaches `asyncio ps` and `py-spy dump` to that process only; the other Worker's `asyncio ps` shows no task dead-ended.
+  The figures below come from the spikes of November 9, 2026; the README quotes its own captures, with counts, and never says "always".
+  The design matrix, one 30-second freeze per run, with receipts as the bystanders:
+
+  | Workers | Activity slots each | Receipt traffic | Receipts failed | Workflow Task timeouts |
+  |---|---|---|---|---|
+  | 2 | 2 | burst of 8 (five runs) | 0 | 4 per run |
+  | 2 | 2 | burst of 100 | 0 | 53 |
+  | 2 | 2 | burst of 500 | 0 | not counted; the healthy Worker was overloaded |
+  | 2 | 100 | burst of 8 | 1 | 4 |
+  | 2 | 100 | burst of 100 | 27 | 52 |
+  | 2 | 100 | burst of 500 | 0 | not counted; the healthy Worker was overloaded |
+  | 2 | 100 | 10 per second (six runs) | 17 to 22 of 512 to 520 | 77 to 84 |
+  | 2 | 100 | 10 per second, no bad run | 0 of 521 | 0 |
+  | 4 | 100 | 10 per second | 11 of 512 | 55 |
+
+  A four-Worker run at 30 receipts per second overloaded the spike machine and is discarded.
+  The chosen design is two Workers, the default slot counts, and 10 receipts per second.
+  Healthy flood (`--bad 0`, two Workers): no receipt fails, no Workflow Task times out, and receipts stay fast for the whole run.
+  In the spike 0 of 521 failed, the median receipt took 0.36 to 0.38 seconds, the slowest took 0.90 seconds, and neither Worker's log gained a line.
+  Before (the bad flood on the practice copy, two Workers): a few percent of the receipts fail, and most of the rest are fast.
+  In the six freeze runs 17 to 22 of 512 to 520 receipts failed (3.3 to 4.3 percent), each with "activity ScheduleToClose timeout" caused by "activity StartToClose timeout".
+  The mechanism is the one exercises 01 to 03 show, thinned out by the second Worker.
+  The frozen Worker's Rust-core pollers keep taking tasks, an Activity task it takes never runs and times out at the receipt's 5-second `start_to_close`, and the retry can go to either Worker, so a receipt fails only when its retry lands on the frozen Worker again and the 10-second `schedule_to_close` runs out.
+  One swallowed attempt costs about 6 seconds (the 95th-percentile wait from scheduled to started was 6.04 to 6.05 seconds in three runs), which is why many more receipts are slow than fail.
+  The frozen Worker takes Workflow Tasks the same way: 77 to 84 timed out per run at the 10-second default, every one started by the frozen identity.
+  The server writes no history events for the retries in between, so a stalled receipt's history holds one `WorkflowTaskTimedOut` and then a `WorkflowTaskScheduled` whose `attempt` is 2 or 3 (in three runs the highest attempt was 1 for 438 to 442 receipts, 2 for 58 to 65, and 3 for 12 to 18).
+  The timeline is the shape the reader learns to recognize, and the starter's summary prints it.
+  Counted by submit time relative to the confirmed freeze, in three runs with about 50 receipts per 5-second bucket: the failures fall on receipts submitted from 5 seconds before the freeze to 10 seconds after it (1 to 2, then 12 to 13, then 4 to 8 per bucket).
+  Of the receipts submitted in the first 10 seconds of the freeze, 44 to 49 of every 50 took longer than 2 seconds; in the next 5 seconds, 39 to 44 of 50; in the 5 after that, 1 or 2; and from 20 seconds on, none, although the Worker stayed frozen for 10 more seconds.
+  The slowest receipt took 20.7 to 21.5 seconds, and after the thaw the median was 0.35 to 0.38 seconds.
+  So the fleet looks recovered before the freeze ends, which is how a frozen Worker goes unnoticed.
+  Decision: the README reports that timeline from its capture and may give the cause in one sentence marked as inferred: a frozen Worker takes only so many tasks before it stops asking for more, and the healthy Worker carries the rest.
+  It measures nothing about slots and teaches no slot lesson, per the Scope invariant (confirm the wording at review).
+  With four Workers the failures dropped to 11 of 512 and spread across the whole 30 seconds, so more Workers mask more; the README may say so in one sentence without a capture of its own.
+  `just receipt-gaps --by-identity --summary` over the run's receipts names one identity for every Workflow Task timeout and every failed Activity, and the other identity holds none (all six runs).
+  The same identity is on the bad run's `ActivityTaskStarted` for `get_location`.
+  The bad run's first Workflow Task is not the signal: the healthy Worker started it in three of the five small runs.
+  A retried Activity's history keeps only its last attempt's `ActivityTaskStarted`, so the frozen identity shows on failed Activities and on timed-out Workflow Tasks, and never on a receipt whose swallowed attempt was retried elsewhere.
+  Those receipts are late and carry the healthy identity: 77 to 82 receipt Activities per run started on a retry, and 62 to 67 receipts per run took longer than 2 seconds with no Workflow Task timeout in their history.
+  The README says so, so the reader does not read a slow receipt on the healthy identity as a second sick Worker.
+  The reader takes the PID from the frozen identity (`PID@host`) and attaches `asyncio ps` and `py-spy dump` to that process only; the other Worker's `asyncio ps` shows no task dead-ended.
   `py-spy dump` names the `sqlite3` call in `get_location`, and CPU reads near zero because the call waits on a lock.
-  The healthy Worker does not isolate its share of the fleet, and the README says so with whichever of these the capture shows.
-  Sticky affinity: a rollup whose first Workflow Task ran on the Worker that later froze stalls on its next Workflow Task, although its Activity ran on the healthy Worker (three runs, completing at 15 to 31 seconds where a clean rollup takes about 5).
-  One caught Activity: the bad run holds one of the frozen Worker's two Activity slots, and one more Activity sits in the other until its `start_to_close` fires and the retry runs on the healthy Worker.
-  In three runs that was a receipt's `validate_order` (history shows only attempt 2, started 6 seconds after scheduling), and in two it was a rollup's Activity (attempt 2 started 11 seconds after scheduling, and the rollup completed at about 16 seconds, inside its 20-second `schedule_to_close`).
-  No rollup failed in any run: the second Worker picks the work up after a timeout, so the failure that exercises 01 to 03 show becomes a late, uneven stall, and the README does not promise a failed rollup.
-  `temporal task-queue describe` during the freeze lists both Workers under both poller types, so the poller list does not localize the freeze (checked in four runs).
-  The frozen Worker's log prints "Task not found when completing" five or six times per run, all at the thaw; the healthy Worker's log prints none, and a healthy two-Worker run adds no line to either log.
-  `TMPRL1101` appeared in no spike run, so the 06 README does not list it as a symptom of this exercise.
-  After: the same two-Worker run on the solution copy shows fast receipts on both identities and no timeouts.
-  The README states plainly that the dashboard cannot localize the freeze, because only the first Worker is scraped, and that the histories can.
+  The rollup failed in two of the five flood freeze runs that recorded it and completed in the other three, so the README quotes its capture and promises neither.
+  Sticky affinity, seen in the small runs and quoted only if the capture shows it: a Workflow whose first Workflow Task ran on the Worker that later froze stalls on its next Workflow Task, although its Activity ran on the healthy Worker.
+  The frozen Worker's log gains about 273 lines in a flood run, 95 or 96 of them "Task not found when completing" and 78 to 80 of them `TMPRL1104`, all at the thaw; the healthy Worker's log gains none, and a healthy flood adds no line to either log.
+  `TMPRL1101` appeared in no spike run at either scale, so the 06 README does not list it as a symptom of this exercise.
+  The tools in a fleet, checked on two Workers at eight receipts and under the flood; Part B of the 06 README walks through them and quotes its own capture:
+
+  - `python -m asyncio ps` and `pstree` read each process as before.
+    The frozen Worker's table has the task dead-ended at `_ActivityWorker._handle_start_activity_task`, the healthy Worker's has none, and both answer in about a tenth of a second.
+    Under the flood the frozen Worker's table stays short (9 tasks), because a frozen loop creates no task for the work its pollers keep taking.
+  - `py-spy dump` reads each process as before: the frozen Worker's main thread is in `get_location`, and the healthy Worker's is in the selector.
+  - `top` shows both Workers in state `S` at 0.0 percent for a lock wait, so CPU does not pick the Worker.
+    It still separates a waiting blocker from a computing one after the Worker is known.
+  - `temporal task-queue describe` reads a backlog of 0 and an age of 0 mid-freeze at both scales, because the healthy Worker drains the queue, so the backlog that marks a single-Worker freeze does not mark this one.
+    Its poller list shows both Workers polling, and it keeps Workers from earlier runs for some minutes.
+  - The metrics endpoints of both Workers answer in about a millisecond, so they are still not a freeze signal.
+  - The slot gauges, per Worker: the frozen Worker's `WorkflowWorker` gauge climbs (31 of 100 in use 4 seconds into the freeze, 95 of 100 later in another run) and the healthy Worker's stays at 0 to 2.
+    The `ActivityWorker` gauge reads 1 or 2 in use on the frozen Worker and does not separate them.
+  - `scripts/receipt_gaps.py` without flags works unchanged on a fleet's histories and cannot say which Worker; `--by-identity` can.
+  - The Worker log: only the frozen Worker prints "Task not found when completing" and `TMPRL1104`, at the thaw.
+
+  The order of work changes with a fleet: in exercises 01 to 05 the reader starts at the process, and in exercise 06 the histories come first because they name the process.
+  After (the bad flood on the solution copy, two Workers): not measured in the spike.
+  Assumption: it matches the healthy flood (no failed receipt, no Workflow Task timeout, the slowest receipt about a second), with the lookup waiting out the lock on an executor thread.
+  The README quotes what the capture shows; if a receipt fails or stalls after the fix, the build stops and this spec is corrected before the README is written.
+  The README says what the dashboard adds: the per-Worker panel shows one Worker holding Workflow Tasks, after the histories have named it.
+  It leads with the histories because after an incident they are often all there is.
 - Each exercise README follows the 102 structure: title "Exercise N: <Doing the thing>", "During this exercise, you will" bullets, the `practice`/`solution` note, a prerequisites section pointing at the root README's setup and at `just metrics`, Parts A through E (run it; read the failure in the tooling and the dashboard; find the bug; write the test and fix it; redeploy and verify), and the closing "### This is the end of the exercise." line.
 - Each reader-written test in Part D:
   01 and 03, the probe test pattern from the root suite (a 50 ms ticker beside the Activity is not starved);
@@ -470,9 +581,11 @@ Both states are captured fresh from the copy (tool output, starter output, Worke
 
 - `just metrics` brings up Prometheus and Grafana with one command on a machine that has `docker` and `docker-compose` v1; `just metrics-down` removes them.
   The compose file defines exactly the two services and no Temporal server.
-- Prometheus scrapes the SDK endpoint on 127.0.0.1:9464 and the dev server endpoint on 127.0.0.1:9465 every 5 seconds, so a 30-second scenario produces at least six points per series.
+- Prometheus scrapes the SDK endpoint on 127.0.0.1:9464, the dev server endpoint on 127.0.0.1:9465, and a second Worker's endpoint on 127.0.0.1:9466 every 5 seconds, so a 30-second scenario produces at least six points per series.
+  The third target is down whenever no second Worker runs, and that is expected.
 - The dashboard is provisioned from the repo at Grafana startup; no manual import.
   Its panels are the ones listed under Architecture, and each exercise README and tutorial part names the panel the reader looks at and what it shows for the before and after states.
+  The per-Worker panel is named in the exercise 06 README and in draft part 7 only, as corroboration after the histories have named the Worker.
 - `just server` passes `--metrics-port 9465`; the root README's quickstart says so and says why.
 - Screenshots under `docs/images/` are PNG, with descriptive alt text where they are embedded, one per exercise state at minimum (before and after) plus the healthy baseline.
 
@@ -493,11 +606,15 @@ Tests must not require a running Temporal server unless using the SDK's own test
   `practice/` copies are excluded from the gate because they carry the deliberate bug and the reader's unimplemented test; a lighter `just check-practice` runs ruff and mypy on them so they at least parse and type-check.
 - Solution-copy tests include the reader's Part D test for that exercise; exercise 01's tests serve the slow endpoint from a stdlib server inside the test, never the network.
 - Fleet localization: exercise 06's port-resolution tests mirror exercise 03's (default 9464, override, invalid values raise) in both copies, and its solution tests hold the lock from inside the test with a temporary database file, never a shared one.
-  Its starter tests cover the bystander gate against a mocked `describe` result (the rollup's Activity STARTED, not yet started, and the timeout path), with no metrics scrape.
-  `tests/test_receipt_gaps.py` covers the identity view against a fixture history captured from the two-Worker run: the per-line identities of the first `WorkflowTaskStarted` and of each `ActivityTaskStarted`, a retried first Workflow Task whose two attempts carry different identities (when the capture shows one), the `attempt` on the `WorkflowTaskScheduled` that completed WT1, a timeout attributed to the identity on the `WorkflowTaskStarted` before it, and the per-identity summary.
+  Its starter tests cover the flood without a server.
+  The flood plan is tested as a pure function: the number of submissions and their due times for a rate and for the `--lead`, `--block-seconds`, and `--tail` durations.
+  The summary is tested as a pure function: the 5-second bucketing relative to the confirmed freeze, the failed and slow counts, a receipt submitted before the freeze, and a bucket with no receipts.
+  Argument parsing is tested for `--rate`, `--lead`, `--tail`, and `--bad 0`, and the freeze gate is tested against a mocked `describe` result (`get_location` STARTED, not yet started, and the timeout path), with no metrics scrape.
+  A `build_worker` test in the solution copy asserts the executor's `max_workers` equals its `max_concurrent_activities`.
+  `tests/test_receipt_gaps.py` covers the identity view against fixture histories captured from the two-Worker run: the per-line identities of the first `WorkflowTaskStarted` and of each `ActivityTaskStarted`, a retried first Workflow Task whose two attempts carry different identities (when the capture shows one), the `attempt` on the `WorkflowTaskScheduled` that completed WT1, a timeout attributed to the identity on the `WorkflowTaskStarted` before it, a failed receipt whose timed-out Activity is attributed through its scheduled event, the per-identity summary, and `--summary` printing the summary lines alone.
   A test asserts the default output is unchanged byte for byte against the existing `tests/fixtures/receipt-gaps.txt`, so the blocks already quoted in the READMEs stay valid.
-- Observability config tests assert only the stack's invariants, never that a file parses or a value we chose: `prometheus.yml` names exactly the two scrape targets on ports 9464 and 9465; the compose file defines exactly the services `prometheus` and `grafana` with no image whose name contains `temporal`; every dashboard panel expression references a metric from the allowed list.
-- The live failure signatures (cross-type blast radius, CPU pinning, the heartbeat retry storm, the zombie-thread overlap, the debug-mode warning) and the after-fix states are demonstrated live and captured during the build, not asserted in CI.
+- Observability config tests assert only the stack's invariants, never that a file parses or a value we chose: `prometheus.yml` names exactly the three scrape targets on ports 9464, 9465, and 9466; the compose file defines exactly the services `prometheus` and `grafana` with no image whose name contains `temporal`; every dashboard panel expression references a metric from the allowed list.
+- The live failure signatures (cross-type blast radius, CPU pinning, the heartbeat retry storm, the zombie-thread overlap, the debug-mode warning, the flood's failed and late receipts) and the after-fix states are demonstrated live and captured during the build, not asserted in CI.
 - The full gate is `just check` (ruff check, ruff format --check, mypy strict, pytest, the solution-copy loop, the observability config tests); pytest alone is the autonomous-run verification command.
 
 ## Documentation requirements
@@ -505,9 +622,15 @@ Tests must not require a running Temporal server unless using the SDK's own test
 - README: what the repo demonstrates (one mechanism, the shared event loop), quickstart (three terminals: `just server`, `just worker`, then a scenario recipe, plus `just metrics` for the dashboard), and three lessons (healthy, frozen loop from a blocking call, frozen loop from CPU-bound code), each with the expected healthy-versus-broken shapes for `asyncio ps` / `pstree`, CPU, `py-spy dump` (the exact blocking line), and the metrics, with the cross-type blast radius called out.
   Lessons 4 to 7, "Which timeout fires, and how to tell", and the timeout-tuning parts of "Realistic timeouts" are removed.
   Every output block in the three lessons is recaptured from the trimmed package.
-- Fleet localization: the exercise 06 README follows the 102 structure, quoting only its two-Worker captures, and a seventh draft, `docs/drafts/part-7-finding-the-frozen-worker.md`, follows it.
+- Teaching-code note (owner ruling, November 9, 2026): the root README says once, in its own words and beside the statement that the repo contains deliberately broken code, that the code is built to teach one mechanism, so parts of it are simplified or altered to make a point, and that it is not a template for a production system.
+  Each of the exercise 01 to 05 READMEs carries one sentence: the exercise runs one Worker with two Activity slots so one blocking call fails loudly, a real fleet has more of both and hides the failure, and exercise 06 shows that.
+  Draft parts 1 to 6 carry the same sentence, so a draft never disagrees with its exercise.
+  Decision: the sentence goes after the "During this exercise, you will" bullets, and nothing else in the five finished READMEs changes for it (confirm the placement at review).
+- Fleet localization: the exercise 06 README follows the 102 structure, quoting only its two-Worker captures (the healthy flood, the bad flood, and the bad flood after the fix), and a seventh draft, `docs/drafts/part-7-finding-the-frozen-worker.md`, follows it.
+  Both open with the contrast to exercises 01 to 05: those fail loudly on one small Worker, and a real fleet masks the same bug behind its healthy Workers.
+  Both give the rate check (run the healthy flood first, and lower `--rate` if its slowest receipt takes longer than about a second) and say the flood is sized to make one failure visible on a laptop.
   Both carry one short paragraph on production fleets, stated as general practice without a capture: after the fact the Event Histories are often all there is, so group Workflow Task and Activity timeouts by time window and by the Worker identity on the Started events; the default identity is `PID@hostname`, and on Kubernetes the hostname is the pod name; attaching `py-spy` or `asyncio ps` inside a pod needs the `SYS_PTRACE` capability.
-  The root README's `just receipt-gaps` row names `--by-identity`, and its Exercises table, CLAUDE.md, and `docs/drafts/README.md` list exercise 06 and part 7.
+  The root README's `just receipt-gaps` row names `--by-identity` and `--summary`, its Observability section names the third scrape target and the per-Worker panel, and its Exercises table, CLAUDE.md, and `docs/drafts/README.md` list exercise 06 and part 7.
 - README additions for this arc: an "Exercises" table in the 102 root-README shape linking each `exercises/<NN-name>/README.md`, an "Observability" section (what `just metrics` starts, where the dashboard is, the dev server metrics port and why `just server` sets it), and the series title with a `TODO` link.
 - The two-tool framing stated plainly: `asyncio ps` / `pstree` identify the frozen loop and which task is wedged with zero instrumentation; `py-spy dump` names the exact file and line, because a task stuck in synchronous code is not at an await and so its frames are off the asyncio stack.
 - Platform gotchas (including that `py-spy` and `asyncio ps` both need `ptrace_scope=0` or sudo on Linux) and a tutorial link placeholder.
@@ -533,7 +656,8 @@ Tests must not require a running Temporal server unless using the SDK's own test
 ## Non-goals
 
 - No lesson, exercise, or draft about slot exhaustion, Worker sizing for throughput, heartbeat or timeout tuning, schedule-to-start, or retry policy and idempotency; those are general Temporal topics covered elsewhere.
-- No detection library, watchdog, linter, or any maintained tooling; diagnosis uses read-only introspection the reader runs (native `asyncio ps` / `pstree`, `py-spy dump`, asyncio debug mode) and the Prometheus and Grafana stack, never tooling this repo builds or ships, apart from the read-only `scripts/receipt_gaps.py` helper that tabulates a history's Workflow Task gaps, and with `--by-identity` the Worker identity behind each, from `temporal workflow show` output.
+- No load test or benchmark: exercise 06's flood is sized to make one failure visible on a laptop, and its figures are captures of one machine, never performance claims.
+- No detection library, watchdog, linter, or any maintained tooling; diagnosis uses read-only introspection the reader runs (native `asyncio ps` / `pstree`, `py-spy dump`, asyncio debug mode) and the Prometheus and Grafana stack, never tooling this repo builds or ships, apart from the read-only `scripts/receipt_gaps.py` helper that tabulates a history's Workflow Task gaps, and with `--by-identity` the Worker identity behind each (`--summary` trims that view to its per-identity lines), from `temporal workflow show` output.
 - No Flask or web front end; the Temporal Web UI, the metrics endpoint, and the Grafana dashboard are the visual layer.
 - No CI beyond the canonical application CI workflow (single pinned Python 3.14, `just check`, pip-audit, dependabot); CI does not start containers, run the dev server, or take captures.
 - No Temporal server in a container, no self-hosted cluster, and no Temporal Cloud; `temporal server start-dev` is the only server.
@@ -550,7 +674,7 @@ Tests must not require a running Temporal server unless using the SDK's own test
   Depends on nothing outside the root virtual environment.
 - Exercise READMEs (`exercises/<NN-name>/README.md`): input is the exercise's captures; output is the 102-structure instructions.
   Depends on the captures existing.
-- Observability stack (`observability/`): input is the two metrics endpoints; output is a provisioned dashboard.
+- Observability stack (`observability/`): input is the metrics endpoints (the Worker, the dev server, and a second Worker when one runs); output is a provisioned dashboard.
   Owns the compose file, scrape config, provisioning, and dashboard JSON, plus their config tests.
   Depends on `just server` exposing port 9465.
 - Captures (scratchpad during the build, trimmed into the READMEs, drafts, and `docs/images/`): input is the trimmed root package's three scenarios and each copy's before and after runs with the stack up; output is the quoted blocks and screenshots, with the trims disclosed in the root README's "About the captured output" section.
@@ -558,7 +682,9 @@ Tests must not require a running Temporal server unless using the SDK's own test
 - Tutorial drafts (`docs/drafts/part-N-*.md`): input is the exercise READMEs and the captures; output is the drafts (six in the event-loop-exercises arc, part 7 in the fleet-localization phase) and the Vale and copy-editor passes.
   Depends on every capture and README being final.
 - Root docs (`README.md`, `CLAUDE.md`, `docs/drafts/README.md`): input is the trimmed package, the finished layout, and the root captures; output is the three-lesson README, the exercises table, the observability section, and the architecture refresh.
-- Fleet localization (`exercises/06-finding-the-frozen-worker/`, `scripts/receipt_gaps.py`, `tests/`, draft part 7, root docs): input is a two-Worker run of each 06 copy; output is the two copies with the port setting, the `--by-identity` view and its tests, the captures, the 06 README with its production note, and the draft, plus the recognition block and the fold-ins in exercises 01, 02, and 03.
+- Fleet localization (`exercises/06-finding-the-frozen-worker/`, `scripts/receipt_gaps.py`, `observability/`, `tests/`, draft part 7, root docs): input is the two-Worker flood runs of the 06 copies (healthy, bad, and bad after the fix) and exercise 03's one-Worker and two-Worker runs.
+  Output is the two 06 copies with the port setting and the flood starter, the `--by-identity` view with `--summary` and its tests, the third scrape target and the per-Worker panel, the captures, the 06 README with its production note, and the draft.
+  It also outputs the recognition block, the fold-ins in exercises 01, 02, and 03, the teaching-code note in the root README, and the single-Worker sentence in exercises 01 to 05 and draft parts 1 to 6.
   Depends on the event-loop-exercises arc being complete; the helper change lands before the captures, and the prose lands after them.
 - Gate (`justfile`, `pyproject.toml`): input is the solution copies and config files; output is `just check` covering them and `just check-practice` covering the practice copies lightly.
 
@@ -567,9 +693,12 @@ Tests must not require a running Temporal server unless using the SDK's own test
 - `just check` is green with the solution-copy loop and the observability config tests included, and `just check-practice` is green.
 - `grep -rn "slow_heartbeat\|stuck_no_heartbeat\|PriceQuote\|maximum_attempts" src tests justfile` returns nothing.
 - Each exercise runs from its own directory: the `practice/` copy reproduces its failure, and the `solution/` copy produces its after-state, both captured and quoted.
-- `just metrics` brings up the dashboard on a machine with `docker-compose` v1, with both scrape targets up and every panel populated during a scenario.
-- Fleet localization: from a two-Worker run of the 06 practice copy, `just receipt-gaps --by-identity` names the frozen Worker, and the reader reaches `asyncio ps` and `py-spy dump` on that PID without reading the Worker banner; `just receipt-gaps` without the flag prints exactly what it printed before; `grep -rn "ANTIPATTERN (deliberate, for teaching)" exercises/06-finding-the-frozen-worker/solution` returns nothing; the 06 README and draft part 7 quote only those captures and satisfy the Privacy invariant.
+- `just metrics` brings up the dashboard on a machine with `docker-compose` v1, with the 9464 and 9465 scrape targets up, the 9466 target up while a second Worker runs, and every panel populated during a scenario.
+- Fleet localization: a two-Worker healthy flood of the 06 practice copy shows no failed receipt, and a bad flood shows failed receipts and the timeline in the starter's summary.
+  From that bad flood, `just receipt-gaps --by-identity --summary` names the frozen Worker as the one identity holding the Workflow Task timeouts and the failed Activities, and the reader reaches `asyncio ps` and `py-spy dump` on that PID without reading the Worker banner.
+  `just receipt-gaps` without the flags prints exactly what it printed before; `grep -rn "ANTIPATTERN (deliberate, for teaching)" exercises/06-finding-the-frozen-worker/solution` returns nothing; the 06 README and draft part 7 quote only those captures and satisfy the Privacy invariant.
 - The recognition block exists in the root README and the primer, every exercise README's Part B links to it in one line, and exercise 03's second-Worker step is no longer marked optional.
+- The root README carries the teaching-code note, and each of the exercise 01 to 05 READMEs carries the single-Worker sentence that points to exercise 06.
 - Six exercise READMEs and seven tutorial drafts exist, quote only captures of their own exercise, pass Vale, and have been through `/review-content`.
 - The root README has exactly three lessons, all recaptured; the README and CLAUDE.md describe the four-layer layout; and `grep -rn "ANTIPATTERN (deliberate, for teaching)" exercises/*/solution` returns nothing.
 - The arc ships as commits on the `scaffold` branch (PR #4 against `main`), with a session summary per commit.

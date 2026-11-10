@@ -113,5 +113,9 @@ Experienced Python developers hit it too.
   Both stay as built.
 - Settled by a scratch spike (November 9, 2026): the three capture assumptions for exercise 06.
   The results are in spec.md under Exercise requirements.
+- Ruled (November 9, 2026): exercises 01 to 05 stay on one Worker, with a teaching-code note, so one blocking call fails loudly.
+  Exercise 06 is the realistic case: steady traffic on two Workers, where the second Worker masks most of the damage.
+- Settled by three more scratch spikes (November 9, 2026): every tool the series teaches was checked against two Workers, exercise 06 runs a flood of 10 receipts per second at the SDK's default slot counts, and exercise 03's second-Worker step runs `--bad 2` on one Worker and `--bad 4` on two.
+  The results are in spec.md under Architecture and Exercise requirements.
 - Kept out of scope: gevent compatibility, and loop overload from too many asyncio tasks, which is not a blocking call.
 - Kept deferred: the codec and key-management blocker, and the registration guard (`flake8-async` covers part of it).

@@ -2,16 +2,16 @@
 
 ## Recent
 
+- With two Workers at 2 Activity slots each, no receipt failed at any burst size (8, 100, 500); at the SDK default of 100 slots under steady traffic of 10 receipts per second, 17 to 22 of about 515 failed (3.3 to 4.3 percent) in six freeze runs. A demo's small slot count can hide the fleet symptom, so run a fleet exercise at the default slot counts (2026-11-10)
+- A burst is the wrong load for showing a partial failure: 500 receipts at once overloaded the healthy Worker (median 13 s) and no receipt failed, while steady traffic showed the failures. Run the same steady rate with no bad Workflow as the control (0 of 521 failed, slowest 0.90 s) so a reader can tell the bug from the load (2026-11-10)
+- With a healthy Worker on the same Task Queue, `temporal task-queue describe` reads backlog 0 and age 0 through a freeze, so the single-Worker backlog signal is gone. What still separates the frozen process: its `WorkflowWorker` `temporal_worker_task_slots_used` gauge climbs (31 to 95 of 100) while the healthy one stays at 0 to 2, and `py-spy dump` and `asyncio pstree` read each PID as before. The `ActivityWorker` gauge does not separate them (2026-11-10)
+- A retried Activity leaves one `ActivityTaskStarted` in history, written for the last attempt with its `attempt` number; earlier attempts leave no event. Counting Activity attempts per Worker identity from history therefore sees final attempts only, and the frozen Worker's log ("Task not found when completing") is where the swallowed attempts show (2026-11-10)
+- A line-anchored edit script breaks when an insert after line N and a replace that starts at line N+1 share a boundary, because both resolve to the same position; check the edit list for shared boundaries, or fold the insert into the replace. Stripping the inserted text also removed the blank line that separates a new paragraph (2026-11-10)
+- zsh expands an unquoted word that starts with `=` as a command path lookup, so `echo ===== X` fails with "not found"; quote separator strings (2026-11-10)
 - A second Worker on the same Task Queue hides a frozen Worker's failures: in five two-Worker freeze runs no bystander failed, the frozen Worker still took half the first Workflow Tasks, and the stalls came in 10-second steps as retries landed on either Worker. Spike a fleet exercise's symptom before writing its capture requirements; the spec's assumed "one rollup fails" was wrong (2026-11-09)
 - After a `WorkflowTaskTimedOut`, the server writes no history events for the retries in between; the next `WorkflowTaskScheduled` in history carries `attempt` 2 or 3 and is the attempt that completed. `WorkflowTaskTimedOut` has no identity, so attribute it to the `WorkflowTaskStarted` before it (2026-11-09)
 - A starter gate that scrapes one Worker's metrics port breaks as soon as a second Worker shares the Task Queue (it waited its full timeout in two of five runs); gate on the server's `describe()` so the check does not depend on which Worker took the task (2026-11-09)
 - `pkill -f <pattern>` matches the shell that runs it when the pattern appears in that command line, and kills it (exit 144); stop processes by recorded PID, then confirm with `pgrep` and `ss` (2026-11-09)
-- This repository is public: never commit a customer name, a real or invented company, a namespace, a ticket number, or a specific field use case, in spec, prose, session records, or commit messages; summarize field research in aggregate and grep the diff for names before committing (2026-11-09)
-- Research subagents can spawn their own helpers and multiply cost (one research agent's three helpers used about 1.3M tokens); brief research agents with no helper agents, a document cap, and a time limit, and have them write findings to disk as they go (2026-11-09)
-- A message to a subagent only lands at its next tool step, so an agent blocked on its own helpers cannot hear a wrap-up request; enforce a timeout with a file watch, then TaskStop, and recover helper reports from the stopped agent's transcript (2026-11-09)
-- Google Drive `read_file_content` returns no text at all for very large Docs (about 1 MB and up), with no error; plan for those documents to be unreadable through the tool (2026-11-09)
-- `.vale.ini` hard-codes a Linux `StylesPath`, so `just lint-prose` and `just preflight` fail on macOS; lint with a temporary copy of the config whose path points at the local styles (2026-11-09)
-- Before a page says what runs on the Python Worker's event loop, check the SDK source: Workflow code runs on the `workflow_task_executor` thread pool (`_workflow.py` `run_in_executor`), and only the hand-off and completion run on the loop; `def` Activities are also dispatched from the loop with `run_in_executor` (2026-11-09)
 
 ## Testing
 
@@ -26,6 +26,10 @@
 
 ## Temporal
 
+- With two Workers at 2 Activity slots each, no receipt failed at any burst size (8, 100, 500); at the SDK default of 100 slots under steady traffic of 10 receipts per second, 17 to 22 of about 515 failed (3.3 to 4.3 percent) in six freeze runs. A demo's small slot count can hide the fleet symptom, so run a fleet exercise at the default slot counts (2026-11-10)
+- A burst is the wrong load for showing a partial failure: 500 receipts at once overloaded the healthy Worker (median 13 s) and no receipt failed, while steady traffic showed the failures. Run the same steady rate with no bad Workflow as the control (0 of 521 failed, slowest 0.90 s) so a reader can tell the bug from the load (2026-11-10)
+- With a healthy Worker on the same Task Queue, `temporal task-queue describe` reads backlog 0 and age 0 through a freeze, so the single-Worker backlog signal is gone. What still separates the frozen process: its `WorkflowWorker` `temporal_worker_task_slots_used` gauge climbs (31 to 95 of 100) while the healthy one stays at 0 to 2, and `py-spy dump` and `asyncio pstree` read each PID as before. The `ActivityWorker` gauge does not separate them (2026-11-10)
+- A retried Activity leaves one `ActivityTaskStarted` in history, written for the last attempt with its `attempt` number; earlier attempts leave no event. Counting Activity attempts per Worker identity from history therefore sees final attempts only, and the frozen Worker's log ("Task not found when completing") is where the swallowed attempts show (2026-11-10)
 - A second Worker on the same Task Queue hides a frozen Worker's failures: in five two-Worker freeze runs no bystander failed, the frozen Worker still took half the first Workflow Tasks, and the stalls came in 10-second steps as retries landed on either Worker. Spike a fleet exercise's symptom before writing its capture requirements; the spec's assumed "one rollup fails" was wrong (2026-11-09)
 - After a `WorkflowTaskTimedOut`, the server writes no history events for the retries in between; the next `WorkflowTaskScheduled` in history carries `attempt` 2 or 3 and is the attempt that completed. `WorkflowTaskTimedOut` has no identity, so attribute it to the `WorkflowTaskStarted` before it (2026-11-09)
 - A starter gate that scrapes one Worker's metrics port breaks as soon as a second Worker shares the Task Queue (it waited its full timeout in two of five runs); gate on the server's `describe()` so the check does not depend on which Worker took the task (2026-11-09)
@@ -59,6 +63,7 @@
 
 ## Documentation
 
+- Before a page says what runs on the Python Worker's event loop, check the SDK source: Workflow code runs on the `workflow_task_executor` thread pool (`_workflow.py` `run_in_executor`), and only the hand-off and completion run on the loop; `def` Activities are also dispatched from the loop with `run_in_executor` (2026-11-09)
 - When a later step edits code that the drafts splice by line number, the FILE line ranges drift and the drafts stop rebuilding; re-run the draft build after any code step, not only at the prose step (2026-11-08)
 - A dashboard counter can silently miss a failure type: the failures panel plots `activity_timeout`, which never counts Heartbeat timeouts, so it hid the exercise 02 retry storm that `activity_task_timeout{timeout_type="Heartbeat"}` counts. Check that a panel shows the symptom the prose will cite before you write the prose (2026-11-08)
 - This repository is public: never commit a customer name, a real or invented company, a namespace, a ticket number, or a specific field use case, in spec, prose, session records, or commit messages; summarize field research in aggregate and grep the diff for names before committing (2026-11-09)
@@ -68,6 +73,8 @@
 
 ## Tooling
 
+- A line-anchored edit script breaks when an insert after line N and a replace that starts at line N+1 share a boundary, because both resolve to the same position; check the edit list for shared boundaries, or fold the insert into the replace. Stripping the inserted text also removed the blank line that separates a new paragraph (2026-11-10)
+- zsh expands an unquoted word that starts with `=` as a command path lookup, so `echo ===== X` fails with "not found"; quote separator strings (2026-11-10)
 - `pkill -f <pattern>` matches the shell that runs it when the pattern appears in that command line, and kills it (exit 144); stop processes by recorded PID, then confirm with `pgrep` and `ss` (2026-11-09)
 - Google Drive `read_file_content` returns no text at all for very large Docs (about 1 MB and up), with no error; plan for those documents to be unreadable through the tool (2026-11-09)
 - `.vale.ini` hard-codes a Linux `StylesPath`, so `just lint-prose` and `just preflight` fail on macOS; lint with a temporary copy of the config whose path points at the local styles (2026-11-09)
