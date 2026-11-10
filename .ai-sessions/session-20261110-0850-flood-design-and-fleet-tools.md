@@ -53,8 +53,8 @@
 
 ## Observations
 
-- With a healthy Worker on the queue, `temporal task-queue describe` reads a backlog of 0 through the freeze.
-- The frozen Worker's `WorkflowWorker` slots-used gauge climbs toward 100 while the healthy Worker's stays at 0 to 2; the `ActivityWorker` gauge does not separate them.
+- With a healthy Worker on the queue, `temporal task-queue describe` read a backlog of 0 in each single mid-freeze read; a 2-second sampler saw brief backlogs of 1 to 4 tasks in three of five flood runs (corrected November 10, 2026).
+- The frozen Worker's `WorkflowWorker` slots-used gauge climbs toward 100 while the healthy Worker's stays low (peaks of 3 to 6 across five freeze runs; corrected November 10, 2026); the `ActivityWorker` gauge does not separate them.
 - Every Workflow Task timeout in the freeze runs traced to the frozen Worker's identity (77 to 84 per run).
 - Only the frozen Worker logs "Task not found when completing" and `TMPRL1104` at the thaw; `TMPRL1101` appeared in no run.
 - New Vale alerts in spec.md's Starting context come from the owner's verbatim quotes and stay as they are.

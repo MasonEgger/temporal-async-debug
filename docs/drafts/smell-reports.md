@@ -123,7 +123,9 @@ Should the panel be recaptured with a window that starts at the fleet start?
 
 - Resolved: the second Worker needs no code change, because the solution Worker already ships the `ASYNC_DEBUG_METRICS_PORT` setting (commit 33e285b).
 
-- Resolved: Mason ruled that `--bad 3` is the capture Part E uses, so the README describes no lowered `MAX_CONCURRENT_ACTIVITIES` and ships no setting for it.
+- Resolved: Part E uses the `--bad 3` capture, so the README describes no lowered `MAX_CONCURRENT_ACTIVITIES` and ships no setting for it.
+  This was a build decision; an earlier version of this line called it Mason's ruling, and Mason made no such ruling.
+  The spec of November 10, 2026 replaces it: `--bad 2` on one Worker, then `--bad 4` on two, and the README changes in the fleet-localization build.
   The old "two bad runs, one slot each, about 32 seconds" capture cannot be reproduced on the shipped solution, because the Step 19 run put both `--bad 2` runs on one Worker at the shipped two slots.
 
 - Resolved: Part D step 4 now says the hinted test fails first at `assert isinstance(executor, ThreadPoolExecutor)`, because practice `build_worker` passes no `activity_executor`.
