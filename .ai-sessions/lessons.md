@@ -2,6 +2,8 @@
 
 ## Recent
 
+- When a step ends in an outward-facing post such as a pull request comment, keep the post in the finalize pass, after the validator's verdict, so a blocked text is never public. (2026-11-11)
+- A line count or figure copied from an older record must be re-measured at HEAD before it goes into a new record; a later step can have changed the file, and the Step 15 record carried a stale part 7 line count into a block finding. (2026-11-11)
 - Wrap a fenced Python fragment in a Markdown draft under docs/ in `<!-- fmt:off -->` and `<!-- fmt:on -->` comments, because ruff formats Python fences outside exercises/ and a fragment fails `ruff format --check`. (2026-11-11)
 - Run the full gate (`just check` and `just check-practice`) after every step, prose steps included; pytest alone let a format failure ship unseen for two steps. (2026-11-11)
 - Count the words of a reviewer's suggested replacement sentence and run Vale on it before use; a suggested split can itself break the 25-word cap. (2026-11-11)
@@ -10,8 +12,6 @@
 - When a tutorial draft is written from an exercise README, state the exercise-to-part mapping in the executor prompt (part 1 is the healthy Worker with no exercise; part N+1 is exercise N): without it the Step 12 draft cross-referenced the wrong parts in six places and drew four block findings (Step 12) (2026-11-11)
 - Tell a prose executor up front that no two fenced blocks may sit back to back without a prose line between them, and scan for it with a script before the validator runs: two pairs in the Step 12 draft cost a validator iteration (Step 12) (2026-11-11)
 - Pre-check replacement sentences with Vale by applying them to a full scratch copy of the real file under the same directory layout; a small scratch file with fenced blocks gives spurious warnings (Step 12) (2026-11-11)
-- A masking instruction must say to replace only the private token and keep every other character of the captured line: "mask the location" lost step counts, digests, and record counts (Step 11) (2026-11-11)
-- When a README section mixes blocks from two captures, say in prose which block comes from which capture, at the block, before a validator has to ask (Step 11) (2026-11-11)
 
 ## Testing
 
@@ -77,6 +77,7 @@
 
 ## Documentation
 
+- A line count or figure copied from an older record must be re-measured at HEAD before it goes into a new record; a later step can have changed the file, and the Step 15 record carried a stale part 7 line count into a block finding. (2026-11-11)
 - Count the words of a reviewer's suggested replacement sentence and run Vale on it before use; a suggested split can itself break the 25-word cap. (2026-11-11)
 - When a fix restores or rewords a sentence that a smell-report bullet quotes verbatim, update the quote in the same pass, and check every `Quote:` line against the drafts with a script before re-validation: one stale quote cost Step 13 a whole fix iteration. (2026-11-11)
 - When a tutorial draft is written from an exercise README, state the exercise-to-part mapping in the executor prompt (part 1 is the healthy Worker with no exercise; part N+1 is exercise N): without it the Step 12 draft cross-referenced the wrong parts in six places and drew four block findings (Step 12) (2026-11-11)
@@ -119,6 +120,7 @@
 
 ## Workflow
 
+- When a step ends in an outward-facing post such as a pull request comment, keep the post in the finalize pass, after the validator's verdict, so a blocked text is never public. (2026-11-11)
 - Run the full gate (`just check` and `just check-practice`) after every step, prose steps included; pytest alone let a format failure ship unseen for two steps. (2026-11-11)
 - Check a cross-reference to another part's figure against that part after every retake, or state it without the figure: part 2 said part 4 showed 99 percent CPU after part 4's retake read 90.9. (2026-11-11)
 - Run Vale on replacement sentences before handing them to an executor as verbatim text: three orchestrator-written sentences raised new warnings and cost a resumed fix pass (Step 11) (2026-11-11)

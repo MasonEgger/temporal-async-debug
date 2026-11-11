@@ -173,10 +173,10 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 15: Decisions Record And The Pull Request Comment (task)
 
-- [ ] 1. Scope defined (the decisions record and one comment on pull request 4)
-- [ ] 2. Tooling: gh, lint
-- [ ] 3. Do: write the record (reading order, eleven decisions, confirm-at-review list, open tags)
-- [ ] 3. Do: lint and privacy check
-- [ ] 3. Do: post the comment
-- [ ] 4. Verify: comment visible, gate green, tree clean
-- [ ] 5. Document: none
+- [x] 1. Scope defined (the decisions record and one comment on pull request 4)
+- [x] 2. Tooling: gh, lint
+- [x] 3. Do: write the record (reading order, eleven decisions, confirm-at-review list, open tags)
+- [x] 3. Do: lint and privacy check
+- [x] 3. Do: post the comment
+- [x] 4. Verify: comment visible, gate green, tree clean
+- [x] 5. Document: none
