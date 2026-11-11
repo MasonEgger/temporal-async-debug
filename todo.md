@@ -54,15 +54,15 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 5: Identity View For The Receipt-Gap Helper
 
-- [ ] 1. RED: capture and mask fixtures from a live two-Worker bad flood
-- [ ] 1. RED: identity, attribution, summary, and flag tests; default output byte for byte
-- [ ] 2. Document: module docstring (run instructions, flags, retried-Activity limit)
-- [ ] 3. GREEN: flags, identity facts, per-identity summary
-- [ ] 4. RED: end-to-end `main()` test with a fake runner
-- [ ] 5. GREEN: wire the flags through `main` and `receipt_ids`
-- [ ] 6. REFACTOR: module order, type hints, docstrings
-- [ ] 7. Docs: none (Step 14)
-- [ ] 8. Verify: default-output test has teeth, `just check`, hostname check on fixtures
+- [x] 1. RED: capture and mask fixtures from a live two-Worker bad flood
+- [x] 1. RED: identity, attribution, summary, and flag tests; default output byte for byte
+- [x] 2. Document: module docstring (run instructions, flags, retried-Activity limit)
+- [x] 3. GREEN: flags, identity facts, per-identity summary
+- [x] 4. RED: end-to-end `main()` test with a fake runner
+- [x] 5. GREEN: wire the flags through `main` and `receipt_ids`
+- [x] 6. REFACTOR: module order, type hints, docstrings
+- [x] 7. Docs: none (Step 14)
+- [x] 8. Verify: default-output test has teeth, `just check`, hostname check on fixtures
 
 ## Section 4: Housekeeping
 

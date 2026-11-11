@@ -2,6 +2,9 @@
 
 ## Recent
 
+- A docstring that describes an output format is a claim a validator checks against the code line by line: two of Step 5's three validator passes failed on a docstring that said less or more than the code printed; write the docstring from the formatter's branches after the code is final (2026-11-11)
+- A history fixture attributes a WorkflowTaskTimedOut through the scheduled event id it shares with a WorkflowTaskStarted, because the timeout event carries no identity; a timeout with no Started event belongs to no identity (2026-11-11)
+- A fallback branch that no captured fixture reaches (`largest WT1 none`, `on no Worker` in the receipt-gap identity view) needs a history derived from a capture inside the test, with "derived" in the test name, and a temporary mutation of the branch to show the test can fail (2026-11-11)
 - Before an orchestrator gives an executor a formatting rule, check the house convention in the existing files: the Step 4 executor was told never to split the ANTIPATTERN marker, kept one 264-character line behind a file-level `# ruff: noqa: E501`, and had to be sent back, because every other marker in the repository wraps over several comment lines; grep the existing instances first (2026-11-11)
 - When a practice copy's fix changes the kind of a function (`async def` to `def`), every line that changes with it is an edit point and needs its own `# TODO PART X:` comment: exercise 06's `async with httpx.AsyncClient` line and its `await client.get` call had none until the validator compared the copy with exercise 03, whose fix has the same shape; diff the TODO comments against that sibling before validation (2026-11-11)
 - A test fake that reports a value read from the code under test cannot catch a wrong constant: the exercise 06 gate tests could not fail on `FREEZE_GATE_ACTIVITY` until the fake's pending activities named `get_ip` and `get_location` as literals; pin the expected literal in the test (2026-11-11)
@@ -9,12 +12,10 @@
 - A holder thread that sets a readiness `threading.Event` only after it takes the lock leaves the waiter blocked forever when the take fails (exercise 06 `CacheLock.__enter__` on a database it could not open); set the event in a `finally`, store the error, and have the waiter join the thread and raise it (2026-11-10)
 - A test that checks for a hang must be bounded itself: run the blocking entry on a daemon thread and `join` it with a limit (5 s in `test_entering_a_lock_whose_database_cannot_be_opened_raises`), then assert the thread finished, so the bug fails the test instead of stalling the suite (2026-11-10)
 - In the per-Worker panel test a count assertion ran before the no-`sum` assertion, so a `sum by (worker_type)` wrap failed with the count message and the summing message could never fire; order assertions from the most specific failure message to the least, and run the teeth check to see which message actually fires (2026-11-10)
-- A step prompt drifted from a design decision that lived only in working notes (the flood's pure functions went into `starter.py`, not their own `flood.py`); write each settled decision into the plan's decision list first, write the steps from that list, and re-read each step against it before the plan is committed (2026-11-10)
-- After the `def` plus executor fix, a two-Worker flood with a 30-second `sqlite3` lock wait failed no receipt and timed out no Workflow Task in five of six runs (median 0.33 to 0.40 s, slowest 0.55 to 1.25 s); the lookup waits on a `ThreadPoolExecutor` thread and both main threads sit in the selector (2026-11-10)
-- One after-fix flood was slow with no failure (260 of 528 receipts over 2 s, one Workflow Task timeout): it was the fourth of five back-to-back floods on one dev server with process tools attached, and the next flood on that server was clean; the cause is unknown, so start a fresh dev server for each capture flood and never quote one run as the result (2026-11-10)
 
 ## Testing
 
+- A fallback branch that no captured fixture reaches (`largest WT1 none`, `on no Worker` in the receipt-gap identity view) needs a history derived from a capture inside the test, with "derived" in the test name, and a temporary mutation of the branch to show the test can fail (2026-11-11)
 - A test fake that reports a value read from the code under test cannot catch a wrong constant: the exercise 06 gate tests could not fail on `FREEZE_GATE_ACTIVITY` until the fake's pending activities named `get_ip` and `get_location` as literals; pin the expected literal in the test (2026-11-11)
 - A branch that only runs when a sleep wakes late (the flood producer's late-wake rule) runs in no test under a fake sleep that returns on time; patch `monotonic` and `asyncio.sleep` with a virtual clock the fake sleep advances, script one late wake, and test both sides of the threshold (2026-11-11)
 - A holder thread that sets a readiness `threading.Event` only after it takes the lock leaves the waiter blocked forever when the take fails (exercise 06 `CacheLock.__enter__` on a database it could not open); set the event in a `finally`, store the error, and have the waiter join the thread and raise it (2026-11-10)
@@ -31,6 +32,7 @@
 
 ## Temporal
 
+- A history fixture attributes a WorkflowTaskTimedOut through the scheduled event id it shares with a WorkflowTaskStarted, because the timeout event carries no identity; a timeout with no Started event belongs to no identity (2026-11-11)
 - After the `def` plus executor fix, a two-Worker flood with a 30-second `sqlite3` lock wait failed no receipt and timed out no Workflow Task in five of six runs (median 0.33 to 0.40 s, slowest 0.55 to 1.25 s); the lookup waits on a `ThreadPoolExecutor` thread and both main threads sit in the selector (2026-11-10)
 - One after-fix flood was slow with no failure (260 of 528 receipts over 2 s, one Workflow Task timeout): it was the fourth of five back-to-back floods on one dev server with process tools attached, and the next flood on that server was clean; the cause is unknown, so start a fresh dev server for each capture flood and never quote one run as the result (2026-11-10)
 - The query `temporal_worker_task_slots_used{worker_type="WorkflowWorker"}` also returns six all-zero series from the dev server's own system Workers when Prometheus scrapes the server's metrics port; add `task_queue="async-debug-task-queue"` to get one line per Worker (2026-11-10)
@@ -72,6 +74,7 @@
 
 ## Documentation
 
+- A docstring that describes an output format is a claim a validator checks against the code line by line: two of Step 5's three validator passes failed on a docstring that said less or more than the code printed; write the docstring from the formatter's branches after the code is final (2026-11-11)
 - When a practice copy's fix changes the kind of a function (`async def` to `def`), every line that changes with it is an edit point and needs its own `# TODO PART X:` comment: exercise 06's `async with httpx.AsyncClient` line and its `await client.get` call had none until the validator compared the copy with exercise 03, whose fix has the same shape; diff the TODO comments against that sibling before validation (2026-11-11)
 - Before a page says what runs on the Python Worker's event loop, check the SDK source: Workflow code runs on the `workflow_task_executor` thread pool (`_workflow.py` `run_in_executor`), and only the hand-off and completion run on the loop; `def` Activities are also dispatched from the loop with `run_in_executor` (2026-11-09)
 - When a later step edits code that the drafts splice by line number, the FILE line ranges drift and the drafts stop rebuilding; re-run the draft build after any code step, not only at the prose step (2026-11-08)
