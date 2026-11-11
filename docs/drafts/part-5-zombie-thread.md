@@ -14,6 +14,9 @@ You see why one Workflow still fails.
 You use the Worker log to watch one attempt keep working after the server failed it, and `py-spy dump` to find the orphaned threads.
 Then you write tests, run the work on the thread pool of the Worker, and heartbeat from that thread.
 
+This tutorial runs one Worker with two Activity slots on purpose, as teaching code, so the failure is loud.
+To see the same bug on a fleet of Workers, read part 7: TODO (link to part 7, "Finding the frozen Worker in a fleet").
+
 This is part 5 of the series "Debugging blocking calls in Temporal async Activities".
 Previous: TODO (link to part 4, "Moving CPU-bound work off the event loop").
 Next: TODO (link to part 6, "Catching a short blocking call before it ships").
@@ -55,13 +58,14 @@ uv run python starter.py --bad 1 --geo 1 --rollups 1 --receipts 2
 
 The `--bad 1` option gives one geo run the ten-second job.
 The command takes about 25 seconds.
-This is the output from the capture of this exercise:
+This is the output from the capture of this exercise.
+In the capture, `<repo>`, `<home>`, `host`, `<ip>`, and `<city>` replace the paths, hostname, address, and city that appear in your own output.
 
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
 rollup rollup-ebc46e29-4a46-46b9-ba54-121ad855df5f: SalesRollupOutput(summary='Sales rollup for 2026-01: total 6030')
-geo geo-556fec5c-6c96-4943-9f44-577944a98a01: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy (1 steps)')
+geo geo-556fec5c-6c96-4943-9f44-577944a98a01: GeoEnrichmentOutput(ip='<ip>', location='<city> (1 steps)')
 receipt receipt-fd452f34-7cf3-4fa6-b7a9-13fe4ed3c7aa: OrderReceiptOutput(receipt='order order-0: 59.97 USD')
 receipt receipt-30c04b87-533e-498d-bcd9-2e09bc05dc10: OrderReceiptOutput(receipt='order order-1: 59.97 USD')
 geo geo-7535f8ac-2825-456e-8df8-96583b62c3ad FAILED: Activity task timed out
@@ -146,24 +150,24 @@ The filter drops the other log lines from the same seconds, including the traceb
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-17:48:35 attempt 1: step 12/20 for Milky Way Galaxy
-17:48:35 attempt 2: step 1/20 for Milky Way Galaxy
-17:48:35 attempt 1: step 13/20 for Milky Way Galaxy
-17:48:36 attempt 2: step 2/20 for Milky Way Galaxy
-17:48:36 attempt 1: step 14/20 for Milky Way Galaxy
-17:48:36 attempt 2: step 3/20 for Milky Way Galaxy
-17:48:36 attempt 1: step 15/20 for Milky Way Galaxy
-17:48:37 attempt 2: step 4/20 for Milky Way Galaxy
-17:48:37 attempt 1: step 16/20 for Milky Way Galaxy
-17:48:37 attempt 2: step 5/20 for Milky Way Galaxy
-17:48:37 attempt 1: step 17/20 for Milky Way Galaxy
-17:48:38 attempt 2: step 6/20 for Milky Way Galaxy
-17:48:38 attempt 1: step 18/20 for Milky Way Galaxy
-17:48:38 attempt 2: step 7/20 for Milky Way Galaxy
-17:48:38 attempt 1: step 19/20 for Milky Way Galaxy
-17:48:39 attempt 2: step 8/20 for Milky Way Galaxy
-17:48:39 attempt 1: step 20/20 for Milky Way Galaxy
-17:48:39 attempt 2: step 9/20 for Milky Way Galaxy
+17:48:35 attempt 1: step 12/20 for <city>
+17:48:35 attempt 2: step 1/20 for <city>
+17:48:35 attempt 1: step 13/20 for <city>
+17:48:36 attempt 2: step 2/20 for <city>
+17:48:36 attempt 1: step 14/20 for <city>
+17:48:36 attempt 2: step 3/20 for <city>
+17:48:36 attempt 1: step 15/20 for <city>
+17:48:37 attempt 2: step 4/20 for <city>
+17:48:37 attempt 1: step 16/20 for <city>
+17:48:37 attempt 2: step 5/20 for <city>
+17:48:37 attempt 1: step 17/20 for <city>
+17:48:38 attempt 2: step 6/20 for <city>
+17:48:38 attempt 1: step 18/20 for <city>
+17:48:38 attempt 2: step 7/20 for <city>
+17:48:38 attempt 1: step 19/20 for <city>
+17:48:39 attempt 2: step 8/20 for <city>
+17:48:39 attempt 1: step 20/20 for <city>
+17:48:39 attempt 2: step 9/20 for <city>
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
@@ -179,7 +183,7 @@ This capture keeps the lines from the `asyncio/threads.py` frame to the exceptio
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-17:48:39   File "/home/ziggy/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/lib/python3.14/asyncio/threads.py", line 25, in to_thread
+17:48:39   File "<home>/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/lib/python3.14/asyncio/threads.py", line 25, in to_thread
 17:48:39     return await loop.run_in_executor(None, func_call)
 17:48:39            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 17:48:39 asyncio.exceptions.CancelledError: Activity cancelled
@@ -443,7 +447,7 @@ This capture keeps only the two warning lines, for an executor with `max_workers
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-/home/ziggy/temporal-async-debug/.venv/lib/python3.14/site-packages/temporalio/worker/_worker.py:413: UserWarning: Worker max_concurrent_activities is 2 but activity_executor's max_workers is only 1
+<repo>/.venv/lib/python3.14/site-packages/temporalio/worker/_worker.py:413: UserWarning: Worker max_concurrent_activities is 2 but activity_executor's max_workers is only 1
   self._init_from_config(client, config)
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
@@ -474,10 +478,10 @@ The geo run with the ten-second job completes, and it reports 20 steps.
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
 rollup rollup-98e74ab7-1e12-4cdb-8523-0212b527bab7: SalesRollupOutput(summary='Sales rollup for 2026-01: total 6030')
-geo geo-c57f9c47-250d-46ee-8445-d208dda098b3: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy (1 steps)')
+geo geo-c57f9c47-250d-46ee-8445-d208dda098b3: GeoEnrichmentOutput(ip='<ip>', location='<city> (1 steps)')
 receipt receipt-dd32d462-8581-459e-88b2-052b3d723583: OrderReceiptOutput(receipt='order order-0: 59.97 USD')
 receipt receipt-4c09020b-1e11-40ee-a01d-15b20e7c9089: OrderReceiptOutput(receipt='order order-1: 59.97 USD')
-geo geo-cb63d923-3425-4642-bafb-5d36bbd1da29: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy (20 steps)')
+geo geo-cb63d923-3425-4642-bafb-5d36bbd1da29: GeoEnrichmentOutput(ip='<ip>', location='<city> (20 steps)')
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
@@ -488,8 +492,8 @@ This capture keeps only the first and last step lines of the bad run, from the s
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-17:50:52 attempt 1: step 1/20 for Milky Way Galaxy
-17:51:01 attempt 1: step 20/20 for Milky Way Galaxy
+17:50:52 attempt 1: step 1/20 for <city>
+17:51:01 attempt 1: step 20/20 for <city>
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
@@ -563,15 +567,15 @@ It ends at the third attempt, before the Worker shutdown that the full log shows
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-17:51:47 attempt 1: step 1/20 for Milky Way Galaxy
-17:51:53 attempt 2: step 1/20 for Milky Way Galaxy
+17:51:47 attempt 1: step 1/20 for <city>
+17:51:53 attempt 2: step 1/20 for <city>
 17:51:53 attempt 1: cancelled during step 2/20, work stopped
 17:51:53     time.sleep(STEP_SECONDS)
 17:51:53 temporalio.exceptions.CancelledError: Cancelled
 17:51:59 attempt 2: cancelled during step 2/20, work stopped
 17:51:59     time.sleep(STEP_SECONDS)
 17:51:59 temporalio.exceptions.CancelledError: Cancelled
-17:52:00 attempt 3: step 1/20 for Milky Way Galaxy
+17:52:00 attempt 3: step 1/20 for <city>
 17:52:06 attempt 3: cancelled during step 2/20, work stopped
 17:52:06     time.sleep(STEP_SECONDS)
 17:52:06 temporalio.exceptions.CancelledError: Cancelled

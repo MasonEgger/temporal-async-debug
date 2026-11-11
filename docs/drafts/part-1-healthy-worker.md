@@ -14,6 +14,9 @@ You read the Worker with Python's asyncio tools, `top`, `temporal task-queue des
 Those readings are the baseline.
 Every later part breaks the Worker on purpose and asks you to compare what you see with the numbers you record here.
 
+This series runs one Worker with two Activity slots on purpose, as teaching code, so each problem in the later parts stands out.
+To see the same bug on a fleet of Workers, read part 7: TODO (link to part 7, "Finding the frozen Worker in a fleet").
+
 Previous: this is the first part.
 Next: TODO (link to part 2, "Fixing a blocking HTTP client in an async Activity").
 
@@ -31,7 +34,7 @@ To complete this tutorial, you need:
 - **Docker and docker-compose**, from the [Docker Compose documentation](https://docs.docker.com/compose/).
   They run Prometheus and Grafana.
 - **A clone of the demo repository.**
-  Run `git clone git@github.com:MasonEgger/temporal-async-debug.git`, then change into the new directory.
+  Run `git clone https://github.com/MasonEgger/temporal-async-debug.git`, then change into the new directory.
 
 You also use `py-spy` in later parts.
 The repository does not install it.
@@ -94,7 +97,25 @@ The `sudo` prefix is necessary because the setting belongs to the kernel.
 The change lasts until you restart the machine.
 On macOS, run the inspection commands with `sudo` instead.
 
+On Linux, read the setting back to check the change:
+
+```sh
+sysctl kernel.yama.ptrace_scope
+```
+
+A read needs no `sudo`.
+This capture is a read with the setting at 0.
+
+<!-- vale off -->
+<!-- vale MasonBase.CodeLineLength = NO -->
+```text
+kernel.yama.ptrace_scope = 0
+```
+<!-- vale MasonBase.CodeLineLength = YES -->
+<!-- vale on -->
+
 With the value at 0, the same `py-spy` command attaches to the same Worker.
+In the captures of this part, `<repo>`, `<home>`, `<ip>`, `<city>`, and `host` replace the paths, address, city, and hostname that appear in your own output.
 The block is the whole capture file.
 
 <!-- vale off -->
@@ -103,8 +124,8 @@ The block is the whole capture file.
 $ cat /proc/sys/kernel/yama/ptrace_scope
 0
 $ uvx py-spy dump --pid 2542562
-Process 2542562: /home/ziggy/temporal-async-debug/.venv/bin/python -m temporal_async_debug.worker
-Python v3.14.3 (/home/ziggy/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/bin/python3.14)
+Process 2542562: <repo>/.venv/bin/python -m temporal_async_debug.worker
+Python v3.14.3 (<home>/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/bin/python3.14)
 
 Thread 2542562 (idle): "MainThread"
     EpollSelector.select (selectors.py:452)
@@ -255,8 +276,8 @@ This capture drops the first line, which is the command echo, and keeps the six 
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-geo geo-74813b62-3f00-4d30-9377-d54f8236a39d: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy')
-geo geo-4f15bc80-6e64-4f1b-a373-ab3c4f6ba7b8: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy')
+geo geo-74813b62-3f00-4d30-9377-d54f8236a39d: GeoEnrichmentOutput(ip='<ip>', location='<city>')
+geo geo-4f15bc80-6e64-4f1b-a373-ab3c4f6ba7b8: GeoEnrichmentOutput(ip='<ip>', location='<city>')
 receipt receipt-cca1bdc1-70f9-4314-b898-6cd5d0daf537: OrderReceiptOutput(receipt='order order-0: 59.97 USD')
 receipt receipt-a44f7d50-276b-4a16-a83a-6a80661b9a68: OrderReceiptOutput(receipt='order order-1: 59.97 USD')
 receipt receipt-7a2ad40d-52b4-4cda-81bc-13482b78af8a: OrderReceiptOutput(receipt='order order-2: 59.97 USD')
@@ -432,12 +453,10 @@ The server exports this metric on port 9465, which is why `just server` sets tha
 Both lines stay at zero.
 That agrees with the `temporal task-queue describe` reading from the previous step.
 
-<CLAUDE_HELP>
-The backlog gauge stayed flat in the whole capture session, even during a freeze.
+The backlog gauge stayed flat in the capture session, even during a freeze.
 In one freeze, `temporal task-queue describe` reported a count of 1 and an age of 4.27 seconds while the gauge read 0.
-The draft treats `task-queue describe` as the reliable reading and the dashboard as corroboration.
-Confirm that framing.
-</CLAUDE_HELP>
+That is one capture, not a general figure.
+Treat `temporal task-queue describe` as the reliable backlog reading and the dashboard as corroboration.
 
 ## Conclusion
 

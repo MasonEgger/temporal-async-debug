@@ -5,12 +5,15 @@
 
 An Activity can send a Heartbeat to tell the Temporal Service that it still runs.
 In an `async def` Activity, the SDK handles that Heartbeat on the same event loop that runs your code.
-If your code then blocks the loop with `time.sleep`, the Heartbeat waits in a queue and never reaches the server.
+If your code then blocks the loop with `time.sleep`, the Worker cannot send the Heartbeat, and it does not reach the server in time.
 
 In this tutorial, you run a polling Activity that heartbeats before every wait.
 You watch the server fail it on a Heartbeat timeout again and again.
 You use the Web UI, `python -m asyncio ps`, `py-spy dump`, and the Worker log to find the sleep that holds the event loop.
 Then you write a test that counts Heartbeats during one poll wait, replace the single sleep with awaited ticks, and run the fleet again.
+
+This tutorial runs one Worker with two Activity slots on purpose, as teaching code, so the failure is loud.
+To see the same bug on a fleet of Workers, read part 7: TODO (link to part 7, "Finding the frozen Worker in a fleet").
 
 This is part 3 of the series "Debugging blocking calls in Temporal async Activities".
 Previous: TODO (link to part 2, "Fixing a blocking HTTP client in an async Activity").
@@ -106,6 +109,7 @@ A Worker with a healthy loop picks up a due Activity task right away.
 At 48 seconds `ScheduledTime` still reads 1 second from now, so attempt 4 is still in its retry backoff.
 
 This capture keeps the pending Activity section from the 9-second describe output.
+In the captures of this part, `host`, `<ip>`, `<city>`, `<repo>`, and `<home>` replace the hostname, address, city, and paths that appear in your own output.
 
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
@@ -136,10 +140,10 @@ This is the output from the capture of this exercise:
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
 rollup rollup-04fbf28c-faca-4cd2-b192-98e92244e979 FAILED: Activity task timed out
-geo geo-4f8ec4a1-1fef-4b27-a937-37871f345be6: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy')
+geo geo-4f8ec4a1-1fef-4b27-a937-37871f345be6: GeoEnrichmentOutput(ip='<ip>', location='<city>')
 receipt receipt-b52b2fe6-52e4-4f98-9321-67105c069833: OrderReceiptOutput(receipt='order order-0: 59.97 USD')
 receipt receipt-73ebe4bd-bb4d-431a-9273-9598fd2893a1: OrderReceiptOutput(receipt='order order-1: 59.97 USD')
-geo geo-9f58649c-6e27-487d-ae7a-275245123d87: GeoEnrichmentOutput(ip='256.256.256.256', location='Austin, Texas, United States')
+geo geo-9f58649c-6e27-487d-ae7a-275245123d87: GeoEnrichmentOutput(ip='<ip>', location='<city>')
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
@@ -225,7 +229,7 @@ Progress:
 
 Results:
   Status          COMPLETED
-  Result          {"ip":"256.256.256.256","location":"Austin, Texas, United States"}
+  Result          {"ip":"<ip>","location":"<city>"}
   ResultEncoding  json/plain
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
@@ -290,8 +294,8 @@ This capture keeps only the `MainThread` stack.
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-Process 2772020: /home/ziggy/temporal-async-debug/.venv/bin/python worker.py
-Python v3.14.3 (/home/ziggy/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/bin/python3.14)
+Process 2772020: <repo>/.venv/bin/python worker.py
+Python v3.14.3 (<home>/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/bin/python3.14)
 
 Thread 2772020 (idle): "MainThread"
     get_location (activities.py:192)
@@ -396,7 +400,7 @@ This capture keeps only the first traceback that carries it.
 ```text
 Failed handling activation on workflow with run ID 01a1bc52-0641-76cc-a969-585b7828372f
 Traceback (most recent call last):
-  File "/home/ziggy/temporal-async-debug/.venv/lib/python3.14/site-packages/temporalio/worker/_workflow.py", line 434, in _handle_activation
+  File "<repo>/.venv/lib/python3.14/site-packages/temporalio/worker/_workflow.py", line 434, in _handle_activation
     raise deadlock_exc from None
 temporalio.worker._workflow._DeadlockError: [TMPRL1101] Potential deadlock detected: workflow didn't yield within 2 second(s).
 ```
@@ -474,10 +478,12 @@ The loop polls the job, calls `activity.heartbeat()`, and then calls `time.sleep
 <!-- vale on -->
 
 The call `activity.heartbeat()` does not block.
-In an `async def` Activity, the SDK processes the Heartbeat on the event loop, which is the same loop that runs your Activity.
-The call queues the Heartbeat and returns.
+It also does not send a heartbeat.
+The call only records the heartbeat, and the loop has to run before the Worker sends it.
+A heartbeat call in the code is no proof that the server received one.
+In an `async def` Activity, the SDK sends the heartbeat on the event loop, and that is the same loop that runs your Activity.
 The next line calls `time.sleep` for eight seconds, which is longer than the five-second Heartbeat timeout.
-The loop cannot run the queued Heartbeat until the sleep ends, so the timeout fires first.
+The loop cannot send the recorded heartbeat until the sleep ends, so the timeout fires first.
 
 Three things follow from the same cause.
 The server fails the attempt and schedules the next one, which waits because the loop is busy.
@@ -565,17 +571,18 @@ Every Workflow completes, and the rollup completes this time.
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-rollup rollup-9eca3e25-b9f9-4df6-9fb5-513b9d1e5b04: SalesRollupOutput(summary='Sales rollup for 2026-01: total 6030')
-geo geo-21ec739d-c118-46ec-b1d9-b0bcf1b5d640: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy')
-receipt receipt-831f837d-c2ef-4baa-bea6-715b42998619: OrderReceiptOutput(receipt='order order-0: 59.97 USD')
-receipt receipt-50cc125e-9224-4fd2-ad30-a5e7da3f7fbe: OrderReceiptOutput(receipt='order order-1: 59.97 USD')
-geo geo-b5ef3952-ffdb-461f-8148-7eb7b1271446: GeoEnrichmentOutput(ip='256.256.256.256', location='Austin, Texas, United States')
+rollup rollup-1a576216-a37b-40cd-973d-fab1edcf5cb5: SalesRollupOutput(summary='Sales rollup for 2026-01: total 6030')
+geo geo-2093d558-64ac-4a8a-b2d3-d26ed9cdd7c3: GeoEnrichmentOutput(ip='<ip>', location='<city>')
+receipt receipt-9b197a54-d999-4335-88a6-83658205c1fa: OrderReceiptOutput(receipt='order order-0: 59.97 USD')
+receipt receipt-72963842-d014-4891-9a58-7bb557687018: OrderReceiptOutput(receipt='order order-1: 59.97 USD')
+geo geo-3b7fdcaf-3168-4f83-bcd7-ef144bbb0348: GeoEnrichmentOutput(ip='<ip>', location='<city>')
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
 
 Run `temporal workflow describe -w <geo workflow ID>` while the slow job runs.
-This capture keeps the pending Activity section, about 3 seconds in.
+The describe, Event History, `py-spy`, and Worker log blocks below come from an earlier capture of the solution copy than the preceding starter output.
+This is the pending Activity section from that capture, about 3 seconds in.
 
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
@@ -645,7 +652,7 @@ Progress:
 
 Results:
   Status          COMPLETED
-  Result          {"ip":"256.256.256.256","location":"Austin, Texas, United States"}
+  Result          {"ip":"<ip>","location":"<city>"}
   ResultEncoding  json/plain
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
@@ -661,8 +668,8 @@ This capture keeps only the `MainThread` stack.
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-Process 2785531: /home/ziggy/temporal-async-debug/.venv/bin/python worker.py
-Python v3.14.3 (/home/ziggy/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/bin/python3.14)
+Process 2785531: <repo>/.venv/bin/python worker.py
+Python v3.14.3 (<home>/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/bin/python3.14)
 
 Thread 2785531 (idle): "MainThread"
     EpollSelector.select (selectors.py:452)
@@ -700,28 +707,31 @@ All nine poll lines come from attempt 1, and the job finishes at poll 9.
 Neither `TMPRL1101` nor `TMPRL1104` appears in the solution log.
 
 Now read the receipts.
-This is what `just receipt-gaps` printed for the two receipts in the solution capture.
+This is what `just receipt-gaps` printed for the two receipts that the starter output in this part lists.
 This capture keeps only the two receipt lines and drops the command line the capture starts with.
 
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-receipt-50cc125e total 3040ms | WT1 started->completed 14ms | validate_order: sched->started 2954ms started->completed 6ms | compute_total: sched->started 4ms started->completed 5ms | format_receipt: sched->started 4ms started->completed 6ms
-receipt-831f837d total 4095ms | WT1 started->completed 16ms | validate_order: sched->started 4013ms started->completed 6ms | compute_total: sched->started 4ms started->completed 5ms | format_receipt: sched->started 4ms started->completed 6ms
+receipt-9b197a54 total 3368ms | WT1 started->completed 20ms | validate_order: sched->started 3227ms started->completed 17ms | compute_total: sched->started 3ms started->completed 9ms | format_receipt: sched->started 7ms started->completed 13ms
+receipt-72963842 total 3348ms | WT1 started->completed 17ms | validate_order: sched->started 3196ms started->completed 9ms | compute_total: sched->started 5ms started->completed 9ms | format_receipt: sched->started 9ms started->completed 14ms
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
 
-The `WT1 started->completed` field reads 14 and 16 milliseconds for the receipts, against 62.8 seconds in the practice run.
-Each `validate_order` waits about 3 and 4 seconds for an Activity slot, while the geo runs hold both slots.
+The `WT1 started->completed` field reads 20 and 17 milliseconds for the receipts, against 62.8 seconds in the practice run.
+Each `validate_order` waits about 3.2 seconds for an Activity slot (3227 and 3196 milliseconds), while the geo runs hold both slots.
 That is a wait for a free slot and does not freeze the loop.
 
 Last, look at the **Workflow Task Execution Latency** panel again.
 
-![The Workflow Task Execution Latency panel after the fix, with the lines at 0 milliseconds on a scale that runs to 8 seconds, and three points near 7.8 seconds at the left edge.](../images/02-solution-live-workflow-task-latency.png)
+![The Workflow Task Execution Latency panel after the fix, on a scale from 2 to 20 milliseconds, with the SalesRollupWorkflow line at 18 milliseconds, the OrderReceiptWorkflow line at about 9 milliseconds, and the GeoEnrichmentWorkflow line at 4 milliseconds.](../images/02-solution-live-workflow-task-latency.png)
 
-The lines sit at 0 milliseconds on a scale that runs to 8 seconds.
-The three points near 7.8 seconds at the left edge sit before the solution fleet started, so they are not from the solution run.
+The image comes from the same solution run as the starter output and the receipts.
+The lines read between 4 and 18 milliseconds.
+The rollup line reads 18, the receipt line about 9, and the geo line 4.
+The scale runs from 2 to 20 milliseconds.
+The window starts when the fleet starts, so no points from before the run appear.
 The panel is a weak signal here, and `just receipt-gaps` gives the number.
 
 ## Conclusion

@@ -11,6 +11,9 @@ In this tutorial, you run a fleet of Workflows against a Worker where one lookup
 You watch unrelated Workflows fail, and you find the cause from outside the process with `python -m asyncio ps`, `pstree`, and `py-spy dump`.
 Then you write a test that fails while the call holds the loop, move the call to a thread, and run the fleet again.
 
+This tutorial runs one Worker with two Activity slots on purpose, as teaching code, so the failure is loud.
+To see the same bug on a fleet of Workers, read part 7: TODO (link to part 7, "Finding the frozen Worker in a fleet").
+
 This is part 2 of the series "Debugging blocking calls in Temporal async Activities".
 Previous: TODO (link to part 1, "Reading a healthy Temporal Worker").
 Next: TODO (link to part 3, "Fixing a sleep between heartbeats in an async Activity").
@@ -68,16 +71,17 @@ The `--bad 1` option sends one geo run to a slow local endpoint, and `--block-se
 The starter submits the rollup first and the healthy geo run second.
 It submits the bad run third, and it adds the receipts after the bad run reaches `get_location`.
 The command takes about half a minute.
-This is the output from the capture of this exercise:
+This is the output from the capture of this exercise.
+In the capture, `<ip>`, `<city>`, `<repo>`, and `<home>` replace the address, city, and paths that appear in your own output.
 
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
 rollup rollup-a5de1f87-2d83-461f-919e-83652ffadc45 FAILED: Activity task timed out
-geo geo-6215226e-70d8-4d93-8ace-6410d45a2685: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy')
+geo geo-6215226e-70d8-4d93-8ace-6410d45a2685: GeoEnrichmentOutput(ip='<ip>', location='<city>')
 receipt receipt-54a77ca5-a787-4de7-8d49-43609be3960d: OrderReceiptOutput(receipt='order order-0: 59.97 USD')
 receipt receipt-0ad58652-e4de-4a20-b741-d894fbbaa521: OrderReceiptOutput(receipt='order order-1: 59.97 USD')
-geo geo-fe66e250-5ff3-44e8-80a0-ce7db5cfc1f8: GeoEnrichmentOutput(ip='256.256.256.256', location='Austin, Texas, United States')
+geo geo-fe66e250-5ff3-44e8-80a0-ce7db5cfc1f8: GeoEnrichmentOutput(ip='<ip>', location='<city>')
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
@@ -211,13 +215,13 @@ The output ends like this:
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
 └── (T) Task-127
-    └──  _ActivityWorker._handle_start_activity_task /home/ziggy/temporal-async-debug/.venv/lib/python3.14/site-packages/temporalio/worker/_activity.py:351
-        └──  _ActivityWorker._execute_activity /home/ziggy/temporal-async-debug/.venv/lib/python3.14/site-packages/temporalio/worker/_activity.py:681
-            └──  _ActivityInboundImpl.execute_activity /home/ziggy/temporal-async-debug/.venv/lib/python3.14/site-packages/temporalio/worker/_activity.py:889
-                └──  roll_up_sales /home/ziggy/temporal-async-debug/exercises/01-sync-http-client/practice/rollup.py:48
-                    └──  sleep /home/ziggy/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/lib/python3.14/asyncio/tasks.py:702
+    └──  _ActivityWorker._handle_start_activity_task <repo>/.venv/lib/python3.14/site-packages/temporalio/worker/_activity.py:351
+        └──  _ActivityWorker._execute_activity <repo>/.venv/lib/python3.14/site-packages/temporalio/worker/_activity.py:681
+            └──  _ActivityInboundImpl.execute_activity <repo>/.venv/lib/python3.14/site-packages/temporalio/worker/_activity.py:889
+                └──  roll_up_sales <repo>/exercises/01-sync-http-client/practice/rollup.py:48
+                    └──  sleep <home>/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/lib/python3.14/asyncio/tasks.py:702
 └── (T) Task-152
-    └──  _ActivityWorker._handle_start_activity_task /home/ziggy/temporal-async-debug/.venv/lib/python3.14/site-packages/temporalio/worker/_activity.py:351
+    └──  _ActivityWorker._handle_start_activity_task <repo>/.venv/lib/python3.14/site-packages/temporalio/worker/_activity.py:351
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
@@ -241,8 +245,8 @@ This capture keeps only the `MainThread` stack.
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-Process 2580799: /home/ziggy/temporal-async-debug/.venv/bin/python worker.py
-Python v3.14.3 (/home/ziggy/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/bin/python3.14)
+Process 2580799: <repo>/.venv/bin/python worker.py
+Python v3.14.3 (<home>/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/bin/python3.14)
 
 Thread 2580799 (idle): "MainThread"
     SyncStream.read (httpcore/_backends/sync.py:128)
@@ -301,7 +305,7 @@ This capture keeps only the column header and the process row.
 
 The Worker uses 0.0 percent of a CPU, which matches the baseline from part 1.
 A frozen loop with near-zero CPU points to a call that waits on something outside the process.
-Part 4 shows a frozen loop at 99 percent CPU.
+Part 4 shows a frozen loop that keeps one CPU core busy.
 
 ## Step 5: Checking the dashboard
 
@@ -351,7 +355,23 @@ Every other task on the Worker stays stuck until the response arrives.
 The fix runs the blocking work somewhere else.
 A plain `def` Activity runs on the Worker's `activity_executor`, which is a pool of threads.
 A blocked thread leaves the event loop free.
+The `activity_executor` runs only `def` Activities.
+An `async def` Activity always runs on the event loop.
 The fix keeps the same synchronous client and changes where it runs.
+
+### Same bug, other library
+
+Your own blocker may not be an HTTP client.
+The bug is the same in every library: a blocking call inside an `async def` Activity.
+You find it and fix it the way this tutorial teaches.
+The table lists the call shapes to look for in each category.
+
+| Category | Synchronous call shape to look for |
+| --- | --- |
+| Database drivers and ORMs | A plain `psycopg` connection or a `sqlalchemy` session that runs a query with `execute()` or `commit()` |
+| SDKs for cloud services | A `boto3` client that calls an API method such as `get_object()` and waits for the reply |
+| LLM SDKs | A synchronous client that sends a request and waits for the whole completion |
+| Message producers that flush synchronously | A call such as `producer.flush()` that waits until the broker confirms the messages |
 
 ## Step 7: Writing a test that probes the event loop
 
@@ -421,6 +441,7 @@ def get_location(ip: str, upstream_url: str | None) -> str:
 
 Next, open `worker.py` and find the `TODO PART D` comment in `build_worker`.
 A `def` Activity needs a place to run, so pass the Worker an `activity_executor`.
+A thread pool passed to a Worker whose Activities are all `async def` runs nothing, whatever its size.
 Use a `ThreadPoolExecutor` with `max_workers` equal to `MAX_CONCURRENT_ACTIVITIES`.
 Add the import at the top of the file.
 The solution has these two lines in `build_worker`:
@@ -475,10 +496,10 @@ The rollup completes this time.
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
 rollup rollup-67b0e059-a3c5-4e51-a358-3f72a8ee8132: SalesRollupOutput(summary='Sales rollup for 2026-01: total 6030')
-geo geo-2fd7600d-44c1-494a-87ef-65b34edd933a: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy')
+geo geo-2fd7600d-44c1-494a-87ef-65b34edd933a: GeoEnrichmentOutput(ip='<ip>', location='<city>')
 receipt receipt-f7ea0059-9fdc-4784-80bc-de836516cdc4: OrderReceiptOutput(receipt='order order-0: 59.97 USD')
 receipt receipt-c07f982e-957d-472a-9112-1496bddf74a1: OrderReceiptOutput(receipt='order order-1: 59.97 USD')
-geo geo-499c1040-c7e3-4538-b124-047db6f5aa2c: GeoEnrichmentOutput(ip='256.256.256.256', location='Austin, Texas, United States')
+geo geo-499c1040-c7e3-4538-b124-047db6f5aa2c: GeoEnrichmentOutput(ip='<ip>', location='<city>')
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
@@ -510,8 +531,8 @@ This capture keeps only the `MainThread` stack.
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-Process 2597040: /home/ziggy/temporal-async-debug/.venv/bin/python worker.py
-Python v3.14.3 (/home/ziggy/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/bin/python3.14)
+Process 2597040: <repo>/.venv/bin/python worker.py
+Python v3.14.3 (<home>/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/bin/python3.14)
 
 Thread 2597040 (idle): "MainThread"
     EpollSelector.select (selectors.py:452)

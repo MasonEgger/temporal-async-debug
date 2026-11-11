@@ -148,14 +148,14 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 13: Updates To Parts 1 To 6 (task)
 
-- [ ] 1. Scope defined (six parts and the smell reports)
-- [ ] 2. Tooling: tutorial-writing, voice:teaching, review-content, preflight
-- [ ] 3. Do: single-Worker sentence in all six; fold-ins in parts 2, 3, and 4
-- [ ] 3. Do: part 1 clone command, ptrace output, and the tag pair
-- [ ] 3. Do: replace the eleven tag pairs in the smell reports with build decisions
-- [ ] 3. Do: review-content pass
-- [ ] 4. Verify: no old CLAUDE_HELP tags, lint
-- [ ] 5. Document: none
+- [x] 1. Scope defined (six parts and the smell reports)
+- [x] 2. Tooling: tutorial-writing, voice:teaching, review-content, preflight
+- [x] 3. Do: single-Worker sentence in all six; fold-ins in parts 2, 3, and 4
+- [x] 3. Do: part 1 clone command, ptrace output, and the tag pair
+- [x] 3. Do: replace the eleven tag pairs in the smell reports with build decisions
+- [x] 3. Do: review-content pass
+- [x] 4. Verify: no old CLAUDE_HELP tags, lint
+- [x] 5. Document: none
 
 ## Section 9: Root Documentation Refresh
 

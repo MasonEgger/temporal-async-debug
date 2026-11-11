@@ -3,7 +3,8 @@
 Draft status: every README below waits for Mason's review.
 Nothing here publishes.
 Each bullet gives the verbatim quote and the rule it may break.
-Open questions sit inside CLAUDE_HELP tags.
+The older open questions now read as "Build decision:" lines for Mason to confirm or overrule.
+A tag left in a section marks a question that is still open.
 
 ## Shared across all five READMEs
 
@@ -78,21 +79,15 @@ Open questions sit inside CLAUDE_HELP tags.
   Rule: dashboard gap, not changed here by instruction.
   The failures panel plots `activity_timeout`, which does not count Heartbeat timeouts, so the retry storm is invisible on it.
 
-<CLAUDE_HELP>
-The Grafana failures panel plots `activity_timeout` and misses the Heartbeat timeout storm in Exercise 2.
-The server counter `activity_task_timeout{timeout_type="Heartbeat"}` counts it (1, 2, 3 across the run 1 window).
-Should the dashboard add that series?
-The README says plainly that the panel misses the storm and leaves the dashboard alone.
-</CLAUDE_HELP>
+Build decision: the failures panel stays as it is.
+Exercise 02 keeps saying that the panel misses a Heartbeat timeout, and the server counter `activity_task_timeout{timeout_type="Heartbeat"}` stays out of the dashboard.
 
 - Quote: `The three points near 7.8 seconds at the left edge sit before the solution fleet started, so they are not from the solution run.`
   Rule: weak panel capture.
   The solution panel's window opens at 12:04:40, before the fleet started at 12:05:05, and the scale runs to 8 seconds because of those three points.
 
-<CLAUDE_HELP>
-The Exercise 2 solution panel image includes three pre-fleet points near 7.8 seconds, which stretch the scale so the solution lines read as zero.
-Should the panel be recaptured with a window that starts at the fleet start?
-</CLAUDE_HELP>
+Build decision: the exercise 02 solution panel images were recaptured in this build with a window that starts at the fleet start.
+The pre-fleet points are gone, and the README and part 3 describe the new image.
 
 - Quote: `temporal workflow list --query 'WorkflowType="GeoEnrichmentWorkflow" AND ExecutionStatus="Running"'`
   Rule: command with no capture.
@@ -178,10 +173,9 @@ Should the panel be recaptured with a window that starts at the fleet start?
   The practice panel has three geo points near 6 ms and no receipt line, and the solution panel has no points in its window.
   The old claim of lines between 20 and 190 ms is gone.
 
-<CLAUDE_HELP>
-The Exercise 5 Workflow Task panels have almost no points because the fleets last only a few seconds.
-Should the images be recaptured over a longer run, or dropped in favor of the receipt-gaps block?
-</CLAUDE_HELP>
+Build decision: the exercise 05 Workflow Task panels stay near empty, and one sentence says why.
+A stall of about 350 milliseconds is small next to a panel that plots a 30-second rate average, and the fleets last only seconds.
+The README and part 6 carry the same sentence.
 
 - Quote: `No 0.35 to 0.40 second warnings appear for the archive.`
   Rule: matches the Step 19 finding that a solution debug run can show one 0.1 second callback (0.107 seconds in the second fleet), so the README does not say zero warnings.
@@ -295,16 +289,11 @@ The copy-editor agent reviewed the first draft, and its reasoning-gap, overclaim
   The SDK's `_activity.py` dispatches a `def` Activity with `loop.run_in_executor`, and `_workflow.py` hands each activation to the Workflow Task pool the same way.
   No capture shows a `def` Activity stalling during a freeze, because no exercise runs one next to a blocking `async def` Activity.
 
-<CLAUDE_HELP>
-Placement: the primer is unnumbered and linked from part 1's introduction and the root README's opening.
-If you want it as part 0 instead, the drafts README list and the part 1 link need one edit each.
-</CLAUDE_HELP>
+Build decision: the primer stays unnumbered.
+It is linked from the part 1 introduction and the root README opening, and no list needs an edit.
 
-<CLAUDE_HELP>
-Diagram 3 shows `def` Activities dispatched from the loop to their own thread pool.
-That follows the SDK source, but no capture in this repository shows it.
-Keep the edge, or drop `def` Activities from the diagram so it shows only what the captures show?
-</CLAUDE_HELP>
+Build decision: diagram 3 keeps the edge for `def` Activities.
+The claim was checked against the Temporal documentation during this build: a synchronous `def` Activity runs on the `activity_executor`, and an `async def` Activity runs on the event loop.
 
 ## docs/drafts/part-1-healthy-worker.md
 
@@ -312,7 +301,7 @@ Draft status: waits for Mason's review.
 Nothing here publishes.
 
 - Resolved: the four two-sentence prerequisite bullets now put the second sentence on an indented continuation line.
-- Resolved: the clone command uses the URL from `git remote get-url origin` (git@github.com:MasonEgger/temporal-async-debug.git).
+- Resolved: the clone command uses the HTTPS URL of the public repository.
 - Resolved: Step 1 quotes the ptrace capture (root-ptrace/): `py-spy dump` and `asyncio ps` refuse to attach at `ptrace_scope` 1, then attach at 0.
   The failure message is no longer an open question.
 - Resolved: stack direction is stated once (`asyncio ps` lists a task's calls from the innermost to the outermost), and the rollup paragraph now says the innermost call is `sleep`.
@@ -324,8 +313,11 @@ Nothing here publishes.
   A comment holds the placeholder in every draft.
 - Quote: `Set the value to 0 for your session with this command:`
   Rule: never generate new code.
-  The `sysctl` command is not in any repository file or capture.
-  The ptrace capture (root-ptrace/) holds the setting at 1 and 0 but not the `sysctl` call itself.
+  The `sudo sysctl` write is not in any repository file or capture, so it carries no quoted output.
+  The read-only `sysctl kernel.yama.ptrace_scope` output comes from a one-line capture, and the draft says it was read after the setting changed to 0.
+- Quote: `In the captures of this part, `<repo>`, `<home>`, `<ip>`, `<city>`, and `host` replace the paths, address, city, and hostname that appear in your own output.`
+  Rule: privacy masking.
+  Parts 1 to 6 mask the home paths, the address, the place name, and the Worker identity the way the exercise READMEs do, and each part carries one disclosure sentence.
 - Quote: `You start the Worker in Step 3, so this first capture comes from an idle Worker started ahead of time.`
   Rule: provenance disclosure.
   The ptrace capture is of an idle root-package Worker, taken before the Step 3 Worker of this draft.
@@ -347,11 +339,10 @@ Nothing here publishes.
   Rule: `MasonBase.HeadingLevelSkip` suggestion.
   The tutorial-writing structure requires H3 here.
 
-<CLAUDE_HELP>
-The `sysctl` command has no capture; the ptrace capture shows the setting at 1 and 0 but not the call that changed it.
-The backlog gauge stayed flat in every capture, so part 1 treats `temporal task-queue describe` as the reliable reading.
-Confirm both.
-</CLAUDE_HELP>
+Build decision: part 1 quotes the read-only `sysctl kernel.yama.ptrace_scope` output, which a capture read after the setting was changed to 0.
+The `sudo sysctl` write stays a command with no quoted output.
+The backlog gauge stayed flat in the capture session, so `temporal task-queue describe` is the reliable backlog reading and the dashboard is corroboration.
+Part 1 states the one freeze reading (a count of 1 and an age of 4.27 seconds while the gauge read 0) as a single capture.
 
 ## docs/drafts/part-2-sync-http-client.md
 
@@ -414,11 +405,12 @@ Confirm both.
 ## docs/drafts/part-4-cpu-bound.md
 
 - Resolved: the hinted test wording matches part 2 (fails first at the missing `activity_executor`).
-- Resolved: Step 10 uses `ASYNC_DEBUG_METRICS_PORT=9466 uv run python worker.py` and the Step 19 captures (03-solution-second-worker), with no scratch copies.
-  In `--bad 2` the second Worker ran only `get_ip` and both `get_location` calls landed on the first Worker; the second Worker took a `get_location` only with `--bad 3`.
+- Resolved: Steps 10 and 11 follow the exercise 03 README.
+  Step 10 runs `--bad 2` on the first Worker alone, and Step 11 starts the second Worker with `ASYNC_DEBUG_METRICS_PORT=9466 uv run python worker.py` and runs `--bad 4`.
+  The part never runs `--bad 3` or four bad runs on one Worker, and the README says why.
 - Resolved: the receipt-gaps block names `just receipt-gaps` and discloses the prototype-script provenance.
 - Resolved: the signature block and the sync client block each have prose around them.
-- Resolved: Step 10 splits each `top` and run-time pair into separate blocks with a sentence between.
+- Resolved: Steps 10 and 11 split each `top`, describe, and placement summary into separate blocks with a sentence between.
 - Resolved: stack wording follows the part 1 convention.
 
 - Quote: `A blocking call is not always a call that waits.`
@@ -430,9 +422,12 @@ Confirm both.
 - Quote: `The time scales with the speed of your CPU, so yours can differ.`
   Rule: unquoted claim.
   FINDINGS says the roughly 29 seconds scales with CPU speed.
-- Quote: the three run times in Step 10 (63 s, 30.14 s, 73.53 s and 73.83 s).
+- Quote: the run times in Steps 10 and 11 (84.47 and 84.43 seconds on one Worker, and 84.41, 84.43, 86.97, and 86.38 seconds on two).
   Rule: derived figures.
-  They come from run-times.txt, a summary computed over the run histories and not saved tool output, and the draft says so.
+  They come from a summary computed over the run histories and not saved tool output, and the draft says so.
+- Quote: `Steps 1 to 10 run one Worker with two Activity slots on purpose, as teaching code, so the failure is loud.`
+  Rule: step range.
+  The exercise README says "Parts A to D", and the draft names its own range, because its second Worker starts in Step 11.
 - Quote: the `receipt-gaps.txt` block.
   Rule: provenance.
   The capture (03-solution/receipt-gaps.txt, 2026-11-03) predates `scripts/receipt_gaps.py`, so the draft says it came from the prototype script.
@@ -462,10 +457,8 @@ Confirm both.
   Rule: scratch copy.
   The capture comes from a modified solution that the repository does not ship.
 
-<CLAUDE_HELP>
-Step 11 depends on a scratch copy with `STEP_SECONDS` set to 6.0.
-Keep it as a described extension, or cut it from the draft?
-</CLAUDE_HELP>
+Build decision: the part 5 forced-timeout demo stays a described extension.
+Step 11 says it needs a scratch copy with `STEP_SECONDS` set to 6.0, and the repository ships no such copy.
 
 ## docs/drafts/part-6-catching-blockers-early.md
 
@@ -489,7 +482,7 @@ Keep it as a described extension, or cut it from the draft?
 - Quote: `In that mode, the event loop logs a warning for every callback that runs longer than 0.1 seconds.`
   Rule: sourced from the linked Python documentation, not a capture.
 - Quote: `Across the series, you used one mechanism and a small set of tools.`
-  Rule: summary sentence in the last Conclusion.
+  Rule: summary sentence in the Conclusion, now followed by a pointer to part 7.
 - Quote: `It comes from its own practice run of the same fleet, so its PID differs from the debug-mode run in Step 3.`
   Rule: provenance disclosure.
   The `py-spy` capture (05-practice-v2/pyspy) and the probe capture are separate runs from the fleet captures.
@@ -580,9 +573,8 @@ Build decisions:
   Exercise 02 and draft part 3 strip ANSI escapes (`strip=ansi`) from the Worker log and disclose it.
   The root README quotes no Worker log, so it needs no entry today.
 
-<CLAUDE_HELP>
-Should the root README's permitted-edits list name ANSI stripping now, since exercise 02 and draft part 3 use strip=ansi, so a later root log capture needs no README change?
-</CLAUDE_HELP>
+Build decision: the root README's list of permitted capture edits gains ANSI stripping.
+The edit is applied in the root documentation refresh, so a later root log capture needs no README change.
 
 - Quote: `A second scrape about 8 seconds later, still inside the first freeze, read the same.`
   Rule: sampling scope.
@@ -619,16 +611,10 @@ Should the root README's permitted-edits list name ANSI stripping now, since exe
 - Rule check: the review-content copy-editor agent could not run in this dispatch, because a subagent cannot launch another.
   The Vale run, the keyboard check, and a manual pass against the tutorial-writing checklist stood in for it.
 
-<CLAUDE_HELP>
-The 29-second panel figure needs a second look against a fresh run.
-</CLAUDE_HELP>
+Build decision: the 29-second panel figure was read again in a fresh run in this build.
+The README correction is part of the root documentation refresh.
 
-<CLAUDE_HELP>
-Part 1 clones with the SSH remote (git@github.com:MasonEgger/temporal-async-debug.git).
-Should a public tutorial use the HTTPS URL instead?
-</CLAUDE_HELP>
+Build decision: part 1 clones with the HTTPS URL, `https://github.com/MasonEgger/temporal-async-debug.git`, because the repository is public.
 
-<CLAUDE_HELP>
-CLAUDE.md now says the repository has four layers (it counts `scripts/`), while README.md line 19 says three layers and describes `scripts/` in a separate paragraph.
-Which count should both files use?
-</CLAUDE_HELP>
+Build decision: the layer count is four, because `scripts/` is a layer.
+The README line that says three is fixed in the root documentation refresh.

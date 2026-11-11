@@ -2,6 +2,8 @@
 
 ## Recent
 
+- When a fix restores or rewords a sentence that a smell-report bullet quotes verbatim, update the quote in the same pass, and check every `Quote:` line against the drafts with a script before re-validation: one stale quote cost Step 13 a whole fix iteration. (2026-11-11)
+- Check a cross-reference to another part's figure against that part after every retake, or state it without the figure: part 2 said part 4 showed 99 percent CPU after part 4's retake read 90.9. (2026-11-11)
 - When a tutorial draft is written from an exercise README, state the exercise-to-part mapping in the executor prompt (part 1 is the healthy Worker with no exercise; part N+1 is exercise N): without it the Step 12 draft cross-referenced the wrong parts in six places and drew four block findings (Step 12) (2026-11-11)
 - Tell a prose executor up front that no two fenced blocks may sit back to back without a prose line between them, and scan for it with a script before the validator runs: two pairs in the Step 12 draft cost a validator iteration (Step 12) (2026-11-11)
 - Pre-check replacement sentences with Vale by applying them to a full scratch copy of the real file under the same directory layout; a small scratch file with fenced blocks gives spurious warnings (Step 12) (2026-11-11)
@@ -10,8 +12,6 @@
 - Run Vale on replacement sentences before handing them to an executor as verbatim text: three orchestrator-written sentences raised new warnings and cost a resumed fix pass (Step 11) (2026-11-11)
 - When a reviewer suggests a narrower wording for a claim, check it against the document's own tables before applying it: a suggested "none of the tools names the stuck Worker by itself" contradicted a table row that rated `py-spy dump` "Yes." and cost a validator pass (Step 10) (2026-11-11)
 - When prose explains why a line number differs between two copies of a file, run `diff` on the two files and make the arithmetic add up in the text: a two-cause explanation predicted line 167 for a call at line 165, because two dropped comment lines were missing from it (Step 10) (2026-11-11)
-- Put a setup rule at the step where the reader acts on it, not only in a paragraph above the numbered steps: a "fresh dev server before each flood" rule stated once at the top of a part was missed at the second flood, where the reader also needed to note new process IDs (Step 10) (2026-11-11)
-- Describe a log line's timing against what was measured (the line's timestamp and the Activity events in the history), not against an inferred thaw: "before the freeze ended" was wrong for two receipt lines that print after the blocking call returns and before the Activity's completion event (Step 9) (2026-11-11)
 
 ## Testing
 
@@ -77,6 +77,7 @@
 
 ## Documentation
 
+- When a fix restores or rewords a sentence that a smell-report bullet quotes verbatim, update the quote in the same pass, and check every `Quote:` line against the drafts with a script before re-validation: one stale quote cost Step 13 a whole fix iteration. (2026-11-11)
 - When a tutorial draft is written from an exercise README, state the exercise-to-part mapping in the executor prompt (part 1 is the healthy Worker with no exercise; part N+1 is exercise N): without it the Step 12 draft cross-referenced the wrong parts in six places and drew four block findings (Step 12) (2026-11-11)
 - Tell a prose executor up front that no two fenced blocks may sit back to back without a prose line between them, and scan for it with a script before the validator runs: two pairs in the Step 12 draft cost a validator iteration (Step 12) (2026-11-11)
 - A masking instruction must say to replace only the private token and keep every other character of the captured line: "mask the location" lost step counts, digests, and record counts (Step 11) (2026-11-11)
@@ -116,6 +117,7 @@
 
 ## Workflow
 
+- Check a cross-reference to another part's figure against that part after every retake, or state it without the figure: part 2 said part 4 showed 99 percent CPU after part 4's retake read 90.9. (2026-11-11)
 - Run Vale on replacement sentences before handing them to an executor as verbatim text: three orchestrator-written sentences raised new warnings and cost a resumed fix pass (Step 11) (2026-11-11)
 - When a plan step names one copy of an exercise file and the practice or solution twin holds identical lines, apply a no-behavior change to both and log it as a deviation, so `diff practice solution` keeps showing only lesson lines (Step 6, exercise 03 `worker.py`) (2026-11-11)
 - Before an orchestrator gives an executor a formatting rule, check the house convention in the existing files: the Step 4 executor was told never to split the ANTIPATTERN marker, kept one 264-character line behind a file-level `# ruff: noqa: E501`, and had to be sent back, because every other marker in the repository wraps over several comment lines; grep the existing instances first (2026-11-11)
