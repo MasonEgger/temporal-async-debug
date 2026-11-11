@@ -2,6 +2,9 @@
 
 ## Recent
 
+- An `ActivityTaskStarted` history event is written only when the Activity finishes, so a mid-freeze reading triggered on it falls after the thaw (two of four exercise 06 flood B runs); trigger on the starter's own output or on the pending Activity state from `describe` (2026-11-11)
+- A flood B run read a backlog of 39 tasks aged 3.5 s and a frozen Worker's pollers 6 and 8 seconds stale only at the last of four mid-freeze passes (about 19 s in); the passes at about 0 and 2 s read backlog 0 and current pollers, so one early read does not show the signal is absent; take passes across the whole freeze and name the pass in the sentence (one run, 2026-11-11)
+- A Grafana panel that reads "No data" in a clean run (the solution failures panel, because no `activity_timeout` series exists) is not committed as an image; the prose states the empty panel instead (2026-11-11)
 - `just --list` prints the last comment line above a recipe as its description, so when a recipe comment is wrapped over several lines, make the last line a complete one-sentence description and put the detail lines above it; Step 6's first rewrap left `check-solutions` described by a sentence fragment until the validator ran `just --list` (2026-11-11)
 - When a plan step names one copy of an exercise file and the practice or solution twin holds identical lines, apply a no-behavior change to both and log it as a deviation, so `diff practice solution` keeps showing only lesson lines (Step 6, exercise 03 `worker.py`) (2026-11-11)
 - A docstring that describes an output format is a claim a validator checks against the code line by line: two of Step 5's three validator passes failed on a docstring that said less or more than the code printed; write the docstring from the formatter's branches after the code is final (2026-11-11)
@@ -9,9 +12,6 @@
 - A fallback branch that no captured fixture reaches (`largest WT1 none`, `on no Worker` in the receipt-gap identity view) needs a history derived from a capture inside the test, with "derived" in the test name, and a temporary mutation of the branch to show the test can fail (2026-11-11)
 - Before an orchestrator gives an executor a formatting rule, check the house convention in the existing files: the Step 4 executor was told never to split the ANTIPATTERN marker, kept one 264-character line behind a file-level `# ruff: noqa: E501`, and had to be sent back, because every other marker in the repository wraps over several comment lines; grep the existing instances first (2026-11-11)
 - When a practice copy's fix changes the kind of a function (`async def` to `def`), every line that changes with it is an edit point and needs its own `# TODO PART X:` comment: exercise 06's `async with httpx.AsyncClient` line and its `await client.get` call had none until the validator compared the copy with exercise 03, whose fix has the same shape; diff the TODO comments against that sibling before validation (2026-11-11)
-- A test fake that reports a value read from the code under test cannot catch a wrong constant: the exercise 06 gate tests could not fail on `FREEZE_GATE_ACTIVITY` until the fake's pending activities named `get_ip` and `get_location` as literals; pin the expected literal in the test (2026-11-11)
-- A branch that only runs when a sleep wakes late (the flood producer's late-wake rule) runs in no test under a fake sleep that returns on time; patch `monotonic` and `asyncio.sleep` with a virtual clock the fake sleep advances, script one late wake, and test both sides of the threshold (2026-11-11)
-- A holder thread that sets a readiness `threading.Event` only after it takes the lock leaves the waiter blocked forever when the take fails (exercise 06 `CacheLock.__enter__` on a database it could not open); set the event in a `finally`, store the error, and have the waiter join the thread and raise it (2026-11-10)
 
 ## Testing
 
@@ -32,6 +32,8 @@
 
 ## Temporal
 
+- A flood B run read a backlog of 39 tasks aged 3.5 s and a frozen Worker's pollers 6 and 8 seconds stale only at the last of four mid-freeze passes (about 19 s in); the passes at about 0 and 2 s read backlog 0 and current pollers, so one early read does not show the signal is absent; take passes across the whole freeze and name the pass in the sentence (one run, 2026-11-11)
+- An `ActivityTaskStarted` history event is written only when the Activity finishes, so a mid-freeze reading triggered on it falls after the thaw (two of four exercise 06 flood B runs); trigger on the starter's own output or on the pending Activity state from `describe` (2026-11-11)
 - A history fixture attributes a WorkflowTaskTimedOut through the scheduled event id it shares with a WorkflowTaskStarted, because the timeout event carries no identity; a timeout with no Started event belongs to no identity (2026-11-11)
 - After the `def` plus executor fix, a two-Worker flood with a 30-second `sqlite3` lock wait failed no receipt and timed out no Workflow Task in five of six runs (median 0.33 to 0.40 s, slowest 0.55 to 1.25 s); the lookup waits on a `ThreadPoolExecutor` thread and both main threads sit in the selector (2026-11-10)
 - One after-fix flood was slow with no failure (260 of 528 receipts over 2 s, one Workflow Task timeout): it was the fourth of five back-to-back floods on one dev server with process tools attached, and the next flood on that server was clean; the cause is unknown, so start a fresh dev server for each capture flood and never quote one run as the result (2026-11-10)
@@ -74,6 +76,7 @@
 
 ## Documentation
 
+- A Grafana panel that reads "No data" in a clean run (the solution failures panel, because no `activity_timeout` series exists) is not committed as an image; the prose states the empty panel instead (2026-11-11)
 - A docstring that describes an output format is a claim a validator checks against the code line by line: two of Step 5's three validator passes failed on a docstring that said less or more than the code printed; write the docstring from the formatter's branches after the code is final (2026-11-11)
 - When a practice copy's fix changes the kind of a function (`async def` to `def`), every line that changes with it is an edit point and needs its own `# TODO PART X:` comment: exercise 06's `async with httpx.AsyncClient` line and its `await client.get` call had none until the validator compared the copy with exercise 03, whose fix has the same shape; diff the TODO comments against that sibling before validation (2026-11-11)
 - Before a page says what runs on the Python Worker's event loop, check the SDK source: Workflow code runs on the `workflow_task_executor` thread pool (`_workflow.py` `run_in_executor`), and only the hand-off and completion run on the loop; `def` Activities are also dispatched from the loop with `run_in_executor` (2026-11-09)

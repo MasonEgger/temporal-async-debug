@@ -80,14 +80,14 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 7: Capture Exercise 06 On Two Workers (task)
 
-- [ ] 1. Scope defined (three floods, each on a fresh dev server)
-- [ ] 2. Tooling: temporal CLI, compose stack, py-spy, asyncio ps, top, receipt-gaps, shot.py
-- [ ] 3. Do: flood A (healthy, practice)
-- [ ] 3. Do: flood B (bad, practice) with every fleet tool reading and the panel images
-- [ ] 3. Do: flood C (bad, solution) with the stop-and-correct rule
-- [ ] 3. Do: mask excerpts, index, record findings
-- [ ] 4. Verify: every tool indexed, floods read as expected, no hostname in committed files
-- [ ] 5. Document: scratchpad INDEX.md and FINDINGS.md; commit PNG files only
+- [x] 1. Scope defined (three floods, each on a fresh dev server)
+- [x] 2. Tooling: temporal CLI, compose stack, py-spy, asyncio ps, top, receipt-gaps, shot.py
+- [x] 3. Do: flood A (healthy, practice)
+- [x] 3. Do: flood B (bad, practice) with every fleet tool reading and the panel images
+- [x] 3. Do: flood C (bad, solution) with the stop-and-correct rule
+- [x] 3. Do: mask excerpts, index, record findings
+- [x] 4. Verify: every tool indexed, floods read as expected, no hostname in committed files
+- [x] 5. Document: scratchpad INDEX.md and FINDINGS.md; commit PNG files only
 
 ### Step 8: Capture Exercise 03 And The Root Reference Readings (task)
 
