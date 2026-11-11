@@ -103,13 +103,13 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 9: Recognition Block And Teaching-Code Note (task)
 
-- [ ] 1. Scope defined (README.md, the primer)
-- [ ] 2. Tooling: tutorial-writing, voice:teaching, review-content, preflight
-- [ ] 3. Do: teaching-code note and recognition block in README.md
-- [ ] 3. Do: symptom list, link, and `activity_executor` sentence in the primer
-- [ ] 3. Do: review-content pass
-- [ ] 4. Verify: lint-keyboard and lint-prose on both files
-- [ ] 5. Document: none
+- [x] 1. Scope defined (README.md, the primer)
+- [x] 2. Tooling: tutorial-writing, voice:teaching, review-content, preflight
+- [x] 3. Do: teaching-code note and recognition block in README.md
+- [x] 3. Do: symptom list, link, and `activity_executor` sentence in the primer
+- [x] 3. Do: review-content pass
+- [x] 4. Verify: lint-keyboard and lint-prose on both files
+- [x] 5. Document: none
 
 ## Section 7: Exercise READMEs
 

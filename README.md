@@ -6,6 +6,12 @@ A Temporal Python demo that breaks on purpose, so you can practice diagnosing wh
 **Every bug and mistuning here is a feature of the demo.**
 **Do not copy any of it into a real codebase.**
 
+The code teaches one mechanism, so it bends settings and shapes to make one point visible.
+Exercises 01 to 05 reproduce each failure on a single Worker with two Activity slots, so one blocking call fails in plain view.
+A real fleet has more Workers and more slots, and it can hide the same failure behind its healthy Workers.
+Exercise 06 (`exercises/06-finding-the-frozen-worker`) shows that.
+Nothing here is a template for a production system.
+
 This repository is the companion to the tutorial series "Debugging blocking calls in Temporal async Activities".
 The series teaches one mechanism: a call that blocks the asyncio event loop in an `async def` Activity, and how you find it.
 You reproduce the failure, then diagnose it from outside the process.
@@ -653,6 +659,48 @@ You make your changes in `practice`, and each README walks you through the diagn
 Each exercise copy is a flat set of modules plus a `tests/` directory.
 It runs from its own directory under the root virtual environment.
 The practice edit points carry `TODO PART` comments.
+
+## Recognizing a blocked event loop
+
+A frozen event loop leaves signs you can read before you attach any tool.
+Look for these five:
+
+- Workflow Task timeouts on Workflows whose code is fine.
+- Workers that stay alive and stay listed as pollers, but stop completing work.
+  The process keeps running, and `temporal task-queue describe` still lists the Worker.
+- An Activity marked Started long before its code runs.
+  The SDK's Rust core takes the task from the server on its own thread, and the loop cannot start your code until it thaws.
+- The Worker log line "Task not found when completing".
+- The log line `TMPRL1101`, "Potential deadlock detected".
+  It depends on timing, so your run may not show it.
+  On a Worker with `async def` Activities it can mean the loop froze, not that the Workflow code deadlocked (exercise 02 [captures it](exercises/02-sleep-between-heartbeats/README.md)).
+
+Before you attach any tool, ask the code question: are these Activities `async def`, and what do they call?
+A `def` Activity runs on the Worker's `activity_executor`, usually a thread pool, away from the loop.
+An `async def` Activity runs on the loop, so a blocking call inside it freezes everything that shares the loop.
+
+The Worker prints "Task not found when completing" when it tries to complete a Workflow Task that the server no longer has, because the task already timed out.
+This is the log from the `just block` run of 2026-11-11, with the three matching lines in the order they printed:
+
+<!-- vale off -->
+<!-- vale MasonBase.CodeLineLength = NO -->
+```text
+2026-11-11T17:28:06.239953Z  WARN temporalio_sdk_core::worker::workflow: Task not found when completing error=code: 'Some requested entity was not found', message: "Workflow task not found." run_id="01a1cba6-99b2-76a4-9a2f-11048d142686"
+2026-11-11T17:28:36.510138Z  WARN temporalio_sdk_core::worker::workflow: Task not found when completing error=code: 'Some requested entity was not found', message: "Workflow task not found." run_id="01a1cba7-1663-73de-8e7f-317b42bc0e2f"
+2026-11-11T17:28:36.515420Z  WARN temporalio_sdk_core::worker::workflow: Task not found when completing error=code: 'Some requested entity was not found', message: "Workflow task not found." run_id="01a1cba7-1669-7bbf-90f4-9c05625b729a"
+```
+<!-- vale MasonBase.CodeLineLength = YES -->
+<!-- vale on -->
+
+This excerpt keeps only the three matching lines and removes the terminal color codes from them; it drops the Worker's other log lines between them.
+No number, name, or message inside a quoted line was changed.
+
+The lines arrive when the loop thaws.
+In this run the geo Workflow froze the loop twice, once in `get_ip` and once in `get_location`, about 30 seconds apart.
+The first line is the rollup's Workflow Task, printed as the first freeze ended.
+The other two are the two receipts, printed 5 milliseconds apart at the final thaw, about 40 milliseconds before the geo Workflow's `get_location` Activity completed.
+A single line is a reason to check the loop, not a diagnosis.
+In the one healthy run captured for this repository (`just healthy` on a fresh server and Worker), the Worker printed none of these lines.
 
 ## Observability
 

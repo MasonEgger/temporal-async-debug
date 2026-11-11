@@ -2,6 +2,8 @@
 
 ## Recent
 
+- Describe a log line's timing against what was measured (the line's timestamp and the Activity events in the history), not against an inferred thaw: "before the freeze ended" was wrong for two receipt lines that print after the blocking call returns and before the Activity's completion event (Step 9) (2026-11-11)
+- Executors and validators cannot reach the docs MCP or launch the copy-editor agent, so the orchestrator runs any docs check itself and passes the result into the next dispatch (Step 9) (2026-11-11)
 - A Workflow Task that times out records no execution latency, so the Workflow Task Execution Latency panel cannot show a stall that a timeout carries: in one root `just block` run the receipts' 29-second first-task stall left their line empty, and the panel's only high reading (5.14 s) sat on the rollup line (one run, 2026-11-11)
 - Replacing a panel image ahead of the prose that captions it makes the alt text and the sentence beside it false; in the same commit, record the file and line of every caption the new image contradicts (exercise 02 README lines 683 and 686, part 3 draft line 721) so the prose steps find them (2026-11-11)
 - A `py-spy` frame line printed in a README goes stale whenever the file it names changes: the exercise 03 README's `worker.py:115` and `worker.py:117` read 166 and 168 in a retake, while every other frame matched; retake the dump after code edits to that file (one run, 2026-11-11)
@@ -10,8 +12,6 @@
 - A Grafana panel that reads "No data" in a clean run (the solution failures panel, because no `activity_timeout` series exists) is not committed as an image; the prose states the empty panel instead (2026-11-11)
 - `just --list` prints the last comment line above a recipe as its description, so when a recipe comment is wrapped over several lines, make the last line a complete one-sentence description and put the detail lines above it; Step 6's first rewrap left `check-solutions` described by a sentence fragment until the validator ran `just --list` (2026-11-11)
 - When a plan step names one copy of an exercise file and the practice or solution twin holds identical lines, apply a no-behavior change to both and log it as a deviation, so `diff practice solution` keeps showing only lesson lines (Step 6, exercise 03 `worker.py`) (2026-11-11)
-- A docstring that describes an output format is a claim a validator checks against the code line by line: two of Step 5's three validator passes failed on a docstring that said less or more than the code printed; write the docstring from the formatter's branches after the code is final (2026-11-11)
-- A history fixture attributes a WorkflowTaskTimedOut through the scheduled event id it shares with a WorkflowTaskStarted, because the timeout event carries no identity; a timeout with no Started event belongs to no identity (2026-11-11)
 
 ## Testing
 
@@ -89,6 +89,7 @@
 - Every teaching exercise needs an execution-level symptom the reader sees without a dashboard (a bystander fails, attempts fail and retry, the same work runs twice, a bystander is visibly delayed); a metrics blip alone was rejected as "not a bug", and one detection-only exercise is the cap (2026-11-03)
 - A tutorial that promises verbatim captured output needs a validator step that DIFFS every quoted block against its capture file and checks that every trim is disclosed; internal-consistency and line-number checks are not enough (an altered value, inserted punctuation, and four reconstructed blocks got through the first time) (2026-10-07)
 - Before outlining a tutorial, confirm the deliverable's shape with the author: whether every part must end with the reader changing code, and where the fixed code lives (here, the Temporal 101/102 `practice/` and `solution/` layout); an outline built on observe-and-read was discarded whole once the author said a part with nothing to fix is not a tutorial (2026-10-31)
+- Describe a log line's timing against what was measured (the line's timestamp and the Activity events in the history), not against an inferred thaw: "before the freeze ended" was wrong for two receipt lines that print after the blocking call returns and before the Activity's completion event (Step 9) (2026-11-11)
 
 ## Tooling
 
@@ -133,3 +134,4 @@
 - When a `/bpe:review` unit comment defers to "my other request", do the global comment's research before applying any unit feedback; the units were ruled contingent on it (2026-09-16)
 - Scaffold repos for `/bpe:goal` by reading the skill's pre-flight first: gitignore `commit-msg.md` and `goal.md`, keep main commit-free, ensure a test-runner manifest exists so the verification command autodetects (2026-09-14)
 - Capture real tool output for a tutorial before writing the prose; the live run produced the genuine `temporal_worker_task_slots_available` 0 line AND exposed the heartbeat-timeout timing that the spec and the first README draft both got wrong (2026-09-18)
+- Executors and validators cannot reach the docs MCP or launch the copy-editor agent, so the orchestrator runs any docs check itself and passes the result into the next dispatch (Step 9) (2026-11-11)

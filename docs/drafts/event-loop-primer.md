@@ -216,6 +216,22 @@ It runs on a core thread, so a fast metrics scrape does not mean the loop is hea
 
 ## What a frozen loop looks like from outside
 
+A frozen event loop leaves signs you can read before you attach any tool.
+Look for these five:
+
+- Workflow Task timeouts on Workflows whose code is fine.
+- Workers that stay alive and stay listed as pollers, but stop completing work.
+  The process keeps running, and `temporal task-queue describe` still lists the Worker.
+- An Activity marked Started long before its code runs.
+  The core takes the task from the server on its own thread, and the loop cannot start your code until it thaws.
+- The Worker log line "Task not found when completing".
+- The log line `TMPRL1101`, "Potential deadlock detected".
+  It depends on timing, so your run may not show it.
+  On a Worker with `async def` Activities it can mean the loop froze, not that the Workflow code deadlocked.
+
+Before you attach any tool, ask the code question: are these Activities `async def`, and what do they call?
+The README quotes the "Task not found when completing" line from a real run, in [Recognizing a blocked event loop](../../README.md#recognizing-a-blocked-event-loop).
+
 You do not need to add logging to see the loop.
 Python 3.14's `python -m asyncio ps` reads the task list of a running process from outside.
 Part 1 shows the one permission it needs.
@@ -238,6 +254,8 @@ The exercises use three ways to do that.
 **A synchronous Activity.**
 A `def` Activity runs on the Worker's `activity_executor`, a thread pool such as a `ThreadPoolExecutor`, away from the loop.
 Temporal's documentation recommends this as the default: "By default, Activities should be synchronous rather than asynchronous."
+The `activity_executor` runs only `def` Activities.
+An `async def` Activity runs on the event loop, so giving the Worker an executor does not move it off the loop.
 Exercises 1, 3, and 4 use this fix.
 
 **One call on a thread.**
