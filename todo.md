@@ -41,14 +41,14 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 4: Exercise 06 Practice Copy And Gate Integration
 
-- [ ] 1. RED: copy the solution, trim the tests, write the probe stub
-- [ ] 2. Document: practice docstrings describe the code as it is
-- [ ] 3. GREEN: restore the bug with the marker and the TODO comments, remove the executor
-- [ ] 4. RED: both gate loops visit exercise 06
-- [ ] 5. GREEN: fix ruff and mypy findings without removing the bug
-- [ ] 6. REFACTOR: `diff -r` shows only the fix lines, marker, TODO comments, and tests
-- [ ] 7. Docs: none
-- [ ] 8. Verify: marker greps, `just check`, `just check-practice`
+- [x] 1. RED: copy the solution, trim the tests, write the probe stub
+- [x] 2. Document: practice docstrings describe the code as it is
+- [x] 3. GREEN: restore the bug with the marker and the TODO comments, remove the executor
+- [x] 4. RED: both gate loops visit exercise 06
+- [x] 5. GREEN: fix ruff and mypy findings without removing the bug
+- [x] 6. REFACTOR: `diff -r` shows only the fix lines, marker, TODO comments, and tests
+- [x] 7. Docs: none
+- [x] 8. Verify: marker greps, `just check`, `just check-practice`
 
 ## Section 3: Receipt-Gap Helper
 

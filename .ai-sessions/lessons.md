@@ -2,6 +2,8 @@
 
 ## Recent
 
+- Before an orchestrator gives an executor a formatting rule, check the house convention in the existing files: the Step 4 executor was told never to split the ANTIPATTERN marker, kept one 264-character line behind a file-level `# ruff: noqa: E501`, and had to be sent back, because every other marker in the repository wraps over several comment lines; grep the existing instances first (2026-11-11)
+- When a practice copy's fix changes the kind of a function (`async def` to `def`), every line that changes with it is an edit point and needs its own `# TODO PART X:` comment: exercise 06's `async with httpx.AsyncClient` line and its `await client.get` call had none until the validator compared the copy with exercise 03, whose fix has the same shape; diff the TODO comments against that sibling before validation (2026-11-11)
 - A test fake that reports a value read from the code under test cannot catch a wrong constant: the exercise 06 gate tests could not fail on `FREEZE_GATE_ACTIVITY` until the fake's pending activities named `get_ip` and `get_location` as literals; pin the expected literal in the test (2026-11-11)
 - A branch that only runs when a sleep wakes late (the flood producer's late-wake rule) runs in no test under a fake sleep that returns on time; patch `monotonic` and `asyncio.sleep` with a virtual clock the fake sleep advances, script one late wake, and test both sides of the threshold (2026-11-11)
 - A holder thread that sets a readiness `threading.Event` only after it takes the lock leaves the waiter blocked forever when the take fails (exercise 06 `CacheLock.__enter__` on a database it could not open); set the event in a `finally`, store the error, and have the waiter join the thread and raise it (2026-11-10)
@@ -10,8 +12,6 @@
 - A step prompt drifted from a design decision that lived only in working notes (the flood's pure functions went into `starter.py`, not their own `flood.py`); write each settled decision into the plan's decision list first, write the steps from that list, and re-read each step against it before the plan is committed (2026-11-10)
 - After the `def` plus executor fix, a two-Worker flood with a 30-second `sqlite3` lock wait failed no receipt and timed out no Workflow Task in five of six runs (median 0.33 to 0.40 s, slowest 0.55 to 1.25 s); the lookup waits on a `ThreadPoolExecutor` thread and both main threads sit in the selector (2026-11-10)
 - One after-fix flood was slow with no failure (260 of 528 receipts over 2 s, one Workflow Task timeout): it was the fourth of five back-to-back floods on one dev server with process tools attached, and the next flood on that server was clean; the cause is unknown, so start a fresh dev server for each capture flood and never quote one run as the result (2026-11-10)
-- The query `temporal_worker_task_slots_used{worker_type="WorkflowWorker"}` also returns six all-zero series from the dev server's own system Workers when Prometheus scrapes the server's metrics port; add `task_queue="async-debug-task-queue"` to get one line per Worker (2026-11-10)
-- Two Activities on two Workers do not reliably split one per Worker: both ran on one Worker in two of two saved invocations, after an earlier inference from durations alone said one each; save the per-identity printout, and fill every slot (four runs) when a step depends on placement (2026-11-10)
 
 ## Testing
 
@@ -72,6 +72,7 @@
 
 ## Documentation
 
+- When a practice copy's fix changes the kind of a function (`async def` to `def`), every line that changes with it is an edit point and needs its own `# TODO PART X:` comment: exercise 06's `async with httpx.AsyncClient` line and its `await client.get` call had none until the validator compared the copy with exercise 03, whose fix has the same shape; diff the TODO comments against that sibling before validation (2026-11-11)
 - Before a page says what runs on the Python Worker's event loop, check the SDK source: Workflow code runs on the `workflow_task_executor` thread pool (`_workflow.py` `run_in_executor`), and only the hand-off and completion run on the loop; `def` Activities are also dispatched from the loop with `run_in_executor` (2026-11-09)
 - When a later step edits code that the drafts splice by line number, the FILE line ranges drift and the drafts stop rebuilding; re-run the draft build after any code step, not only at the prose step (2026-11-08)
 - A dashboard counter can silently miss a failure type: the failures panel plots `activity_timeout`, which never counts Heartbeat timeouts, so it hid the exercise 02 retry storm that `activity_task_timeout{timeout_type="Heartbeat"}` counts. Check that a panel shows the symptom the prose will cite before you write the prose (2026-11-08)
@@ -96,6 +97,7 @@
 
 ## Workflow
 
+- Before an orchestrator gives an executor a formatting rule, check the house convention in the existing files: the Step 4 executor was told never to split the ANTIPATTERN marker, kept one 264-character line behind a file-level `# ruff: noqa: E501`, and had to be sent back, because every other marker in the repository wraps over several comment lines; grep the existing instances first (2026-11-11)
 - A step prompt drifted from a design decision that lived only in working notes (the flood's pure functions went into `starter.py`, not their own `flood.py`); write each settled decision into the plan's decision list first, write the steps from that list, and re-read each step against it before the plan is committed (2026-11-10)
 - A context summary written from memory misstated two figures (259 for 260, fifth run for fourth); after any summary, recompute each figure from the saved files before it goes into the spec or a report (2026-11-10)
 - A spec section written from run summaries carried 13 wrong figures in 72 checked claims (ranges quoted from fewer runs than the sentence named, one mid-freeze read reported as the whole freeze); before a spec commit, recompute every figure from the saved output with a script, name the run set in the sentence, and have a fresh-context agent check the result (2026-11-10)
