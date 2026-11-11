@@ -99,7 +99,7 @@ On November 10, 2026 a check of this spec against the saved spike output found 1
 This revision corrects them in place, and a claim with no saved output now says so.
 The owner ruled on four points the same day.
 The spec correction came first; then the fleet checks that had never run (the dashboard and the Web UI with two Workers, `scripts/receipt_gaps.py` on a fleet's histories, and the after-fix flood) ran as scratch spikes on November 10, 2026, with a second pass at exercise 03's placement.
-Their results are under Architecture and Exercise requirements, and the builder reports them to the owner before writing the plan.
+Their results are under Architecture and Exercise requirements, and the builder reported them to the owner on November 10, 2026, before writing the plan.
 Exercise 02 still leads with the climbing Attempt count and names `TMPRL1101` without leading on it.
 The owner reviews once, after the build.
 The builder decides the open questions left from the earlier arcs and lists each choice in one pull request comment, where the owner can overrule any of them.
@@ -174,15 +174,15 @@ These are candidates only, not tools declared in the session pool; fold one into
 - two-workflow-foundation: the neutrally-named GeoEnrichmentWorkflow and OrderReceiptWorkflow foundation on one worker, with round-robin providers, block/slow modes, and the os._exit teardown workaround (commits 04dec90, 29d68b8; not yet archived under .ai-sessions/).
 - failure-mode-catalog: the cpu, slow_heartbeat, and stuck_no_heartbeat modes, the rollup and quote bystanders, the deterministic freeze and saturation orderings in the starter, every activity timeout shown firing, the seven-lesson README with captured output, and the seven-pass adversarial review and correction (commits through 1ed2541, open as PR #4 against main; .ai-sessions/failure-mode-catalog/).
   The November 2, 2026 rescope retires its saturation, heartbeat, schedule-to-start, and retry-policy material; the freeze machinery and lessons 1 to 3 carry forward.
+- event-loop-exercises: the root trim to the frozen-loop reference, the five practice/solution exercises, the Prometheus and Grafana stack, the before-and-after captures, the root README and CLAUDE.md refresh, the six-part tutorial series drafts, and the November 5, 2026 rework of exercises 02, 03, and 05; converged at 165 of 165 todo items (.ai-sessions/event-loop-exercises/).
 
 **Upcoming:**
 
-- event-loop-exercises: trim the root catalog to the frozen-loop reference, then the five practice/solution exercises, the Prometheus and Grafana stack, fresh before-and-after captures, the root README and CLAUDE.md refresh, and the six-part tutorial series drafts.
-  This is the current arc (see Architecture, Exercise requirements, Observability requirements, Test requirements, and Documentation requirements below).
 - fleet-localization: teach the skill a production reader needs before any process tooling, finding which Worker in a fleet froze, from the Worker identity in Event Histories.
+  This is the current arc (see the fleet-localization items under Architecture, Exercise requirements, Observability requirements, Test requirements, and Documentation requirements below).
   A new exercise, 06-finding-the-frozen-worker, runs steady receipt traffic on two Workers at the SDK's default slot counts with a synchronous `sqlite3` lookup blocking one of them, so a few percent of the receipts fail and the rest mostly hide it.
   `scripts/receipt_gaps.py` gains an opt-in identity view, Prometheus gains a third scrape target and the dashboard a per-Worker panel, and a seventh draft carries the exercise plus a short note on production fleets.
-  Builds on event-loop-exercises (see the fleet-localization items under Architecture, Exercise requirements, Observability requirements, Test requirements, and Documentation requirements below).
+  It builds on the shipped event-loop-exercises arc.
   The phase also carries the rulings of November 9, 2026: the shared recognition block, the fold-ins in exercises 01, 02, and 03 and in the event loop primer, the teaching-code note in the root README, and the single-Worker sentence in exercises 01 to 05.
 
 **Deferred:** (a lab mode turning the demo into a whodunit; decisions recorded September 2026, build deferred until after the tutorial publishes)

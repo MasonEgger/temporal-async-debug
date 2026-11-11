@@ -2,6 +2,7 @@
 
 ## Recent
 
+- A step prompt drifted from a design decision that lived only in working notes (the flood's pure functions went into `starter.py`, not their own `flood.py`); write each settled decision into the plan's decision list first, write the steps from that list, and re-read each step against it before the plan is committed (2026-11-10)
 - After the `def` plus executor fix, a two-Worker flood with a 30-second `sqlite3` lock wait failed no receipt and timed out no Workflow Task in five of six runs (median 0.33 to 0.40 s, slowest 0.55 to 1.25 s); the lookup waits on a `ThreadPoolExecutor` thread and both main threads sit in the selector (2026-11-10)
 - One after-fix flood was slow with no failure (260 of 528 receipts over 2 s, one Workflow Task timeout): it was the fourth of five back-to-back floods on one dev server with process tools attached, and the next flood on that server was clean; the cause is unknown, so start a fresh dev server for each capture flood and never quote one run as the result (2026-11-10)
 - The query `temporal_worker_task_slots_used{worker_type="WorkflowWorker"}` also returns six all-zero series from the dev server's own system Workers when Prometheus scrapes the server's metrics port; add `task_queue="async-debug-task-queue"` to get one line per Worker (2026-11-10)
@@ -11,7 +12,6 @@
 - A spec section written from run summaries carried 13 wrong figures in 72 checked claims (ranges quoted from fewer runs than the sentence named, one mid-freeze read reported as the whole freeze); before a spec commit, recompute every figure from the saved output with a script, name the run set in the sentence, and have a fresh-context agent check the result (2026-11-10)
 - Check how a spike took a measurement (sampler interval, one read or a series, which runs saved which files) in the raw file before describing it; a correction that said "once a second" was a guess, and the log stepped by 2 seconds (2026-11-10)
 - Never record a build decision as the owner's ruling; a resolved note that named a ruling the owner never made closed a question the owner had not seen, so write "build decision" and keep the question open for review (2026-11-10)
-- With two Workers at 2 Activity slots each, no receipt failed at any burst size (8, 100, 500); at the SDK default of 100 slots under steady traffic of 10 receipts per second, 17 to 22 of about 515 failed (3.3 to 4.3 percent) in six freeze runs. A demo's small slot count can hide the fleet symptom, so run a fleet exercise at the default slot counts (2026-11-10)
 
 ## Testing
 
@@ -81,7 +81,7 @@
 - A line-anchored edit script breaks when an insert after line N and a replace that starts at line N+1 share a boundary, because both resolve to the same position; check the edit list for shared boundaries, or fold the insert into the replace. Stripping the inserted text also removed the blank line that separates a new paragraph (2026-11-10)
 - zsh expands an unquoted word that starts with `=` as a command path lookup, so `echo ===== X` fails with "not found"; quote separator strings (2026-11-10)
 - `pkill -f <pattern>` matches the shell that runs it when the pattern appears in that command line, and kills it (exit 144); stop processes by recorded PID, then confirm with `pgrep` and `ss` (2026-11-09)
-- Google Drive `read_file_content` returns no text at all for very large Docs (about 1 MB and up), with no error; plan for those documents to be unreadable through the tool (2026-11-09)
+- A document connector can return no text at all for a very large document (about 1 MB and up), with no error; plan for such documents to be unreadable through the tool (2026-11-09)
 - `.vale.ini` hard-codes a Linux `StylesPath`, so `just lint-prose` and `just preflight` fail on macOS; lint with a temporary copy of the config whose path points at the local styles (2026-11-09)
 - TMPRL1101 "Potential deadlock detected" is timing-dependent: the exercise 02 spike logged it twice, the Step 17 smoke run logged 0 of it and 4 TMPRL1104 lines. Do not promise it on every run in prose; count appearances across several runs before wording a claim, and say "can show" (2026-11-08)
 - py-spy is not a project dependency, so `uv run py-spy` fails with "Failed to spawn"; capture with `uvx py-spy`, the form the README prints. Under ptrace_scope 1 both `uvx py-spy dump` and `python -m asyncio ps` refuse to attach (2026-11-08)
@@ -91,6 +91,7 @@
 
 ## Workflow
 
+- A step prompt drifted from a design decision that lived only in working notes (the flood's pure functions went into `starter.py`, not their own `flood.py`); write each settled decision into the plan's decision list first, write the steps from that list, and re-read each step against it before the plan is committed (2026-11-10)
 - A context summary written from memory misstated two figures (259 for 260, fifth run for fourth); after any summary, recompute each figure from the saved files before it goes into the spec or a report (2026-11-10)
 - A spec section written from run summaries carried 13 wrong figures in 72 checked claims (ranges quoted from fewer runs than the sentence named, one mid-freeze read reported as the whole freeze); before a spec commit, recompute every figure from the saved output with a script, name the run set in the sentence, and have a fresh-context agent check the result (2026-11-10)
 - Check how a spike took a measurement (sampler interval, one read or a series, which runs saved which files) in the raw file before describing it; a correction that said "once a second" was a guess, and the log stepped by 2 seconds (2026-11-10)
