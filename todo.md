@@ -91,13 +91,13 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 8: Capture Exercise 03 And The Root Reference Readings (task)
 
-- [ ] 1. Scope defined (exercise 03, root logs, exercise 02 panels, ptrace reading)
-- [ ] 2. Tooling: temporal CLI, just, py-spy, top, sysctl (read only), shot.py
-- [ ] 3. Do: exercise 03 `--bad 2` on one Worker and `--bad 4` on two, with placement
-- [ ] 3. Do: root healthy-only Worker log and root `just block` log and panel reading
-- [ ] 3. Do: exercise 02 solution panels and the `sysctl` reading
-- [ ] 4. Verify: every reading indexed, placement counts add up
-- [ ] 5. Document: scratchpad INDEX.md and FINDINGS.md; commit replaced PNG files only
+- [x] 1. Scope defined (exercise 03, root logs, exercise 02 panels, ptrace reading)
+- [x] 2. Tooling: temporal CLI, just, py-spy, top, sysctl (read only), shot.py
+- [x] 3. Do: exercise 03 `--bad 2` on one Worker and `--bad 4` on two, with placement
+- [x] 3. Do: root healthy-only Worker log and root `just block` log and panel reading
+- [x] 3. Do: exercise 02 solution panels and the `sysctl` reading
+- [x] 4. Verify: every reading indexed, placement counts add up
+- [x] 5. Document: scratchpad INDEX.md and FINDINGS.md; commit replaced PNG files only
 
 ## Section 6: Shared Recognition Block
 
