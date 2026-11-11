@@ -1,9 +1,10 @@
 """ABOUTME: Invariant tests for the observability stack under observability/, read as plain text.
-ABOUTME: Pins the Prometheus-and-Grafana-only compose file, the two scrape targets, and the dashboard metric allowlist.
+ABOUTME: Pins the Prometheus-and-Grafana-only compose file, the three scrape targets, and the dashboard panels.
 
 Only the stack's invariants are asserted: no Temporal server container, no scrape target beyond the
-two metrics endpoints, no dashboard metric outside the allowed list, and a provisioning path that
-matches the compose mount. YAML is read with a few regexes because no YAML parser is a dependency.
+two Worker endpoints and the dev server, no dashboard metric outside the allowed list, the per-Worker
+panel, the pinned expressions of panels 1 to 6, and a provisioning path that matches the compose
+mount. YAML is read with a few regexes because no YAML parser is a dependency.
 """
 
 from __future__ import annotations
@@ -11,6 +12,8 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+
+from temporal_async_debug.shared import TASK_QUEUE
 
 OBSERVABILITY_DIR: Path = Path(__file__).resolve().parent.parent / "observability"
 """Root of the compose stack, Prometheus config, and Grafana provisioning."""
@@ -33,6 +36,28 @@ activity, so only the server counts the timeout."""
 
 OPTIONAL_BACKLOG_METRICS: frozenset[str] = frozenset({"approximate_backlog_count"})
 """The dev server's Task Queue backlog gauge; its panel may be dropped, so it is allowed but never required."""
+
+DASHBOARD_PATH: Path = OBSERVABILITY_DIR / "grafana" / "dashboards" / "async-debug.json"
+"""The one provisioned dashboard."""
+
+PER_WORKER_SLOTS_EXPR: str = (
+    'temporal_worker_task_slots_used{worker_type="WorkflowWorker", task_queue="async-debug-task-queue"}'
+)
+"""The per-Worker panel's query: one Workflow Task slots line per scraped Worker, never summed."""
+
+PINNED_PANEL_EXPRS: tuple[str, ...] = (
+    "rate(temporal_activity_execution_latency_sum[30s]) / rate(temporal_activity_execution_latency_count[30s])",
+    "rate(temporal_workflow_task_schedule_to_start_latency_sum[30s])"
+    " / rate(temporal_workflow_task_schedule_to_start_latency_count[30s])",
+    "rate(temporal_workflow_task_execution_latency_sum[30s])"
+    " / rate(temporal_workflow_task_execution_latency_count[30s])",
+    "increase(temporal_activity_execution_failed[1m])",
+    "increase(temporal_workflow_task_execution_failed[1m])",
+    "sum by (timeout_type) (activity_timeout)",
+    "sum by (worker_type) (temporal_worker_task_slots_used)",
+    'sum by (task_type) (approximate_backlog_count{taskqueue="async_debug_task_queue"})',
+)
+"""The expressions of panels 1 to 6, pinned verbatim."""
 
 HISTOGRAM_SUFFIXES: tuple[str, ...] = ("_bucket", "_sum", "_count")
 PROMQL_WORDS: frozenset[str] = frozenset(
@@ -109,6 +134,43 @@ def _base_name(name: str) -> str:
     return name
 
 
+def _panels(dashboard: object) -> list[dict[str, object]]:
+    """Return the ``panels`` list of a parsed dashboard.
+
+    Args:
+        dashboard: The parsed dashboard JSON.
+
+    Returns:
+        The panel objects, in file order. Fails the test if the shape is not as expected.
+    """
+    assert isinstance(dashboard, dict), "dashboard JSON must be an object"
+    panels = dashboard.get("panels", [])
+    assert isinstance(panels, list), "panels must be a list"
+    for panel in panels:
+        assert isinstance(panel, dict), "each panel must be an object"
+    return panels
+
+
+def _panel_targets(dashboard: object) -> list[dict[str, object]]:
+    """Collect every ``panels[].targets[]`` object from a parsed dashboard.
+
+    Args:
+        dashboard: The parsed dashboard JSON.
+
+    Returns:
+        The target objects, in panel order. Fails the test if the shape is not as expected.
+    """
+    collected: list[dict[str, object]] = []
+    for panel in _panels(dashboard):
+        targets = panel.get("targets", [])
+        assert isinstance(targets, list), "panel targets must be a list"
+        for target in targets:
+            assert isinstance(target, dict), "each panel target must be an object"
+            assert isinstance(target.get("expr"), str), "each panel target needs a string expr"
+            collected.append(target)
+    return collected
+
+
 def _panel_exprs(dashboard: object) -> list[str]:
     """Collect every ``panels[].targets[].expr`` string from a parsed dashboard.
 
@@ -118,20 +180,22 @@ def _panel_exprs(dashboard: object) -> list[str]:
     Returns:
         The expression strings, in panel order. Fails the test if the shape is not as expected.
     """
-    assert isinstance(dashboard, dict), "dashboard JSON must be an object"
-    panels = dashboard.get("panels", [])
-    assert isinstance(panels, list), "panels must be a list"
-    exprs: list[str] = []
-    for panel in panels:
-        assert isinstance(panel, dict), "each panel must be an object"
-        targets = panel.get("targets", [])
-        assert isinstance(targets, list), "panel targets must be a list"
-        for target in targets:
-            assert isinstance(target, dict), "each panel target must be an object"
-            expr = target.get("expr")
-            assert isinstance(expr, str), "each panel target needs a string expr"
-            exprs.append(expr)
-    return exprs
+    return [str(target["expr"]) for target in _panel_targets(dashboard)]
+
+
+def _per_worker_slots_target() -> dict[str, object]:
+    """Return the one dashboard target that selects the ``WorkflowWorker`` slots gauge.
+
+    Returns:
+        The target object. Fails the test unless exactly one target selects that gauge.
+    """
+    matches = [
+        target
+        for target in _panel_targets(json.loads(DASHBOARD_PATH.read_text()))
+        if 'worker_type="WorkflowWorker"' in str(target["expr"])
+    ]
+    assert len(matches) == 1, f"expected one WorkflowWorker slots target, found {len(matches)}"
+    return matches[0]
 
 
 def _scrape_targets(relative_path: str) -> list[str]:
@@ -161,10 +225,40 @@ def test_compose_runs_only_prometheus_and_grafana() -> None:
     assert not [image for image in images if "temporal" in image.lower()]
 
 
-def test_prometheus_scrapes_exactly_the_sdk_and_dev_server_endpoints() -> None:
+def test_prometheus_scrapes_both_worker_endpoints_and_the_dev_server() -> None:
     targets = _scrape_targets("prometheus.yml")
 
-    assert sorted(targets) == ["127.0.0.1:9464", "127.0.0.1:9465"]
+    assert sorted(targets) == ["127.0.0.1:9464", "127.0.0.1:9465", "127.0.0.1:9466"]
+
+
+def test_one_panel_draws_workflow_task_slots_per_worker() -> None:
+    target = _per_worker_slots_target()
+    expr = str(target["expr"])
+
+    assert not re.match(r"\s*sum\b", expr), f"summing would merge the Workers into one line: {expr!r}"
+    assert expr == PER_WORKER_SLOTS_EXPR
+    assert target.get("legendFormat") == "{{instance}}"
+
+
+def test_per_worker_panel_filters_on_the_demo_task_queue() -> None:
+    expr = str(_per_worker_slots_target()["expr"])
+    queue_match = re.search(r'task_queue="([^"]*)"', expr)
+
+    assert queue_match is not None, f"no task_queue filter in {expr!r}"
+    assert queue_match.group(1) == TASK_QUEUE
+
+
+def test_panels_one_to_six_keep_their_pinned_expressions() -> None:
+    exprs = _panel_exprs(json.loads(DASHBOARD_PATH.read_text()))
+
+    missing = [expr for expr in PINNED_PANEL_EXPRS if expr not in exprs]
+    assert not missing, f"panel expressions changed or removed: {missing}"
+
+
+def test_dashboard_panel_ids_are_unique() -> None:
+    panel_ids = [panel.get("id") for panel in _panels(json.loads(DASHBOARD_PATH.read_text()))]
+
+    assert len(panel_ids) == len(set(panel_ids)), f"duplicate panel ids: {panel_ids}"
 
 
 def test_dashboard_panels_query_only_allowlisted_metrics() -> None:

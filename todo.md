@@ -6,14 +6,14 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 1: Third Scrape Target And The Per-Worker Panel
 
-- [ ] 1. RED: config tests for three targets, the per-Worker expression, Task Queue parity, the six pinned expressions, unique ids
-- [ ] 2. Document: `prometheus.yml` header comment
-- [ ] 3. GREEN: add target 9466 and panel 7
-- [ ] 4. RED: allowlist test covers the new panel's label selector
-- [ ] 5. GREEN: fix the metric-name helper only if needed
-- [ ] 6. REFACTOR: dashboard JSON formatting, panels 1 to 6 untouched
-- [ ] 7. Docs: none (Step 14)
-- [ ] 8. Verify: test has teeth, `just check`
+- [x] 1. RED: config tests for three targets, the per-Worker expression, Task Queue parity, the six pinned expressions, unique ids
+- [x] 2. Document: `prometheus.yml` header comment
+- [x] 3. GREEN: add target 9466 and panel 7
+- [x] 4. RED: allowlist test covers the new panel's label selector
+- [x] 5. GREEN: fix the metric-name helper only if needed
+- [x] 6. REFACTOR: dashboard JSON formatting, panels 1 to 6 untouched
+- [x] 7. Docs: none (Step 14)
+- [x] 8. Verify: test has teeth, `just check`
 
 ## Section 2: Exercise 06 Code
 

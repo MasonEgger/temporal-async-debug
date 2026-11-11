@@ -175,6 +175,30 @@
           "interval": "5s"
         }
       ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Workflow Task Slots Used Per Worker",
+      "description": "Each line is one Worker. A line that climbs and stays high is a Worker holding Workflow Tasks it was handed and cannot complete.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": null
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "temporal_worker_task_slots_used{worker_type=\"WorkflowWorker\", task_queue=\"async-debug-task-queue\"}",
+          "legendFormat": "{{instance}}",
+          "interval": "5s"
+        }
+      ]
     }
   ]
 }

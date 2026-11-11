@@ -2,6 +2,7 @@
 
 ## Recent
 
+- In the per-Worker panel test a count assertion ran before the no-`sum` assertion, so a `sum by (worker_type)` wrap failed with the count message and the summing message could never fire; order assertions from the most specific failure message to the least, and run the teeth check to see which message actually fires (2026-11-10)
 - A step prompt drifted from a design decision that lived only in working notes (the flood's pure functions went into `starter.py`, not their own `flood.py`); write each settled decision into the plan's decision list first, write the steps from that list, and re-read each step against it before the plan is committed (2026-11-10)
 - After the `def` plus executor fix, a two-Worker flood with a 30-second `sqlite3` lock wait failed no receipt and timed out no Workflow Task in five of six runs (median 0.33 to 0.40 s, slowest 0.55 to 1.25 s); the lookup waits on a `ThreadPoolExecutor` thread and both main threads sit in the selector (2026-11-10)
 - One after-fix flood was slow with no failure (260 of 528 receipts over 2 s, one Workflow Task timeout): it was the fourth of five back-to-back floods on one dev server with process tools attached, and the next flood on that server was clean; the cause is unknown, so start a fresh dev server for each capture flood and never quote one run as the result (2026-11-10)
@@ -11,10 +12,10 @@
 - A context summary written from memory misstated two figures (259 for 260, fifth run for fourth); after any summary, recompute each figure from the saved files before it goes into the spec or a report (2026-11-10)
 - A spec section written from run summaries carried 13 wrong figures in 72 checked claims (ranges quoted from fewer runs than the sentence named, one mid-freeze read reported as the whole freeze); before a spec commit, recompute every figure from the saved output with a script, name the run set in the sentence, and have a fresh-context agent check the result (2026-11-10)
 - Check how a spike took a measurement (sampler interval, one read or a series, which runs saved which files) in the raw file before describing it; a correction that said "once a second" was a guess, and the log stepped by 2 seconds (2026-11-10)
-- Never record a build decision as the owner's ruling; a resolved note that named a ruling the owner never made closed a question the owner had not seen, so write "build decision" and keep the question open for review (2026-11-10)
 
 ## Testing
 
+- In the per-Worker panel test a count assertion ran before the no-`sum` assertion, so a `sum by (worker_type)` wrap failed with the count message and the summing message could never fire; order assertions from the most specific failure message to the least, and run the teeth check to see which message actually fires (2026-11-10)
 - When a plan says a test runs against captures and no machine-readable capture exists, capture one live (`temporal workflow show --output json`) instead of reconstructing fixtures backward from the expected output; a fixture built to match the expected result makes a circular test. Step 15's first validator pass caught it (2026-11-08)
 - pytest resolves a relative `pythonpath` ini value against the config file's directory, not the cwd, so a per-directory run from a subdirectory with `-o pythonpath=.` put the repo root on every copy's sys.path; pass an absolute path (`-o pythonpath="$PWD"`) inside the cd subshell to keep the repo root off it. Proved with throwaway two-copy probes (2026-11-03)
 - A config test that must assert "exactly these values and nothing else" should scan for every token of the value's shape across the whole file rather than parse structure with regexes; structural regex parsing failed open across two validator rounds (2026-11-03)
