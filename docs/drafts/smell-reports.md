@@ -193,6 +193,80 @@ Should the images be recaptured over a longer run, or dropped in favor of the re
 - Resolved: the receipts-only and practice-fleet gap blocks name `just receipt-gaps <receipt workflow ID> ...`, and the README no longer tells the reader to subtract JSON event times by hand.
   The helper is committed.
 
+## exercises/06-finding-the-frozen-worker/README.md
+
+Where the README follows the capture against spec.md or plan.md:
+
+- Quote: `In each bucket from +15s on, the receipts are slower than 2 seconds, or all but two of them are.`
+  Rule: matches the flood B timeline (run 4 of 4), and contradicts the spec's claim that the fleet looks recovered before the thaw.
+  The failures stop 20 seconds before the freeze ends.
+  Every later bucket is still slow.
+  The slowest receipt took 38.65 seconds (spec: 20.7 to 21.5).
+- Quote: `The backlog was 39 Workflow Tasks, aged 3.5 seconds.`
+  Rule: matches the last mid-freeze pass, and contradicts the spec's backlog of 0 in each single read.
+  The README reports each pass as captured: 0 and 0, 0 and 0, 1 Workflow Task at 47 ms, then 39 and 1.
+- Quote: `The pollers of the frozen identity were 6 and 8 seconds stale.`
+  Rule: matches the last pass, and contradicts the plan's "the Task Queue page does not" separate the Workers.
+  The early passes did not separate them, and the README says one run proves nothing.
+- Quote: `The frozen Worker answered in 1.8, 1.5, 1.5, and 2.8 milliseconds.`
+  Rule: raw files win over FINDINGS.
+  FINDINGS lists the last pass as 35.1 and 2.8 ms for the frozen and healthy Workers.
+  The raw time files read 2.8 ms for port 9464 (frozen) and 35.1 ms for port 9466 (healthy).
+  The README uses the raw order.
+- Quote: `Both Workers read 0.0 percent in top at the first reading.`
+  Rule: matches the capture (the spec expected 10 to 100 percent while the healthy Worker carries traffic).
+- Quote: `The healthy Worker had no dead-ended row in the first three readings.`
+  Rule: matches the capture.
+  The last reading shows one fresh dead-ended row on the healthy Worker, so the README rates `asyncio ps` as a partial separator.
+- Quote: `14 of the 21 failed receipts print no Activity.`
+  Rule: matches the capture and the raw receipt-gaps file (spec: 13 of 17).
+- Quote: the TMPRL1101 sentence in Step 4.
+  Rule: no log from these floods holds that code, so the README does not list it as a symptom.
+  The sentence only points to exercise 02.
+- Quote: the Web UI row of the table.
+  Rule: the capture saved only backend API JSON, so the row says that and describes no screen.
+- Quote: `The Worker that freezes can change from run to run, so this part never names one in advance.`
+  Rule: every figure names identity 3193283 only after the histories do, as a reading of one capture.
+- Quote: the dashboard descriptions.
+  Rule: written from opening the committed PNG files, because the capture index lists the image windows and no reading of each image.
+  The solution latency panel reads about 7 to 17 ms in the image, where FINDINGS says 6 to 17 ms.
+- Quote: `The healthy Worker answered in 1.1, 1.6, 6.0, and 35.1 milliseconds.`
+  Rule: matches the capture, which reads up to 35.1 ms and 6.0 ms on the healthy Worker where spec.md says about a millisecond.
+  The README rates the metrics endpoints as not separating the Workers, because both answered in milliseconds.
+- Quote: `it took about 50 seconds for 523 receipts in the capture.`
+  Rule: matches the capture, where `receipt-gaps` took about 50 s for 523 receipts and spec.md says 37.7 s for 518.
+
+Build decisions:
+
+- Build decision: the capture index records the starter flags as `<flags>`.
+  The README shows `uv run python starter.py --bad 0` and `uv run python starter.py`, and lists the defaults from the argparse.
+  The counts (500 planned receipts, a 30-second lock) match the defaults.
+- Build decision: the process tools need a live freeze, and the histories are complete only after the thaw.
+  Step 3 says so and uses the mid-freeze readings of the capture.
+  It tells the reader to rerun the flood and confirm the match with the by-identity summary.
+- Build decision: the JSON history has no masked copy, so the README names the `identity` field and states the bad run's identity without quoting JSON.
+  A CLAUDE_HELP tag marks the point.
+  The `temporal workflow show --output json` command in Step 2 is a reader command that is not in the repository.
+- Build decision: the Web UI Task Queue and Workers pages were not opened, so a CLAUDE_HELP tag marks the row.
+- Build decision: the README gives the inferred cause in one sentence marked as an inference.
+  The cause is that a frozen Worker takes a limited number of tasks and the healthy Worker carries the rest.
+  It teaches no slot, timeout, heartbeat, or retry-policy lesson.
+- Build decision: the solution run's Failures panel read No data, so one sentence says so and the README embeds no image.
+- Build decision: a scratch copy outside the repository checked the failing behavior of Part D.
+  The hinted solution test fails at the executor assertion on the practice copy.
+  A probe test against the practice copy fails with a single 0.67 second gap for a 0.6 second hold.
+- Build decision: `content-design:review-content` needs the copy-editor agent, which this run could not launch.
+  Vale and a manual checklist replaced it.
+- Build decision: the README keeps three SentenceCapitalization warnings.
+  Vale splits two of those sentences after a possessive and splits the third in the middle of a line that starts with a capital letter.
+  All three are the same false-positive class the other exercise READMEs carry.
+
+Open points for Mason:
+
+- Build decision: keep the prose statement of the bad run's identity; Mason may add a masked excerpt of the JSON history.
+- Build decision: keep the API reading in the Web UI row; Mason may take rendered screenshots of the Task Queue and Workers pages during a freeze.
+- Build decision: keep the measured figures for the metrics response times and the `receipt-gaps` duration; Mason may ask for the spec.md figures to be revisited.
+
 ## docs/drafts/event-loop-primer.md
 
 Draft status: waits for Mason's review.
