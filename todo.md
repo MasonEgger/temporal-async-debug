@@ -30,14 +30,14 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 3: The Flood Starter
 
-- [ ] 1. RED: flood plan, summary, and formatting tests (`test_flood.py`); parser and gate tests (`test_starter.py`)
-- [ ] 2. Document: `flood.py` and `starter.py` module docstrings
-- [ ] 3. GREEN: pure functions in `flood.py`; parser and gate in `starter.py`
-- [ ] 4. RED: main flow test with a fake client (`--bad 0` and `--bad 1`)
-- [ ] 5. GREEN: producer, bad run with `arm()`, gate, tail, summary
-- [ ] 6. REFACTOR: `flood.py` free of I/O and Temporal imports, no role names
-- [ ] 7. Docs: none
-- [ ] 8. Verify: bucketing test has teeth, `just check`, live healthy smoke check
+- [x] 1. RED: flood plan, summary, and formatting tests (`test_flood.py`); parser and gate tests (`test_starter.py`)
+- [x] 2. Document: `flood.py` and `starter.py` module docstrings
+- [x] 3. GREEN: pure functions in `flood.py`; parser and gate in `starter.py`
+- [x] 4. RED: main flow test with a fake client (`--bad 0` and `--bad 1`)
+- [x] 5. GREEN: producer, bad run with `arm()`, gate, tail, summary
+- [x] 6. REFACTOR: `flood.py` free of I/O and Temporal imports, no role names
+- [x] 7. Docs: none
+- [x] 8. Verify: bucketing test has teeth, `just check`, live healthy smoke check
 
 ### Step 4: Exercise 06 Practice Copy And Gate Integration
 
