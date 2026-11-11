@@ -8,6 +8,9 @@ During this exercise, you will
 - Use `py-spy dump` to name the line behind the warning
 - Write a test that probes every `async def` Activity, then move the blocking call to a thread
 
+This exercise runs one Worker with two Activity slots on purpose, as teaching code, so the failure is loud.
+To see the same bug on a fleet of Workers, read [Exercise 6](../06-finding-the-frozen-worker/README.md).
+
 Make your changes to the code in the `practice` subdirectory.
 Look for the `TODO PART C` and `TODO PART D` comments, which mark where you make changes.
 If you need a hint or want to verify your changes, look at the complete version in the `solution` subdirectory.
@@ -75,6 +78,7 @@ Part B asks you to find the cause with tools.
    ```
 
 Here is what the starter printed for the practice fleet in the capture for this exercise.
+In the capture, `<ip>`, `<city>`, `<repo>`, and `<home>` replace the address, city, and paths that appear in your own output.
 
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
@@ -82,9 +86,9 @@ Here is what the starter printed for the practice fleet in the capture for this 
 receipt receipt-afa2f200-1d9e-437b-bf7f-1f8cc2b395ec: OrderReceiptOutput(receipt='order order-0: 59.97 USD')
 receipt receipt-8a1ce51f-f349-4839-9faa-2600ade6eaaf: OrderReceiptOutput(receipt='order order-1: 59.97 USD')
 receipt receipt-ad4ab770-ea4b-4692-b6b9-041bcb022591: OrderReceiptOutput(receipt='order order-2: 59.97 USD')
-geo geo-36dd0c85-ee65-4922-a98e-6f6274f85a41: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy (40000 audit records)')
-geo geo-d785f5d4-1c83-4aed-9180-2b4c34e7e152: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy (40000 audit records)')
-geo geo-39537558-30f3-4e1e-a7d5-250dee96bfe9: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy (40000 audit records)')
+geo geo-36dd0c85-ee65-4922-a98e-6f6274f85a41: GeoEnrichmentOutput(ip='<ip>', location='<city> (40000 audit records)')
+geo geo-d785f5d4-1c83-4aed-9180-2b4c34e7e152: GeoEnrichmentOutput(ip='<ip>', location='<city> (40000 audit records)')
+geo geo-39537558-30f3-4e1e-a7d5-250dee96bfe9: GeoEnrichmentOutput(ip='<ip>', location='<city> (40000 audit records)')
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
@@ -139,6 +143,8 @@ The receipt code is the same in both fleets, so something on the Worker holds up
 
 ## Part B: Diagnose the delay
 
+If you want the short list of symptoms first, read [Recognizing a blocked event loop](../../README.md#recognizing-a-blocked-event-loop) in the root README.
+
 The delay is short, so you cannot catch it with `asyncio ps` by luck, and nothing fails to point you at it.
 Two tools help here.
 Asyncio debug mode reports slow callbacks, and `py-spy` names the line once you know when to look.
@@ -169,7 +175,7 @@ This block keeps only the first one.
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-Executing <Task pending name='Task-37' coro=<_ActivityWorker._handle_start_activity_task() running at /home/ziggy/temporal-async-debug/.venv/lib/python3.14/site-packages/temporalio/worker/_activity.py:351> created at /home/ziggy/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/lib/python3.14/asyncio/tasks.py:395> took 0.397 seconds
+Executing <Task pending name='Task-37' coro=<_ActivityWorker._handle_start_activity_task() running at <repo>/.venv/lib/python3.14/site-packages/temporalio/worker/_activity.py:351> created at <home>/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/lib/python3.14/asyncio/tasks.py:395> took 0.397 seconds
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
@@ -202,8 +208,8 @@ This block keeps only the `MainThread` stack from the capture.
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-Process 2798400: /home/ziggy/temporal-async-debug/.venv/bin/python worker.py
-Python v3.14.3 (/home/ziggy/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/bin/python3.14)
+Process 2798400: <repo>/.venv/bin/python worker.py
+Python v3.14.3 (<home>/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/bin/python3.14)
 
 Thread 2798400 (active): "MainThread"
     _archive_audit_trail (activities.py:182)
@@ -236,6 +242,7 @@ Here the panel is almost empty.
 ![The Workflow Task Execution Latency panel during the practice fleets, with three points on the geo line near 6 milliseconds and no receipt line.](../../docs/images/05-practice-stall-workflow-task-latency.png)
 
 The geo line has three points near 6 milliseconds, and the receipt line has none.
+A stall of about 350 milliseconds is small next to a panel that plots a 30-second rate average.
 The fleets last only seconds, so the panel has too little data to draw the 351 millisecond stall.
 Nothing on the panel would alarm anyone, which is the point of this exercise.
 The debug-mode warning, the thread dump, and `just receipt-gaps` found what the panel could not.
@@ -335,9 +342,9 @@ Every Workflow completes, as before.
 receipt receipt-ece12cfb-729c-4bda-9d78-dc7d274351a1: OrderReceiptOutput(receipt='order order-0: 59.97 USD')
 receipt receipt-db318a45-c83d-4ac6-8fe9-2485dd7e97e7: OrderReceiptOutput(receipt='order order-1: 59.97 USD')
 receipt receipt-462e1ffe-6347-4718-9950-b3e7cb61f2b2: OrderReceiptOutput(receipt='order order-2: 59.97 USD')
-geo geo-729d8515-b460-4b92-95e2-1ca18f88f14a: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy (40000 audit records)')
-geo geo-dbb7dcee-cf17-496e-a348-91e19d178aa1: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy (40000 audit records)')
-geo geo-126ac90f-d162-47ed-a2a4-322d4fccf6c0: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy (40000 audit records)')
+geo geo-729d8515-b460-4b92-95e2-1ca18f88f14a: GeoEnrichmentOutput(ip='<ip>', location='<city> (40000 audit records)')
+geo geo-dbb7dcee-cf17-496e-a348-91e19d178aa1: GeoEnrichmentOutput(ip='<ip>', location='<city> (40000 audit records)')
+geo geo-126ac90f-d162-47ed-a2a4-322d4fccf6c0: GeoEnrichmentOutput(ip='<ip>', location='<city> (40000 audit records)')
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
@@ -368,7 +375,7 @@ This block keeps only the warning lines from the first solution fleet's Worker l
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-Executing <Task pending name='Task-1' coro=<main() running at /home/ziggy/temporal-async-debug/exercises/05-catching-blockers-early/solution/worker.py:118> wait_for=<Future pending cb=[<builtins.PyDoneCallback object at 0x73e399f43d30>(), Task.task_wakeup()] created at /home/ziggy/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/lib/python3.14/asyncio/base_events.py:459> cb=[_run_until_complete_cb() at /home/ziggy/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/lib/python3.14/asyncio/base_events.py:181] created at /home/ziggy/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/lib/python3.14/asyncio/runners.py:109> took 0.141 seconds
+Executing <Task pending name='Task-1' coro=<main() running at <repo>/exercises/05-catching-blockers-early/solution/worker.py:118> wait_for=<Future pending cb=[<builtins.PyDoneCallback object at 0x73e399f43d30>(), Task.task_wakeup()] created at <home>/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/lib/python3.14/asyncio/base_events.py:459> cb=[_run_until_complete_cb() at <home>/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/lib/python3.14/asyncio/base_events.py:181] created at <home>/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/lib/python3.14/asyncio/runners.py:109> took 0.141 seconds
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->

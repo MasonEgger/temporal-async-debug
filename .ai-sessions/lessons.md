@@ -2,6 +2,9 @@
 
 ## Recent
 
+- A masking instruction must say to replace only the private token and keep every other character of the captured line: "mask the location" lost step counts, digests, and record counts (Step 11) (2026-11-11)
+- When a README section mixes blocks from two captures, say in prose which block comes from which capture, at the block, before a validator has to ask (Step 11) (2026-11-11)
+- Run Vale on replacement sentences before handing them to an executor as verbatim text: three orchestrator-written sentences raised new warnings and cost a resumed fix pass (Step 11) (2026-11-11)
 - When a reviewer suggests a narrower wording for a claim, check it against the document's own tables before applying it: a suggested "none of the tools names the stuck Worker by itself" contradicted a table row that rated `py-spy dump` "Yes." and cost a validator pass (Step 10) (2026-11-11)
 - When prose explains why a line number differs between two copies of a file, run `diff` on the two files and make the arithmetic add up in the text: a two-cause explanation predicted line 167 for a call at line 165, because two dropped comment lines were missing from it (Step 10) (2026-11-11)
 - Put a setup rule at the step where the reader acts on it, not only in a paragraph above the numbered steps: a "fresh dev server before each flood" rule stated once at the top of a part was missed at the second flood, where the reader also needed to note new process IDs (Step 10) (2026-11-11)
@@ -9,9 +12,6 @@
 - Executors and validators cannot reach the docs MCP or launch the copy-editor agent, so the orchestrator runs any docs check itself and passes the result into the next dispatch (Step 9) (2026-11-11)
 - A Workflow Task that times out records no execution latency, so the Workflow Task Execution Latency panel cannot show a stall that a timeout carries: in one root `just block` run the receipts' 29-second first-task stall left their line empty, and the panel's only high reading (5.14 s) sat on the rollup line (one run, 2026-11-11)
 - Replacing a panel image ahead of the prose that captions it makes the alt text and the sentence beside it false; in the same commit, record the file and line of every caption the new image contradicts (exercise 02 README lines 683 and 686, part 3 draft line 721) so the prose steps find them (2026-11-11)
-- A `py-spy` frame line printed in a README goes stale whenever the file it names changes: the exercise 03 README's `worker.py:115` and `worker.py:117` read 166 and 168 in a retake, while every other frame matched; retake the dump after code edits to that file (one run, 2026-11-11)
-- An `ActivityTaskStarted` history event is written only when the Activity finishes, so a mid-freeze reading triggered on it falls after the thaw (two of four exercise 06 flood B runs); trigger on the starter's own output or on the pending Activity state from `describe` (2026-11-11)
-- A flood B run read a backlog of 39 tasks aged 3.5 s and a frozen Worker's pollers 6 and 8 seconds stale only at the last of four mid-freeze passes (about 19 s in); the passes at about 0 and 2 s read backlog 0 and current pollers, so one early read does not show the signal is absent; take passes across the whole freeze and name the pass in the sentence (one run, 2026-11-11)
 
 ## Testing
 
@@ -77,6 +77,8 @@
 
 ## Documentation
 
+- A masking instruction must say to replace only the private token and keep every other character of the captured line: "mask the location" lost step counts, digests, and record counts (Step 11) (2026-11-11)
+- When a README section mixes blocks from two captures, say in prose which block comes from which capture, at the block, before a validator has to ask (Step 11) (2026-11-11)
 - When a reviewer suggests a narrower wording for a claim, check it against the document's own tables before applying it: a suggested "none of the tools names the stuck Worker by itself" contradicted a table row that rated `py-spy dump` "Yes." and cost a validator pass (Step 10) (2026-11-11)
 - When prose explains why a line number differs between two copies of a file, run `diff` on the two files and make the arithmetic add up in the text: a two-cause explanation predicted line 167 for a call at line 165, because two dropped comment lines were missing from it (Step 10) (2026-11-11)
 - Put a setup rule at the step where the reader acts on it, not only in a paragraph above the numbered steps: a "fresh dev server before each flood" rule stated once at the top of a part was missed at the second flood, where the reader also needed to note new process IDs (Step 10) (2026-11-11)
@@ -111,6 +113,7 @@
 
 ## Workflow
 
+- Run Vale on replacement sentences before handing them to an executor as verbatim text: three orchestrator-written sentences raised new warnings and cost a resumed fix pass (Step 11) (2026-11-11)
 - When a plan step names one copy of an exercise file and the practice or solution twin holds identical lines, apply a no-behavior change to both and log it as a deviation, so `diff practice solution` keeps showing only lesson lines (Step 6, exercise 03 `worker.py`) (2026-11-11)
 - Before an orchestrator gives an executor a formatting rule, check the house convention in the existing files: the Step 4 executor was told never to split the ANTIPATTERN marker, kept one 264-character line behind a file-level `# ruff: noqa: E501`, and had to be sent back, because every other marker in the repository wraps over several comment lines; grep the existing instances first (2026-11-11)
 - A step prompt drifted from a design decision that lived only in working notes (the flood's pure functions went into `starter.py`, not their own `flood.py`); write each settled decision into the plan's decision list first, write the steps from that list, and re-read each step against it before the plan is committed (2026-11-10)

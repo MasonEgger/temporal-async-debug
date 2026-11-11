@@ -126,14 +126,14 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 11: Fold-Ins For Exercises 01 To 05 (task)
 
-- [ ] 1. Scope defined (five exercise READMEs)
-- [ ] 2. Tooling: tutorial-writing, voice:teaching, review-content, preflight
-- [ ] 3. Do: single-Worker sentence and Part B link in all five
-- [ ] 3. Do: exercise 01 table and `activity_executor` statement; exercise 02 heartbeat sentence
-- [ ] 3. Do: exercise 03 second Worker required with `--bad 2` and `--bad 4`; exercise 05 panel sentence
-- [ ] 3. Do: review-content pass
-- [ ] 4. Verify: lint, no `--bad 3`, links present
-- [ ] 5. Document: none
+- [x] 1. Scope defined (five exercise READMEs)
+- [x] 2. Tooling: tutorial-writing, voice:teaching, review-content, preflight
+- [x] 3. Do: single-Worker sentence and Part B link in all five
+- [x] 3. Do: exercise 01 table and `activity_executor` statement; exercise 02 heartbeat sentence
+- [x] 3. Do: exercise 03 second Worker required with `--bad 2` and `--bad 4`; exercise 05 panel sentence
+- [x] 3. Do: review-content pass
+- [x] 4. Verify: lint, no `--bad 3`, links present
+- [x] 5. Document: none
 
 ## Section 8: Series Drafts
 
