@@ -139,12 +139,12 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 12: Draft Part 7 (task)
 
-- [ ] 1. Scope defined (`docs/drafts/part-7-finding-the-frozen-worker.md`)
-- [ ] 2. Tooling: tutorial-writing, voice:teaching, review-content, preflight
-- [ ] 3. Do: write the draft from the exercise README and the captures
-- [ ] 3. Do: smell-report section and review-content pass
-- [ ] 4. Verify: lint clean, capture provenance, no hostname
-- [ ] 5. Document: `docs/drafts/smell-reports.md` section
+- [x] 1. Scope defined (`docs/drafts/part-7-finding-the-frozen-worker.md`)
+- [x] 2. Tooling: tutorial-writing, voice:teaching, review-content, preflight
+- [x] 3. Do: write the draft from the exercise README and the captures
+- [x] 3. Do: smell-report section and review-content pass
+- [x] 4. Verify: lint clean, capture provenance, no hostname
+- [x] 5. Document: `docs/drafts/smell-reports.md` section
 
 ### Step 13: Updates To Parts 1 To 6 (task)
 

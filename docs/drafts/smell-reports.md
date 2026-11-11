@@ -497,6 +497,62 @@ Keep it as a described extension, or cut it from the draft?
   Rule: cross-run comparison.
   Each figure traces to a receipt-gaps.txt file in 05-practice-v2 and 05-solution-v2, and the draft names which fleet each range covers.
 
+## docs/drafts/part-7-finding-the-frozen-worker.md
+
+Where the draft follows the exercise 06 README and its captures over spec.md or plan.md:
+
+- Quote: `In this capture, one identity holds every timeout and every failure, and that is the Worker to look at.`
+  Rule: reports one run.
+  The draft keeps the README hedges ("in this capture", "This is one run") and never presents the run as general.
+- Quote: `Here is one inference, and the capture does not measure it.`
+  Rule: unmeasured claim, marked as an inference, as in the README.
+  It teaches no slot, heartbeat, timeout, or retry-policy lesson.
+- Quote: `Only the process you picked from the histories has the lock wait in its dump.`
+  Rule: matches the two `py-spy` captures, which read the lock wait on one Worker and an idle loop on the other.
+- Quote: `This note is general practice, and it has no capture behind it.`
+  Rule: the production note, carried from the README with the same disclosure.
+  The Kubernetes sentences stay marked as a documentation claim and an unchecked inference.
+- Quote: `The Web UI row reports saved API JSON.`
+  Rule: the capture saved the JSON that the Task Queue page reads and no rendered page, so the draft says that and describes no screen.
+- Quote: `The tutorial states that identity and quotes no JSON, because the capture kept no masked copy of that history.`
+  Rule: provenance disclosure for the bad run identity.
+  The draft gives it in prose and quotes no JSON.
+- Quote: `The per-Worker panel is the one that separates the Workers.`
+  Rule: the panel appears in Step 8, after the histories have named the Worker, and the draft says it does not find the Worker for you.
+- Quote: `It plots a 30-second rate average, so read the true lengths from the histories.`
+  Rule: matches the root README dashboard facts.
+- Quote: `Part 3 covers where it does appear.`
+  Rule: the draft names TMPRL1101 once, as the README does, and never leads with it.
+- Quote: `Read your own line for the rollup, because this capture does not promise the same outcome for your run.`
+  Rule: outcome hedge from the README.
+
+Build decisions:
+
+- Build decision: the draft is the tutorial form of the exercise 06 README, in 13 steps that follow Parts A to E in order.
+  Every fenced block comes from that README or from the practice and solution copies.
+  None comes from a `.masked` capture file.
+  The two probe-test excerpts in Step 11 come from `solution/tests/test_probe.py`.
+  The draft quotes no output of a failing probe, because no capture holds one.
+- Build decision: the draft gives the identity of the bad run in prose, as the README does, and carries no CLAUDE_HELP tag for it.
+  The `temporal workflow show --output json` command sits in a fenced command block.
+  Mason may add a masked excerpt of that JSON history.
+- Build decision: the Web UI row of the tools table reports saved API JSON, as the README does, and carries no CLAUDE_HELP tag.
+  Mason may take rendered screenshots of the Task Queue and Workers pages during a freeze.
+- Build decision: the draft runs 954 lines against the 550 to 800 planned.
+  The 38 quoted blocks, the tools table, and nine images account for the difference.
+  The prose steps stay short, and the blocks are the README blocks unchanged.
+- Build decision: the link to the root README section on blocked event loops is a `TODO` cross-link, in the form parts 1 to 6 use.
+  The primer link in the Introduction is a relative link, in the form part 1 uses, where plan.md asked for a `TODO` cross-link.
+- Build decision: the Vale run leaves two `MasonBase.SentenceCapitalization` warnings.
+  One is the possessive in the quoted `TODO PART C` comment of the practice file, a code comment that cannot change.
+  The other moves to a different line each time the prose changes and lands inside a quoted block.
+  Both are the false-positive class the exercise 06 README also carries.
+- Build decision: in prose, identities such as 3193283@host and PID@hostname carry no backticks, because Vale splits sentences around those code spans.
+  The draft also rewords several possessives and uses of the word "shows" for the same reason.
+- Build decision: `content-design:review-content` needs the copy-editor agent, which this run could not launch.
+  Vale and a manual read replaced it.
+- Build decision: the tools table is the README table with five possessives reworded.
+
 ## README.md
 
 - Quote: `Series: TODO (add the link when the series goes up).`

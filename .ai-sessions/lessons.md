@@ -2,6 +2,9 @@
 
 ## Recent
 
+- When a tutorial draft is written from an exercise README, state the exercise-to-part mapping in the executor prompt (part 1 is the healthy Worker with no exercise; part N+1 is exercise N): without it the Step 12 draft cross-referenced the wrong parts in six places and drew four block findings (Step 12) (2026-11-11)
+- Tell a prose executor up front that no two fenced blocks may sit back to back without a prose line between them, and scan for it with a script before the validator runs: two pairs in the Step 12 draft cost a validator iteration (Step 12) (2026-11-11)
+- Pre-check replacement sentences with Vale by applying them to a full scratch copy of the real file under the same directory layout; a small scratch file with fenced blocks gives spurious warnings (Step 12) (2026-11-11)
 - A masking instruction must say to replace only the private token and keep every other character of the captured line: "mask the location" lost step counts, digests, and record counts (Step 11) (2026-11-11)
 - When a README section mixes blocks from two captures, say in prose which block comes from which capture, at the block, before a validator has to ask (Step 11) (2026-11-11)
 - Run Vale on replacement sentences before handing them to an executor as verbatim text: three orchestrator-written sentences raised new warnings and cost a resumed fix pass (Step 11) (2026-11-11)
@@ -9,9 +12,6 @@
 - When prose explains why a line number differs between two copies of a file, run `diff` on the two files and make the arithmetic add up in the text: a two-cause explanation predicted line 167 for a call at line 165, because two dropped comment lines were missing from it (Step 10) (2026-11-11)
 - Put a setup rule at the step where the reader acts on it, not only in a paragraph above the numbered steps: a "fresh dev server before each flood" rule stated once at the top of a part was missed at the second flood, where the reader also needed to note new process IDs (Step 10) (2026-11-11)
 - Describe a log line's timing against what was measured (the line's timestamp and the Activity events in the history), not against an inferred thaw: "before the freeze ended" was wrong for two receipt lines that print after the blocking call returns and before the Activity's completion event (Step 9) (2026-11-11)
-- Executors and validators cannot reach the docs MCP or launch the copy-editor agent, so the orchestrator runs any docs check itself and passes the result into the next dispatch (Step 9) (2026-11-11)
-- A Workflow Task that times out records no execution latency, so the Workflow Task Execution Latency panel cannot show a stall that a timeout carries: in one root `just block` run the receipts' 29-second first-task stall left their line empty, and the panel's only high reading (5.14 s) sat on the rollup line (one run, 2026-11-11)
-- Replacing a panel image ahead of the prose that captions it makes the alt text and the sentence beside it false; in the same commit, record the file and line of every caption the new image contradicts (exercise 02 README lines 683 and 686, part 3 draft line 721) so the prose steps find them (2026-11-11)
 
 ## Testing
 
@@ -77,6 +77,8 @@
 
 ## Documentation
 
+- When a tutorial draft is written from an exercise README, state the exercise-to-part mapping in the executor prompt (part 1 is the healthy Worker with no exercise; part N+1 is exercise N): without it the Step 12 draft cross-referenced the wrong parts in six places and drew four block findings (Step 12) (2026-11-11)
+- Tell a prose executor up front that no two fenced blocks may sit back to back without a prose line between them, and scan for it with a script before the validator runs: two pairs in the Step 12 draft cost a validator iteration (Step 12) (2026-11-11)
 - A masking instruction must say to replace only the private token and keep every other character of the captured line: "mask the location" lost step counts, digests, and record counts (Step 11) (2026-11-11)
 - When a README section mixes blocks from two captures, say in prose which block comes from which capture, at the block, before a validator has to ask (Step 11) (2026-11-11)
 - When a reviewer suggests a narrower wording for a claim, check it against the document's own tables before applying it: a suggested "none of the tools names the stuck Worker by itself" contradicted a table row that rated `py-spy dump` "Yes." and cost a validator pass (Step 10) (2026-11-11)
@@ -98,6 +100,7 @@
 
 ## Tooling
 
+- Pre-check replacement sentences with Vale by applying them to a full scratch copy of the real file under the same directory layout; a small scratch file with fenced blocks gives spurious warnings (Step 12) (2026-11-11)
 - `just --list` prints the last comment line above a recipe as its description, so when a recipe comment is wrapped over several lines, make the last line a complete one-sentence description and put the detail lines above it; Step 6's first rewrap left `check-solutions` described by a sentence fragment until the validator ran `just --list` (2026-11-11)
 - `scripts/receipt_gaps.py` reads a flood's 518 histories sequentially in 37.7 s, so it needs no thread pool; its default line prints completed Activities only (13 of 17 failed receipts show none) and WT1 only, so a timeout on a later Workflow Task hides behind a WT1 of 11 to 20 ms (4 of 79) (2026-11-10)
 - A line-anchored edit script breaks when an insert after line N and a replace that starts at line N+1 share a boundary, because both resolve to the same position; check the edit list for shared boundaries, or fold the insert into the replace. Stripping the inserted text also removed the blank line that separates a new paragraph (2026-11-10)
