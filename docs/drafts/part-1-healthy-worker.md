@@ -413,7 +413,7 @@ With three baseline readings recorded, you can read the dashboard.
 ## Step 6: Reading the dashboard
 
 Open http://localhost:3000 and find the **Async Debug** dashboard.
-It has six panels:
+It has seven panels:
 
 - **Activity Execution Latency**
 - **Workflow Task Schedule-To-Start Latency**
@@ -421,10 +421,11 @@ It has six panels:
 - **Activity And Workflow Task Failures**
 - **Task Slots Used By Worker Type**
 - **Task Queue Backlog**
+- **Workflow Task Slots Used Per Worker**
 
 The dashboard collects metrics every five seconds.
-Each panel plots a 30-second rate average, so a short event looks smaller than its real length.
-The captures in this series show that effect.
+The three latency panels plot a 30-second rate average.
+Later parts read the length of a stall from the Workflow history, not from these panels.
 
 Start with **Workflow Task Execution Latency**.
 It plots how long the Worker takes to answer a Workflow Task, with one line for each Workflow type.

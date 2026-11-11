@@ -307,7 +307,7 @@ The `MainThread` in the same capture sits in `EpollSelector.select`, so the even
 Open the dashboard at http://localhost:3000 and find the panel named **Task Slots Used By Worker Type**.
 This panel is the fleet-wide view of what the tooling found.
 
-![The Task Slots Used By Worker Type panel in the practice run, with the Activity slots at 2 and then 1 for about 25 seconds.](../../docs/images/04-practice-orphan-slots-used.png)
+![The Task Slots Used By Worker Type panel in the practice run, with the Activity slots at 2 and then 1 for about 20 seconds.](../../docs/images/04-practice-orphan-slots-used.png)
 
 The Activity slots read 2 and then 1 from about 17:48:35 to about 17:48:55.
 The orphaned attempts keep their slots after the server failed them.
@@ -499,7 +499,7 @@ Last, look at the **Task Slots Used By Worker Type** panel.
 The panel shows one burst for the fleet run, from about 17:50:55 to about 17:51:10.
 The second burst later in the image comes from the forced-timeout run in the optional section below.
 Slot use drops back to zero soon after the ten-second job ends.
-In the practice run, the slots stayed busy for about 25 seconds because the orphaned attempts kept them.
+In the practice run, the slots stayed busy for about 20 seconds because the orphaned attempts kept them.
 
 ### Optional: force a timeout and watch the work stop
 

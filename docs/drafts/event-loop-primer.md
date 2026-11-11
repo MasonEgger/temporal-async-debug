@@ -14,7 +14,7 @@ The asyncio event loop does.
 This primer explains how the event loop runs your code and what one blocking call does to it.
 It also shows which parts of a Temporal Python Worker share the loop.
 This primer is optional.
-The six-part series "Debugging blocking calls in Temporal async Activities" teaches by running and breaking the demo.
+The seven-part series "Debugging blocking calls in Temporal async Activities" teaches by running and breaking the demo.
 The series assumes the ideas on this page.
 If you already know how `await` hands control back to the loop, skip to [What shares the loop in a Temporal Worker](#what-shares-the-loop-in-a-temporal-worker).
 That section is the part that is specific to Temporal.

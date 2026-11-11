@@ -778,10 +778,12 @@ The second block passes the executor and the slot count to the Worker:
 
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
+<!-- fmt:off -->
 ```python
         activity_executor=ThreadPoolExecutor(max_workers=MAX_CONCURRENT_ACTIVITIES),
         max_concurrent_activities=MAX_CONCURRENT_ACTIVITIES,
 ```
+<!-- fmt:on -->
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
 

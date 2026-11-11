@@ -2,6 +2,9 @@
 
 ## Recent
 
+- Wrap a fenced Python fragment in a Markdown draft under docs/ in `<!-- fmt:off -->` and `<!-- fmt:on -->` comments, because ruff formats Python fences outside exercises/ and a fragment fails `ruff format --check`. (2026-11-11)
+- Run the full gate (`just check` and `just check-practice`) after every step, prose steps included; pytest alone let a format failure ship unseen for two steps. (2026-11-11)
+- Count the words of a reviewer's suggested replacement sentence and run Vale on it before use; a suggested split can itself break the 25-word cap. (2026-11-11)
 - When a fix restores or rewords a sentence that a smell-report bullet quotes verbatim, update the quote in the same pass, and check every `Quote:` line against the drafts with a script before re-validation: one stale quote cost Step 13 a whole fix iteration. (2026-11-11)
 - Check a cross-reference to another part's figure against that part after every retake, or state it without the figure: part 2 said part 4 showed 99 percent CPU after part 4's retake read 90.9. (2026-11-11)
 - When a tutorial draft is written from an exercise README, state the exercise-to-part mapping in the executor prompt (part 1 is the healthy Worker with no exercise; part N+1 is exercise N): without it the Step 12 draft cross-referenced the wrong parts in six places and drew four block findings (Step 12) (2026-11-11)
@@ -9,9 +12,6 @@
 - Pre-check replacement sentences with Vale by applying them to a full scratch copy of the real file under the same directory layout; a small scratch file with fenced blocks gives spurious warnings (Step 12) (2026-11-11)
 - A masking instruction must say to replace only the private token and keep every other character of the captured line: "mask the location" lost step counts, digests, and record counts (Step 11) (2026-11-11)
 - When a README section mixes blocks from two captures, say in prose which block comes from which capture, at the block, before a validator has to ask (Step 11) (2026-11-11)
-- Run Vale on replacement sentences before handing them to an executor as verbatim text: three orchestrator-written sentences raised new warnings and cost a resumed fix pass (Step 11) (2026-11-11)
-- When a reviewer suggests a narrower wording for a claim, check it against the document's own tables before applying it: a suggested "none of the tools names the stuck Worker by itself" contradicted a table row that rated `py-spy dump` "Yes." and cost a validator pass (Step 10) (2026-11-11)
-- When prose explains why a line number differs between two copies of a file, run `diff` on the two files and make the arithmetic add up in the text: a two-cause explanation predicted line 167 for a call at line 165, because two dropped comment lines were missing from it (Step 10) (2026-11-11)
 
 ## Testing
 
@@ -77,6 +77,7 @@
 
 ## Documentation
 
+- Count the words of a reviewer's suggested replacement sentence and run Vale on it before use; a suggested split can itself break the 25-word cap. (2026-11-11)
 - When a fix restores or rewords a sentence that a smell-report bullet quotes verbatim, update the quote in the same pass, and check every `Quote:` line against the drafts with a script before re-validation: one stale quote cost Step 13 a whole fix iteration. (2026-11-11)
 - When a tutorial draft is written from an exercise README, state the exercise-to-part mapping in the executor prompt (part 1 is the healthy Worker with no exercise; part N+1 is exercise N): without it the Step 12 draft cross-referenced the wrong parts in six places and drew four block findings (Step 12) (2026-11-11)
 - Tell a prose executor up front that no two fenced blocks may sit back to back without a prose line between them, and scan for it with a script before the validator runs: two pairs in the Step 12 draft cost a validator iteration (Step 12) (2026-11-11)
@@ -101,6 +102,7 @@
 
 ## Tooling
 
+- Wrap a fenced Python fragment in a Markdown draft under docs/ in `<!-- fmt:off -->` and `<!-- fmt:on -->` comments, because ruff formats Python fences outside exercises/ and a fragment fails `ruff format --check`. (2026-11-11)
 - Pre-check replacement sentences with Vale by applying them to a full scratch copy of the real file under the same directory layout; a small scratch file with fenced blocks gives spurious warnings (Step 12) (2026-11-11)
 - `just --list` prints the last comment line above a recipe as its description, so when a recipe comment is wrapped over several lines, make the last line a complete one-sentence description and put the detail lines above it; Step 6's first rewrap left `check-solutions` described by a sentence fragment until the validator ran `just --list` (2026-11-11)
 - `scripts/receipt_gaps.py` reads a flood's 518 histories sequentially in 37.7 s, so it needs no thread pool; its default line prints completed Activities only (13 of 17 failed receipts show none) and WT1 only, so a timeout on a later Workflow Task hides behind a WT1 of 11 to 20 ms (4 of 79) (2026-11-10)
@@ -117,6 +119,7 @@
 
 ## Workflow
 
+- Run the full gate (`just check` and `just check-practice`) after every step, prose steps included; pytest alone let a format failure ship unseen for two steps. (2026-11-11)
 - Check a cross-reference to another part's figure against that part after every retake, or state it without the figure: part 2 said part 4 showed 99 percent CPU after part 4's retake read 90.9. (2026-11-11)
 - Run Vale on replacement sentences before handing them to an executor as verbatim text: three orchestrator-written sentences raised new warnings and cost a resumed fix pass (Step 11) (2026-11-11)
 - When a plan step names one copy of an exercise file and the practice or solution twin holds identical lines, apply a no-behavior change to both and log it as a deviation, so `diff practice solution` keeps showing only lesson lines (Step 6, exercise 03 `worker.py`) (2026-11-11)

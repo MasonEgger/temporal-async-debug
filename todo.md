@@ -161,13 +161,13 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 14: README, CLAUDE.md, And The Drafts Index (task)
 
-- [ ] 1. Scope defined (README.md, CLAUDE.md, `docs/drafts/README.md`)
-- [ ] 2. Tooling: review-content, style-linting, preflight
-- [ ] 3. Do: README.md (four layers, table, flags, Observability, permitted edits, ptrace, latency figure)
-- [ ] 3. Do: CLAUDE.md and `docs/drafts/README.md`
-- [ ] 3. Do: final review-content pass over six READMEs and seven drafts
-- [ ] 4. Verify: full gate, lint, greps
-- [ ] 5. Document: none
+- [x] 1. Scope defined (README.md, CLAUDE.md, `docs/drafts/README.md`)
+- [x] 2. Tooling: review-content, style-linting, preflight
+- [x] 3. Do: README.md (four layers, table, flags, Observability, permitted edits, ptrace, latency figure)
+- [x] 3. Do: CLAUDE.md and `docs/drafts/README.md`
+- [x] 3. Do: final review-content pass over six READMEs and seven drafts
+- [x] 4. Verify: full gate, lint, greps
+- [x] 5. Document: none
 
 ## Section 10: Review Handoff
 

@@ -150,7 +150,7 @@ The pre-fleet points are gone, and the README and part 3 describe the new image.
   The diff is `STEP_SECONDS` 0.5 to 6.0, and the README tells the reader to do it only in a scratch copy.
 - Quote: `This panel is a weak signal on its own`
   Rule: honest panel reading.
-  The slot panel shows 2 then 1 for about 25 seconds in the practice run.
+  The slot panel shows 2 then 1 for about 20 seconds in the practice run.
 - Rule check: the mechanism stays "work outliving its Activity attempt", which sits next to the blocked-loop theme because the fix most readers ship first is the one that removed the freeze.
 - Resolved: the startup trap 1 disclosure now reads `This block keeps the four-line tail of the error from the capture, from the `raise ValueError(` line on.`
   The old sentence called a four-line block the last line, and the Step 20 instruction named the fix.
@@ -568,21 +568,27 @@ Build decisions:
 - Quote: `so WT1 of 28,816 and 28,834 milliseconds is the two Workflow Tasks together.`
   Rule: figure from a capture.
   Both figures come from `receipt-gaps.txt`, and CLAUDE.md gives the same reading (about 28.8 seconds, first `WorkflowTaskStarted` to first `WorkflowTaskCompleted`).
-- Quote: the list of permitted capture edits, with no entry for ANSI stripping.
-  Rule: open question for Mason.
-  Exercise 02 and draft part 3 strip ANSI escapes (`strip=ansi`) from the Worker log and disclose it.
-  The root README quotes no Worker log, so it needs no entry today.
+- Quote: `The Worker log excerpt drops the terminal color codes (ANSI escapes) from the lines it keeps.`
+  Rule: disclosure of a capture edit.
+  The root README quotes a Worker log in its recognition section, so the list of permitted edits names the ANSI strip.
 
 Build decision: the root README's list of permitted capture edits gains ANSI stripping.
-The edit is applied in the root documentation refresh, so a later root log capture needs no README change.
+The root documentation refresh applied the edit.
 
 - Quote: `A second scrape about 8 seconds later, still inside the first freeze, read the same.`
   Rule: sampling scope.
   Both root scrapes (17:14:25.4 and 17:14:33.0, about 14 and 22 seconds after the starter began) fall inside the first freeze, so no root capture shows the `get_location` freeze or the slots reading of 1.
-- Quote: `so a stall of about 29 seconds reads as 5 to 6 seconds on the graph.`
-  Rule: figure from other captures.
-  FINDINGS gives it for one 29-second stalled Workflow Task, and it is not from a root run.
-  The README and CLAUDE.md scope the 30-second rate average to the latency panels, because the failures, slots, and backlog panels use other expressions.
+- Quote: `The Workflow Task Execution Latency panel drew no line for the receipts in that run.`
+  Rule: figure from a capture.
+  The readings come from the root `just block` run of 2026-11-11: WT1 of 29,002 and 29,001 milliseconds, no receipt line, and a highest reading of about 5.1 seconds on the rollup line.
+  Only the three latency panels plot a 30-second rate average; the failures, slots, and backlog panels use other expressions.
+
+Build decision: the root README states the latency-panel reading of the 2026-11-11 run and gives no cause for it.
+The exercise 01 README and draft part 2 still give a cause: the panel averages over 30 seconds.
+No capture establishes that cause.
+
+Build decision: the root README masks the capture machine's public IP address, place name, and paths with `<ip>`, `<city>`, `<repo>`, and `<home>`, and keeps the `top` USER column as captured.
+
 - Quote: `asyncio ps cannot show the blocking line, and that is not a bug in the tool.`
   Rule: negation-first objection countering.
   It denies a bug before saying what the tool does, and Mason may want it to open with the tool's mechanism.

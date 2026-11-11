@@ -25,18 +25,17 @@ Series: TODO (add the link when the series goes up).
 
 ## What is in this repository
 
-The repository has three layers:
+The repository has four layers:
 
 - The root package, `src/temporal_async_debug/`, is the reference.
   It runs three unrelated Workflow types on one Worker and can freeze that Worker two ways.
   The three lessons below use it.
-- `exercises/` holds five exercises, each with a `practice/` copy that carries a bug and a `solution/` copy that fixes it.
+- `exercises/` holds six exercises, each with a `practice/` copy that carries a bug and a `solution/` copy that fixes it.
   See [Exercises](#exercises).
+- `scripts/` holds `receipt_gaps.py`, a standard-library helper that reads receipt Event Histories.
+  The `just receipt-gaps` recipe runs it.
 - `observability/` holds a Prometheus and Grafana stack that plots the Worker's metrics.
   See [Observability](#observability).
-
-`scripts/receipt_gaps.py` is a standard-library helper that reads receipt Event Histories.
-The `just receipt-gaps` recipe runs it.
 
 ## The headline: one Workflow type takes down another
 
@@ -148,7 +147,7 @@ Bare `just` prints every recipe:
 | `just trigger` | Smaller healthy fleet (geo and receipts only), a quick smoke test |
 | `just block [seconds]` | A geo run calls `time.sleep` and freezes the loop, with a healthy geo, a rollup, and two receipts alongside (default 30) |
 | `just cpu [seconds]` | A geo run spins in a busy loop and freezes the loop, with the same fleet as `block` (default 30) |
-| `just receipt-gaps [ids]` | Print the first Workflow Task time and the Activity waits for receipt Workflows (needs the Temporal CLI and a server) |
+| `just receipt-gaps [ids]` | Print the first Workflow Task time and the Activity waits for receipt Workflows; `--by-identity` adds the Worker identity to each line and a summary line per identity, and `--summary` prints the summary lines alone (needs the Temporal CLI and a server) |
 | `just metrics` | Start Prometheus and Grafana in the background (docker-compose v1) |
 | `just metrics-down` | Stop the Prometheus and Grafana stack |
 | `just check` | The full gate: ruff, ruff format, mypy, and pytest on the root package, then the solution loop |
@@ -169,6 +168,7 @@ Everything quoted in the lessons is real output, captured on 2026-11-03 against 
 The Worker ran `temporalio` 1.33.0 on Python 3.14.3, Linux.
 The three lessons come from three runs of the same Worker process, so task numbers, addresses, and Workflow IDs differ between excerpts.
 The Event Histories in Lesson 2 come from a fourth run, a `just block` on 2026-11-08, so their Workflow IDs match no other excerpt.
+The Worker log in [Recognizing a blocked event loop](#recognizing-a-blocked-event-loop) and the latency-panel readings in [Observability](#observability) come from a fifth run, a `just block` on 2026-11-11.
 
 These are the only edits made to the captures:
 
@@ -180,8 +180,10 @@ These are the only edits made to the captures:
 - `pstree` excerpts show only the branches the text names.
 - `py-spy dump` excerpts omit the three idle pool threads.
 - The receipt Event History excerpt keeps the first seven events of 26.
+- The Worker log excerpt drops the terminal color codes (ANSI escapes) from the lines it keeps.
+- `<ip>`, `<city>`, `<repo>`, and `<home>` replace the capture machine's public IP address, city, and paths.
 
-No number, name, or message inside a quoted line was changed.
+Apart from those placeholders, no number, name, or message inside a quoted line was changed.
 
 ## Lesson 1: a healthy Worker
 
@@ -191,8 +193,8 @@ Every run completes, and this is the full output:
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-geo geo-74813b62-3f00-4d30-9377-d54f8236a39d: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy')
-geo geo-4f15bc80-6e64-4f1b-a373-ab3c4f6ba7b8: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy')
+geo geo-74813b62-3f00-4d30-9377-d54f8236a39d: GeoEnrichmentOutput(ip='<ip>', location='<city>')
+geo geo-4f15bc80-6e64-4f1b-a373-ab3c4f6ba7b8: GeoEnrichmentOutput(ip='<ip>', location='<city>')
 receipt receipt-cca1bdc1-70f9-4314-b898-6cd5d0daf537: OrderReceiptOutput(receipt='order order-0: 59.97 USD')
 receipt receipt-a44f7d50-276b-4a16-a83a-6a80661b9a68: OrderReceiptOutput(receipt='order order-1: 59.97 USD')
 receipt receipt-7a2ad40d-52b4-4cda-81bc-13482b78af8a: OrderReceiptOutput(receipt='order order-2: 59.97 USD')
@@ -356,8 +358,8 @@ This is the dump from the same freeze:
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-Process 2541958: /home/ziggy/temporal-async-debug/.venv/bin/python -m temporal_async_debug.worker
-Python v3.14.3 (/home/ziggy/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/bin/python3.14)
+Process 2541958: <repo>/.venv/bin/python -m temporal_async_debug.worker
+Python v3.14.3 (<home>/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/bin/python3.14)
 
 Thread 2541958 (idle): "MainThread"
     _apply_mode (temporal_async_debug/activities.py:121)
@@ -403,7 +405,7 @@ It read 1.2 for the same moment, which agrees:
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
     PID %CPU STAT     ELAPSED CMD
-2541958  1.2 SNl        01:21 /home/ziggy/temporal-async-debug/.venv/bin/python -m temporal_async_debug.worker
+2541958  1.2 SNl        01:21 <repo>/.venv/bin/python -m temporal_async_debug.worker
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
@@ -444,10 +446,10 @@ This is the starter's output:
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
 rollup rollup-6a6b9770-857c-40ea-a40c-f5bc2cebc670 FAILED: Activity task timed out
-geo geo-9fc45420-7790-4618-88db-3950cfed0ae6: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy')
+geo geo-9fc45420-7790-4618-88db-3950cfed0ae6: GeoEnrichmentOutput(ip='<ip>', location='<city>')
 receipt receipt-6ff3f1aa-b9ea-4f1e-902f-4c25464d65f7: OrderReceiptOutput(receipt='order order-0: 59.97 USD')
 receipt receipt-930ebdbc-1230-49df-a5ec-76b98a18de66: OrderReceiptOutput(receipt='order order-1: 59.97 USD')
-geo geo-ec790305-9af6-490a-88ac-c1f473d13c72: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy')
+geo geo-ec790305-9af6-490a-88ac-c1f473d13c72: GeoEnrichmentOutput(ip='<ip>', location='<city>')
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
@@ -577,7 +579,7 @@ The `ps` snapshot from the same moment agrees: the state is `R`, where Lesson 2 
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
     PID %CPU STAT     ELAPSED CMD
-2541958  6.9 RNl        03:21 /home/ziggy/temporal-async-debug/.venv/bin/python -m temporal_async_debug.worker
+2541958  6.9 RNl        03:21 <repo>/.venv/bin/python -m temporal_async_debug.worker
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
@@ -621,10 +623,10 @@ The failure is the same as Lesson 2:
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
 rollup rollup-0b727f37-d63c-40a9-bfb3-79fee4c1f23b FAILED: Activity task timed out
-geo geo-a11c48e7-e25f-4d08-8cd1-5d58cd21c209: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy')
+geo geo-a11c48e7-e25f-4d08-8cd1-5d58cd21c209: GeoEnrichmentOutput(ip='<ip>', location='<city>')
 receipt receipt-a9560af2-06be-45ac-940f-565f321bcc55: OrderReceiptOutput(receipt='order order-0: 59.97 USD')
 receipt receipt-b43035b5-4630-4478-9c5f-1557d02ee123: OrderReceiptOutput(receipt='order order-1: 59.97 USD')
-geo geo-241d5529-8c0f-4b3a-a02b-a12a0cdcf848: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy')
+geo geo-241d5529-8c0f-4b3a-a02b-a12a0cdcf848: GeoEnrichmentOutput(ip='<ip>', location='<city>')
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
@@ -655,6 +657,7 @@ You make your changes in `practice`, and each README walks you through the diagn
 | `exercises/03-cpu-bound` | [Moving CPU-bound work off the event loop](exercises/03-cpu-bound/README.md) |
 | `exercises/04-zombie-thread` | [Stopping work that outlives its Activity attempt](exercises/04-zombie-thread/README.md) |
 | `exercises/05-catching-blockers-early` | [Catching a short blocking call before it ships](exercises/05-catching-blockers-early/README.md) |
+| `exercises/06-finding-the-frozen-worker` | [Finding the frozen Worker in a fleet](exercises/06-finding-the-frozen-worker/README.md) |
 
 Each exercise copy is a flat set of modules plus a `tests/` directory.
 It runs from its own directory under the root virtual environment.
@@ -715,10 +718,16 @@ Open the provisioned dashboard at http://localhost:3000.
 Grafana allows anonymous viewing, so you need no login.
 Run `just metrics-down` to stop the stack.
 
-Prometheus scrapes two endpoints every five seconds.
+Prometheus scrapes three endpoints every five seconds.
 The Worker exports SDK metrics on port 9464.
 The dev server exports server-side metrics on port 9465, and `just server` sets that port with `--metrics-port 9465`.
 The failures and backlog panels read the server's metrics, so they need that flag.
+The third target, `127.0.0.1:9466`, is for a second Worker, which exercises 03 and 06 start with `ASYNC_DEBUG_METRICS_PORT=9466`.
+When no second Worker runs, Prometheus reports that target as down and the dashboard still works.
+
+The dashboard has seven panels.
+The seventh, Workflow Task Slots Used Per Worker, draws one line per Worker.
+Exercise 06 uses it to tell a frozen Worker from a healthy one.
 
 The captures showed three things about the panels.
 
@@ -756,8 +765,11 @@ Task Queue Statistics:
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
 
-The latency panels plot a 30-second rate average, so a stall of about 29 seconds reads as 5 to 6 seconds on the graph.
-Read the length of a stall from `temporal workflow show` instead.
+Do not read the length of a stall from the latency panels.
+In the `just block` run of 2026-11-11, `just receipt-gaps` reported WT1 of 29,002 and 29,001 milliseconds for the two receipts.
+The Workflow Task Execution Latency panel drew no line for the receipts in that run.
+Its highest reading was about 5.1 seconds, on the `SalesRollupWorkflow` line.
+Read the length of a stall from `temporal workflow show` or `just receipt-gaps` instead.
 
 ## Platform gotchas
 
@@ -766,9 +778,12 @@ Read the length of a stall from `temporal workflow show` instead.
   `uv run python -m asyncio ps <PID>` uses the project's 3.14.
 - **Linux Yama.**
   The default `kernel.yama.ptrace_scope=1` blocks the inspector from a sibling process.
-  Run the command with `sudo`, or lower the setting with `sudo sysctl kernel.yama.ptrace_scope=0`.
+  Read the current value with `sysctl kernel.yama.ptrace_scope`, which needs no `sudo`.
+  Run the inspector with `sudo`, or lower the setting with `sudo sysctl kernel.yama.ptrace_scope=0`.
+  That change lasts until the machine restarts.
   `py-spy` needs the same ptrace access.
-  The capture machine had `ptrace_scope` at 0, so the failure messages were not reproduced here.
+  The capture machine had `ptrace_scope` at 0 for the lessons, so they quote no refusal.
+  The part 1 draft (`docs/drafts/part-1-healthy-worker.md`) quotes both refusals, captured with the value at 1.
 - **macOS.**
   Attaching to another process requires `sudo`, for both `asyncio ps` and `py-spy`.
 - **Transient failures.**

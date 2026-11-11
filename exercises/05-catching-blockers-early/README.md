@@ -8,7 +8,7 @@ During this exercise, you will
 - Use `py-spy dump` to name the line behind the warning
 - Write a test that probes every `async def` Activity, then move the blocking call to a thread
 
-This exercise runs one Worker with two Activity slots on purpose, as teaching code, so the failure is loud.
+This exercise runs one Worker with two Activity slots on purpose, as teaching code, so you can measure the short stall.
 To see the same bug on a fleet of Workers, read [Exercise 6](../06-finding-the-frozen-worker/README.md).
 
 Make your changes to the code in the `practice` subdirectory.

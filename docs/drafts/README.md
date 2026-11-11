@@ -4,7 +4,7 @@ Working drafts for the tutorial series that accompanies this repository.
 Nothing in this directory is public yet.
 Final versions go off-repository, and the venue is not yet chosen (probably not masonegger.com).
 
-## The six series parts
+## The seven series parts
 
 The series title is "Debugging blocking calls in Temporal async Activities".
 Each part quotes only captured output.
@@ -18,15 +18,17 @@ The captures came from the root package or from the exercise copy the part teach
 - `part-4-cpu-bound.md`: move CPU-bound work off the event loop (exercise 03).
 - `part-5-zombie-thread.md`: stop a thread that outlives its Activity attempt (exercise 04).
 - `part-6-catching-blockers-early.md`: catch a short blocking call before it ships, with a probe test (exercise 05).
+- `part-7-finding-the-frozen-worker.md`: find the one frozen Worker in a fleet of two (exercise 06).
 
 Each part links to the next with a TODO placeholder until the series has a venue.
 
 ## smell-reports.md
 
 `smell-reports.md` is the review file for Mason.
-It holds one section per artifact: the five exercise READMEs, the six parts, and the root README.
-Each section lists the suspect items with the verbatim quote and the rule it may break, and it holds the open questions inside `CLAUDE_HELP` tags.
-Mason reads it before merging the scaffold branch, because nothing here publishes without his review.
+It holds one section per artifact: the six exercise READMEs, the primer, the seven parts, and the root README.
+Each section lists the suspect items with the verbatim quote and the rule it may break.
+Each older open question now ends in a `Build decision:` line, and the two open `CLAUDE_HELP` questions sit in the exercise 06 README.
+Mason reads it before merging the scaffold branch, because nothing here publishes without that review.
 
 ## tutorial-original-draft.md
 
@@ -47,5 +49,5 @@ Known-wrong claims in it, per the October 2026 live captures (see spec.md Starti
 
 ## Conclusion
 
-The six parts replace the original draft.
-They follow the `block` and `cpu` lessons and the five exercises, and they quote only captured output.
+The seven parts replace the original draft.
+They follow the `block` and `cpu` lessons and the six exercises, and they quote only captured output.

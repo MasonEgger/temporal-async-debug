@@ -19,6 +19,8 @@ The repository is public.
 No committed file (code, prose, `.ai-sessions/` records, commit messages) may name a customer, a real or invented company, a namespace, a ticket number, or a specific field use case.
 None may name an internal system, an internal document, or internal training or course material, course codes and runbooks included.
 Field evidence is summarized in aggregate only, as in `.ai-sessions/research-20261109-field-evidence.md`, without saying where it was gathered; raw research notes stay outside the repository.
+Quoted captures mask the capture machine: an identity reads `PID@host`, and `<ip>`, `<city>`, `<repo>`, and `<home>` replace its public IP address, place name, and paths.
+No committed file names the capture machine's hostname.
 
 ## Layout
 
@@ -26,17 +28,21 @@ The repository has four layers:
 
 - Root reference: `src/temporal_async_debug/`, `tests/`, and the three lessons in `README.md`.
   The package is the frozen-loop reference, trimmed to `block` and `cpu` only.
-- `exercises/`: five exercises in the Temporal 102 shape, `exercises/<NN-name>/{README.md,practice/,solution/}`.
-  The directories are `01-sync-http-client`, `02-sleep-between-heartbeats`, `03-cpu-bound`, `04-zombie-thread`, and `05-catching-blockers-early`.
+- `exercises/`: six exercises in the Temporal 102 shape, `exercises/<NN-name>/{README.md,practice/,solution/}`.
+  The directories are `01-sync-http-client`, `02-sleep-between-heartbeats`, `03-cpu-bound`, `04-zombie-thread`, `05-catching-blockers-early`, and `06-finding-the-frozen-worker`.
+  Exercises 01 to 05 teach on one Worker with two Activity slots (exercise 03 adds a second Worker in its last part); exercise 06 runs two Workers at the SDK default of 100 Activity slots under a flood of receipts.
   Each copy is a flat set of modules plus `tests/`, with absolute (flat top-level) imports, and it runs from its own directory under the root virtual environment.
   Practice edit points carry `# TODO PART X:` comments.
 - `scripts/`: `receipt_gaps.py`, a standard-library helper that reads `temporal workflow show --output json` for receipt Workflows and prints the first Workflow Task time (WT1) and each Activity's waits.
   `just receipt-gaps` runs it.
+  `--by-identity` adds the Worker identity on each Started event to every line and one summary line per identity, and `--summary` (valid only with `--by-identity`) prints the summary lines alone.
   The directory holds that one script, and it reproduces no whole run.
 - `observability/`: `docker-compose.yml` (Prometheus and Grafana only, docker-compose v1), `prometheus.yml`, and the provisioned `grafana/` dashboard.
+  `prometheus.yml` scrapes three targets: the Worker on 9464, the dev server on 9465, and a second Worker on 9466, which reads as down when none runs.
+  The dashboard has seven panels; panel 7, Workflow Task Slots Used Per Worker, draws one line per Worker.
 
-Other directories: `docs/drafts/` holds the six-part series drafts, the optional unnumbered `event-loop-primer.md` (a Diataxis explanation page read before part 1), `smell-reports.md` (the voice:teaching smell reports and open questions for Mason), and the provenance draft `tutorial-original-draft.md`; `docs/images/` holds the Grafana captures.
-After Step 1 of the plan, the root package stays frozen: new code lands under `exercises/` or `observability/`.
+Other directories: `docs/drafts/` holds the seven-part series drafts, the optional unnumbered `event-loop-primer.md` (a Diataxis explanation page read before part 1), `smell-reports.md` (the voice:teaching smell reports, with each older open question closed as a `Build decision:` line), and the provenance draft `tutorial-original-draft.md`; `docs/images/` holds the Grafana captures.
+After Step 1 of the plan, the root package stays frozen: new code lands under `exercises/`, `scripts/`, or `observability/`.
 
 ## Antipattern marker convention
 
@@ -96,6 +102,7 @@ just metrics-down          # tear the stack down
 <!-- vale on -->
 
 `just server` passes `--metrics-port 9465` so the dev server exports its own metrics, which Prometheus scrapes beside the worker's port 9464.
+In exercises 03 and 06, a second Worker exports on 9466 when it starts with `ASYNC_DEBUG_METRICS_PORT=9466`.
 `just metrics` starts Prometheus (9090) and Grafana (3000, anonymous viewer) only, never a Temporal server.
 
 Prose tooling (the README, CLAUDE.md, exercise READMEs, and drafts all go through it):
@@ -112,7 +119,7 @@ just lint-keyboard   # flag non-keyboard characters (em-dashes, smart quotes, ar
 `.vale.ini` turns `MasonBase.Headings` off under `docs/drafts/` and `exercises/` only.
 In the root `README.md` and `CLAUDE.md` it still fires, and both it and `MasonBase.SentenceCapitalization` are ruled false positives there.
 Run `just preflight` before any prose step.
-`.vale.ini` sets a Linux `StylesPath` (`/home/mmegger/...`), so `just preflight` and `just lint-prose` fail on macOS; lint there with a temporary copy of the config whose `StylesPath` points at the local Mason styles.
+`.vale.ini` sets an absolute Linux `StylesPath` under the owner's home directory, so `just preflight` and `just lint-prose` fail on macOS; lint there with a temporary copy of the config whose `StylesPath` points at the local Mason styles.
 
 ## Architecture
 
@@ -166,7 +173,10 @@ Dashboard facts from the captures quoted in README.md and the exercise READMEs (
 - A freeze fails no Activity on the Worker side, so `temporal_activity_execution_failed` never appears; the failures panel plots the dev server's `activity_timeout` by timeout type.
 - The dev server's backlog gauge is nearly flat.
   `temporal task-queue describe` is the reliable backlog reading (count 1, age 4.27 s during a `cpu` freeze, while the 9465 scrape read 0).
-- The latency panels plot a 30-second rate average, so a 29-second stall reads as 5 to 6 seconds.
+- Only the three latency panels plot a 30-second rate average.
+  Do not read a stall's length from them: in the root `just block` run of 2026-11-11 the receipts' WT1 was 29,002 and 29,001 ms, the Workflow Task Execution Latency panel drew no receipt line, and its highest reading was 5.14 s on the rollup line.
+  Exercise 01's capture shows the receipt and rollup lines between 5 and 6 seconds.
+  No capture establishes why the panel reads low, so prose states the reading and the run, never a cause.
 - The failures panel plots `activity_timeout`, so it misses a Heartbeat timeout.
   Exercise 02's storm is a run of Heartbeat timeouts, so the panel misses the storm.
 
@@ -177,11 +187,18 @@ Exercise facts from the rework captures (the exercise READMEs quote them):
   `TMPRL1101` ("Potential deadlock detected") appeared on one failed Workflow Task in each of the four capture runs (runs 1 and 2, with the Web UI open, also failed one legacy Query each), and `TMPRL1104` ("Workflow task duration exceeded 5 seconds") appeared in every run.
   `TMPRL1101` depends on timing, so the README says a reader's run may not show it.
 - Exercise 03: `solution/worker.py` reads its Prometheus port from `ASYNC_DEBUG_METRICS_PORT`, so a second Worker runs with `ASYNC_DEBUG_METRICS_PORT=9466 uv run python worker.py` and needs no edit.
+  The README runs `--bad 2` on one Worker and `--bad 4` on two.
 - Exercise 05: the audit trail is 40,000 generated audit-log lines, about five megabytes, built once at Worker start.
   `get_location` compresses it with `zlib`, which releases the GIL, then throws the bytes away in place of an upload.
   The run completes with no failure, and the receipts only run a little late.
+- Exercise 06: two Workers (metrics ports 9464 and 9466) share the Task Queue, and `starter.py` floods them with receipts (default `--rate 10`) around one bad run; the pure plan, summary, and formatting functions live in `flood.py`.
+  The practice `get_location` runs a synchronous `sqlite3` lookup against a location cache whose exclusive lock `db_lock.py` holds, so one Worker's loop freezes while the other keeps serving.
+  In the flood of record the starter printed `receipts submitted=523 failed=21`, and `just receipt-gaps --limit 600 --by-identity --summary` gave one identity 82 Workflow Task timeouts and a largest WT1 of 29199 ms, and the other 0 timeouts and 977 ms.
+  A `WorkflowTaskTimedOut` event carries no identity, so the helper gives it to the identity on the `WorkflowTaskStarted` that shares its scheduled event id.
+  `py-spy dump`, the `--by-identity` view, the per-Worker panel, and (after the thaw) the Worker log separated the two Workers; `top`, the metrics endpoints, the `ActivityWorker` slot gauge, and the fleet-wide dashboard panels did not.
+  The README keeps two open `CLAUDE_HELP` questions for Mason.
 
 `spec.md`'s Behavior Requirements section spells out what each mode must produce; where the captured output quoted in README.md and the exercise READMEs disagrees with spec.md or plan.md, the captures win.
-`README.md` is the tutorial companion with captured output for the three lessons, an Exercises table, and an Observability section.
+`README.md` is the tutorial companion with captured output for the three lessons, an Exercises table, a blocked-event-loop recognition section, and an Observability section.
 
 Tests must never require a running Temporal server except through the SDK's own test facilities (`temporalio.testing.ActivityEnvironment`, `WorkflowEnvironment.start_time_skipping()`); all network calls are mocked.
