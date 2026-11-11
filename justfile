@@ -11,8 +11,12 @@ check:
     uv run pytest
     just check-solutions
 
-# Gate every exercises/*/solution copy in its own directory (flat imports, shared module names), failing fast; no-op when none exist
-# Isolation: each check runs from inside the copy, so the copy's own directory is first on sys.path (python -m prepends the cwd; pythonpath is pinned to that same absolute directory because a relative value would resolve against the repo-root config file)
+# Each copy is gated in its own directory because the copies share flat module names, and the
+# loop fails fast.
+# Isolation: each check runs from inside the copy, so the copy's own directory is first on
+# sys.path (python -m prepends the cwd). pythonpath is pinned to that same absolute directory,
+# because a relative value would resolve against the repo-root config file.
+# Gate every exercises/*/solution copy in its own directory; no-op when none exist
 check-solutions:
     #!/usr/bin/env bash
     set -euo pipefail

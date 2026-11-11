@@ -2,6 +2,8 @@
 
 ## Recent
 
+- `just --list` prints the last comment line above a recipe as its description, so when a recipe comment is wrapped over several lines, make the last line a complete one-sentence description and put the detail lines above it; Step 6's first rewrap left `check-solutions` described by a sentence fragment until the validator ran `just --list` (2026-11-11)
+- When a plan step names one copy of an exercise file and the practice or solution twin holds identical lines, apply a no-behavior change to both and log it as a deviation, so `diff practice solution` keeps showing only lesson lines (Step 6, exercise 03 `worker.py`) (2026-11-11)
 - A docstring that describes an output format is a claim a validator checks against the code line by line: two of Step 5's three validator passes failed on a docstring that said less or more than the code printed; write the docstring from the formatter's branches after the code is final (2026-11-11)
 - A history fixture attributes a WorkflowTaskTimedOut through the scheduled event id it shares with a WorkflowTaskStarted, because the timeout event carries no identity; a timeout with no Started event belongs to no identity (2026-11-11)
 - A fallback branch that no captured fixture reaches (`largest WT1 none`, `on no Worker` in the receipt-gap identity view) needs a history derived from a capture inside the test, with "derived" in the test name, and a temporary mutation of the branch to show the test can fail (2026-11-11)
@@ -10,8 +12,6 @@
 - A test fake that reports a value read from the code under test cannot catch a wrong constant: the exercise 06 gate tests could not fail on `FREEZE_GATE_ACTIVITY` until the fake's pending activities named `get_ip` and `get_location` as literals; pin the expected literal in the test (2026-11-11)
 - A branch that only runs when a sleep wakes late (the flood producer's late-wake rule) runs in no test under a fake sleep that returns on time; patch `monotonic` and `asyncio.sleep` with a virtual clock the fake sleep advances, script one late wake, and test both sides of the threshold (2026-11-11)
 - A holder thread that sets a readiness `threading.Event` only after it takes the lock leaves the waiter blocked forever when the take fails (exercise 06 `CacheLock.__enter__` on a database it could not open); set the event in a `finally`, store the error, and have the waiter join the thread and raise it (2026-11-10)
-- A test that checks for a hang must be bounded itself: run the blocking entry on a daemon thread and `join` it with a limit (5 s in `test_entering_a_lock_whose_database_cannot_be_opened_raises`), then assert the thread finished, so the bug fails the test instead of stalling the suite (2026-11-10)
-- In the per-Worker panel test a count assertion ran before the no-`sum` assertion, so a `sum by (worker_type)` wrap failed with the count message and the summing message could never fire; order assertions from the most specific failure message to the least, and run the teeth check to see which message actually fires (2026-11-10)
 
 ## Testing
 
@@ -86,6 +86,7 @@
 
 ## Tooling
 
+- `just --list` prints the last comment line above a recipe as its description, so when a recipe comment is wrapped over several lines, make the last line a complete one-sentence description and put the detail lines above it; Step 6's first rewrap left `check-solutions` described by a sentence fragment until the validator ran `just --list` (2026-11-11)
 - `scripts/receipt_gaps.py` reads a flood's 518 histories sequentially in 37.7 s, so it needs no thread pool; its default line prints completed Activities only (13 of 17 failed receipts show none) and WT1 only, so a timeout on a later Workflow Task hides behind a WT1 of 11 to 20 ms (4 of 79) (2026-11-10)
 - A line-anchored edit script breaks when an insert after line N and a replace that starts at line N+1 share a boundary, because both resolve to the same position; check the edit list for shared boundaries, or fold the insert into the replace. Stripping the inserted text also removed the blank line that separates a new paragraph (2026-11-10)
 - zsh expands an unquoted word that starts with `=` as a command path lookup, so `echo ===== X` fails with "not found"; quote separator strings (2026-11-10)
@@ -100,6 +101,7 @@
 
 ## Workflow
 
+- When a plan step names one copy of an exercise file and the practice or solution twin holds identical lines, apply a no-behavior change to both and log it as a deviation, so `diff practice solution` keeps showing only lesson lines (Step 6, exercise 03 `worker.py`) (2026-11-11)
 - Before an orchestrator gives an executor a formatting rule, check the house convention in the existing files: the Step 4 executor was told never to split the ANTIPATTERN marker, kept one 264-character line behind a file-level `# ruff: noqa: E501`, and had to be sent back, because every other marker in the repository wraps over several comment lines; grep the existing instances first (2026-11-11)
 - A step prompt drifted from a design decision that lived only in working notes (the flood's pure functions went into `starter.py`, not their own `flood.py`); write each settled decision into the plan's decision list first, write the steps from that list, and re-read each step against it before the plan is committed (2026-11-10)
 - A context summary written from memory misstated two figures (259 for 260, fifth run for fourth); after any summary, recompute each figure from the saved files before it goes into the spec or a report (2026-11-10)

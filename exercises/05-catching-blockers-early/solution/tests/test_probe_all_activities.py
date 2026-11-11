@@ -7,8 +7,8 @@ This test takes the worker's registered activities, keeps the ``async def`` ones
 body beside a probe coroutine that records a timestamp every 50 ms. If an activity holds the loop,
 one probe gap balloons to the length of the work.
 
-The network is mocked, and get_location gets a payload calibrated to about 0.6 seconds of
-archiving on the machine at hand, so a version that archives on the loop stalls the probe
+The network is mocked, and get_location gets a payload calibrated on the machine at hand to
+archive for well over the ceiling, so a version that archives on the loop stalls the probe
 clearly past the 0.2 second ceiling. An activity with no entry in ACTIVITY_INPUTS fails the test, so
 a new async activity cannot reach the worker without a probe.
 """

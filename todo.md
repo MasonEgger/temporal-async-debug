@@ -68,13 +68,13 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 6: Review Findings With No Behavior Change (task)
 
-- [ ] 1. Scope defined (six findings, no behavior change)
-- [ ] 2. Tooling: python:python, just, grep
-- [ ] 3. Do: exercise 03 port resolved once
-- [ ] 3. Do: exercise 05 docstring and `PAYLOAD_RECORDS` comment figures
-- [ ] 3. Do: `_job_is_done` tests, justfile comment, exercise 01 TODO letters
-- [ ] 4. Verify: `just check && just check-practice`
-- [ ] 5. Document: none (findings listed in the step report)
+- [x] 1. Scope defined (six findings, no behavior change)
+- [x] 2. Tooling: python:python, just, grep
+- [x] 3. Do: exercise 03 port resolved once
+- [x] 3. Do: exercise 05 docstring and `PAYLOAD_RECORDS` comment figures
+- [x] 3. Do: `_job_is_done` tests, justfile comment, exercise 01 TODO letters
+- [x] 4. Verify: `just check && just check-practice`
+- [x] 5. Document: none (findings listed in the step report)
 
 ## Section 5: Live Captures
 

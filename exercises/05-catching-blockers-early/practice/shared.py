@@ -17,7 +17,7 @@ TASK_QUEUE: str = "async-debug-task-queue"
 PAYLOAD_RECORDS: int = 40_000
 """Audit-log lines get_location archives on every run: about 5 MB of seeded JSON lines, compressed with zlib.
 
-Roughly 340 ms of work on the capture machine. A real archiver would upload the compressed bytes and
+Roughly 350 ms of work on the capture machine. A real archiver would upload the compressed bytes and
 return a key; this one discards them."""
 
 

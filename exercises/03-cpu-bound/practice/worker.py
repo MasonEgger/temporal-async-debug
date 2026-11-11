@@ -79,16 +79,18 @@ def resolve_metrics_port(environ: Mapping[str, str] | None = None) -> int:
     return port
 
 
-def build_telemetry_config(environ: Mapping[str, str] | None = None) -> TelemetryConfig:
+def build_telemetry_config(environ: Mapping[str, str] | None = None, *, port: int | None = None) -> TelemetryConfig:
     """Build the telemetry config that binds the Prometheus endpoint to the resolved port.
 
     Args:
         environ: The environment to read the port from; defaults to ``os.environ``.
+        port: A port already resolved by the caller; when given, ``environ`` is not read.
 
     Returns:
         A TelemetryConfig whose metrics endpoint is ``127.0.0.1:<port>``.
     """
-    port = resolve_metrics_port(environ)
+    if port is None:
+        port = resolve_metrics_port(environ)
     return TelemetryConfig(metrics=PrometheusConfig(bind_address=f"{METRICS_HOST}:{port}"))
 
 
@@ -151,11 +153,12 @@ async def main() -> None:
     local dev server, builds the Worker with build_worker, prints the startup banner, and then
     serves until interrupted.
     """
-    telemetry = build_telemetry_config()
+    metrics_port = resolve_metrics_port()
+    telemetry = build_telemetry_config(port=metrics_port)
     runtime = Runtime(telemetry=telemetry)
     client = await Client.connect(TEMPORAL_TARGET, runtime=runtime)
     worker = build_worker(client)
-    print_startup_banner(resolve_metrics_port())
+    print_startup_banner(metrics_port)
     await worker.run()
 
 
