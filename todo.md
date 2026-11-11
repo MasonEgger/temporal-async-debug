@@ -19,14 +19,14 @@ Mirrors `plan.md`. Check off each numbered sub-step as `/bpe:execute-plan` or `/
 
 ### Step 2: Exercise 06 Solution Copy With The Lock And The Lookup
 
-- [ ] 1. RED: copy the base modules, swap the field, write the `db_lock`, activity, probe, metrics-port, and executor tests
-- [ ] 2. Document: module docstrings for `db_lock.py`, `activities.py`, `shared.py`, `worker.py`
-- [ ] 3. GREEN: `db_lock.py`, the lookup, the bug form (probe fails), then the fix and the Worker settings
-- [ ] 4. RED: Workflow passes `location_cache_path` through
-- [ ] 5. GREEN: wire the Workflow and the Worker registration
-- [ ] 6. REFACTOR: remove exercise 01 leftovers, isolate the lookup helper
-- [ ] 7. Docs: none (Step 10)
-- [ ] 8. Verify: probe test has teeth, no marker in solution, `just check`
+- [x] 1. RED: copy the base modules, swap the field, write the `db_lock`, activity, probe, metrics-port, and executor tests
+- [x] 2. Document: module docstrings for `db_lock.py`, `activities.py`, `shared.py`, `worker.py`
+- [x] 3. GREEN: `db_lock.py`, the lookup, the bug form (probe fails), then the fix and the Worker settings
+- [x] 4. RED: Workflow passes `location_cache_path` through
+- [x] 5. GREEN: wire the Workflow and the Worker registration
+- [x] 6. REFACTOR: remove exercise 01 leftovers, isolate the lookup helper
+- [x] 7. Docs: none (Step 10)
+- [x] 8. Verify: probe test has teeth, no marker in solution, `just check`
 
 ### Step 3: The Flood Starter
 
