@@ -1,0 +1,22 @@
+# This stack is Prometheus and Grafana only; it never runs a Temporal server (use `just server`).
+# The syntax is docker-compose v1. Both services use host networking, which works on Linux, so
+# Prometheus can reach the metrics endpoints on 127.0.0.1: the SDK worker on 9464 and the dev
+# server on 9465. Grafana serves on 3000 and Prometheus on 9090.
+version: "3"
+
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    network_mode: host
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+  grafana:
+    image: grafana/grafana:latest
+    network_mode: host
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro

@@ -1,0 +1,2 @@
+receipt-e2cb6ff7 total 28913ms | WT1 started->completed 28828ms | validate_order: sched->started 4ms started->completed 11ms | compute_total: sched->started 4ms started->completed 7ms | format_receipt: sched->started 7ms started->completed 6ms
+receipt-c35ba6f2 total 602ms | WT1 started->completed 21ms | validate_order: sched->started 193ms started->completed 5ms | compute_total: sched->started 189ms started->completed 6ms | format_receipt: sched->started 104ms started->completed 15ms
