@@ -2,6 +2,9 @@
 
 ## Recent
 
+- A privacy filter that reads only the staged diff misses a file committed before the filter existed: two root test fixtures held the capture machine's hostname in every Worker identity through 32 commits while each diff check printed 0, so sweep the whole tree and the whole branch history once for each identifier. (2026-11-13)
+- To rewrite signed history without `git filter-repo`, run `git filter-branch --tree-filter <script> --commit-filter 'git commit-tree -S "$@"'` in a scratch clone: it keeps subjects, authors, and dates and signs each new commit; start the range at the first commit the script changes so earlier commits keep their SHAs, and verify by applying the same transform to each old blob and comparing the result with the new blob. (2026-11-13)
+- zsh applies a modifier to `$VAR:r...`, so `$NEW:refs/heads/x` loses text and a push fails with "src refspec does not match any"; write `${NEW}:refs/heads/x`. (2026-11-13)
 - On the Web UI Task Queue page (2.45.3) a frozen Worker's Last Accessed time stayed within 0.14 s of the healthy Worker's at about 5, 10, and 16 s into a freeze and was 6.1 and 11.8 s behind at about 23 and 28 s, so one early reading shows nothing; the bad run's Pending Activities tab named the frozen Worker under Last Worker Identity at all four mid-freeze readings. One flood; no capture establishes why the time stops. (2026-11-13)
 - When a mask or stand-in in quoted output changes, recompute every value derived from the masked text: the exercise 03 digests were hashes of the real location text, so they had to become hashes of the stand-in text. (2026-11-13)
 - Search the tree before writing a privacy rule as an absolute: a CLAUDE.md line said no committed file names the owner's user name while `.vale.ini`, the justfile, `spec.md`, and `plan.md` hold it in tooling paths; scope the rule to what the search supports. (2026-11-13)
@@ -9,9 +12,6 @@
 - When a step ends in an outward-facing post such as a pull request comment, keep the post in the finalize pass, after the validator's verdict, so a blocked text is never public. (2026-11-11)
 - A line count or figure copied from an older record must be re-measured at HEAD before it goes into a new record; a later step can have changed the file, and the Step 15 record carried a stale part 7 line count into a block finding. (2026-11-11)
 - Wrap a fenced Python fragment in a Markdown draft under docs/ in `<!-- fmt:off -->` and `<!-- fmt:on -->` comments, because ruff formats Python fences outside exercises/ and a fragment fails `ruff format --check`. (2026-11-11)
-- Run the full gate (`just check` and `just check-practice`) after every step, prose steps included; pytest alone let a format failure ship unseen for two steps. (2026-11-11)
-- Count the words of a reviewer's suggested replacement sentence and run Vale on it before use; a suggested split can itself break the 25-word cap. (2026-11-11)
-- When a fix restores or rewords a sentence that a smell-report bullet quotes verbatim, update the quote in the same pass, and check every `Quote:` line against the drafts with a script before re-validation: one stale quote cost Step 13 a whole fix iteration. (2026-11-11)
 
 ## Testing
 
@@ -106,6 +106,9 @@
 
 ## Tooling
 
+- A privacy filter that reads only the staged diff misses a file committed before the filter existed: two root test fixtures held the capture machine's hostname in every Worker identity through 32 commits while each diff check printed 0, so sweep the whole tree and the whole branch history once for each identifier. (2026-11-13)
+- To rewrite signed history without `git filter-repo`, run `git filter-branch --tree-filter <script> --commit-filter 'git commit-tree -S "$@"'` in a scratch clone: it keeps subjects, authors, and dates and signs each new commit; start the range at the first commit the script changes so earlier commits keep their SHAs, and verify by applying the same transform to each old blob and comparing the result with the new blob. (2026-11-13)
+- zsh applies a modifier to `$VAR:r...`, so `$NEW:refs/heads/x` loses text and a push fails with "src refspec does not match any"; write `${NEW}:refs/heads/x`. (2026-11-13)
 - To see which Vale findings a change introduced, lint the same files in a detached worktree at HEAD and diff the two runs by file, check, and match; a one-line stand-in change surfaced ten `MasonBase.SentenceCapitalization` warnings on unchanged text, which a bare count (279 to 286) would have blamed on the new prose. (2026-11-13)
 - Wrap a fenced Python fragment in a Markdown draft under docs/ in `<!-- fmt:off -->` and `<!-- fmt:on -->` comments, because ruff formats Python fences outside exercises/ and a fragment fails `ruff format --check`. (2026-11-11)
 - Pre-check replacement sentences with Vale by applying them to a full scratch copy of the real file under the same directory layout; a small scratch file with fenced blocks gives spurious warnings (Step 12) (2026-11-11)

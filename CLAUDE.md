@@ -22,6 +22,7 @@ Field evidence is summarized in aggregate only, as in `.ai-sessions/research-202
 Quoted captures use stand-ins for the capture machine: the user is `ziggy`, the location is `Milky Way Galaxy`, the public IP address is `256.256.256.256`, paths read `/home/ziggy` and `/home/ziggy/temporal-async-debug`, and an identity reads `PID@host`.
 A stand-in for any other place or address is fictional too.
 The stand-ins belong to prose only: the code obfuscates nothing when a reader runs it.
+Saved test fixtures are captures too: every Worker identity in `tests/fixtures/*.json` reads `PID@host`.
 No quoted capture, and no prose around one, names the capture machine's hostname, user name, public IP address, or location.
 Tooling paths are the one exception: `.vale.ini`, the `justfile`, `spec.md`, `plan.md`, and older `.ai-sessions/` records hold the owner's user name in a path.
 
