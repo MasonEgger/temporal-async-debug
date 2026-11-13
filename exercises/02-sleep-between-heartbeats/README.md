@@ -120,7 +120,8 @@ A Worker with a healthy loop picks up a due Activity task right away.
 At 48 seconds `ScheduledTime` still reads 1 second from now, so attempt 4 is still in its retry backoff.
 
 This is the pending Activity section from the 9-second capture.
-In the capture, `host`, `<ip>`, `<city>`, `<repo>`, and `<home>` replace the hostname, address, city, and paths that appear in your own output.
+In the capture, `ziggy`, `256.256.256.256`, `Milky Way Galaxy`, and `host` are stand-ins for the user name, address, location, and hostname of the capture machine.
+Your own output shows your own values.
 
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
@@ -146,10 +147,10 @@ The next block is what the starter printed in the capture.
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
 rollup rollup-04fbf28c-faca-4cd2-b192-98e92244e979 FAILED: Activity task timed out
-geo geo-4f8ec4a1-1fef-4b27-a937-37871f345be6: GeoEnrichmentOutput(ip='<ip>', location='<city>')
+geo geo-4f8ec4a1-1fef-4b27-a937-37871f345be6: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy')
 receipt receipt-b52b2fe6-52e4-4f98-9321-67105c069833: OrderReceiptOutput(receipt='order order-0: 59.97 USD')
 receipt receipt-73ebe4bd-bb4d-431a-9273-9598fd2893a1: OrderReceiptOutput(receipt='order order-1: 59.97 USD')
-geo geo-9f58649c-6e27-487d-ae7a-275245123d87: GeoEnrichmentOutput(ip='<ip>', location='<city>')
+geo geo-9f58649c-6e27-487d-ae7a-275245123d87: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy')
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
@@ -235,7 +236,7 @@ Progress:
 
 Results:
   Status          COMPLETED
-  Result          {"ip":"<ip>","location":"<city>"}
+  Result          {"ip":"256.256.256.256","location":"Milky Way Galaxy"}
   ResultEncoding  json/plain
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
@@ -308,8 +309,8 @@ This block keeps only the `MainThread` stack from the capture.
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-Process 2772020: <repo>/.venv/bin/python worker.py
-Python v3.14.3 (<home>/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/bin/python3.14)
+Process 2772020: /home/ziggy/temporal-async-debug/.venv/bin/python worker.py
+Python v3.14.3 (/home/ziggy/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/bin/python3.14)
 
 Thread 2772020 (idle): "MainThread"
     get_location (activities.py:192)
@@ -410,7 +411,7 @@ This block keeps only the first traceback that carries it.
 ```text
 Failed handling activation on workflow with run ID 01a1bc52-0641-76cc-a969-585b7828372f
 Traceback (most recent call last):
-  File "<repo>/.venv/lib/python3.14/site-packages/temporalio/worker/_workflow.py", line 434, in _handle_activation
+  File "/home/ziggy/temporal-async-debug/.venv/lib/python3.14/site-packages/temporalio/worker/_workflow.py", line 434, in _handle_activation
     raise deadlock_exc from None
 temporalio.worker._workflow._DeadlockError: [TMPRL1101] Potential deadlock detected: workflow didn't yield within 2 second(s).
 ```
@@ -536,10 +537,10 @@ Every Workflow completes, and the rollup completes this time.
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
 rollup rollup-1a576216-a37b-40cd-973d-fab1edcf5cb5: SalesRollupOutput(summary='Sales rollup for 2026-01: total 6030')
-geo geo-2093d558-64ac-4a8a-b2d3-d26ed9cdd7c3: GeoEnrichmentOutput(ip='<ip>', location='<city>')
+geo geo-2093d558-64ac-4a8a-b2d3-d26ed9cdd7c3: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy')
 receipt receipt-9b197a54-d999-4335-88a6-83658205c1fa: OrderReceiptOutput(receipt='order order-0: 59.97 USD')
 receipt receipt-72963842-d014-4891-9a58-7bb557687018: OrderReceiptOutput(receipt='order order-1: 59.97 USD')
-geo geo-3b7fdcaf-3168-4f83-bcd7-ef144bbb0348: GeoEnrichmentOutput(ip='<ip>', location='<city>')
+geo geo-3b7fdcaf-3168-4f83-bcd7-ef144bbb0348: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy')
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
@@ -616,7 +617,7 @@ Progress:
 
 Results:
   Status          COMPLETED
-  Result          {"ip":"<ip>","location":"<city>"}
+  Result          {"ip":"256.256.256.256","location":"Milky Way Galaxy"}
   ResultEncoding  json/plain
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
@@ -632,8 +633,8 @@ This block keeps only the `MainThread` stack from the capture.
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-Process 2785531: <repo>/.venv/bin/python worker.py
-Python v3.14.3 (<home>/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/bin/python3.14)
+Process 2785531: /home/ziggy/temporal-async-debug/.venv/bin/python worker.py
+Python v3.14.3 (/home/ziggy/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/bin/python3.14)
 
 Thread 2785531 (idle): "MainThread"
     EpollSelector.select (selectors.py:452)

@@ -218,7 +218,8 @@ Where the README follows the capture against spec.md or plan.md:
   Rule: no log from these floods holds that code, so the README does not list it as a symptom.
   The sentence only points to exercise 02.
 - Quote: the Web UI row of the table.
-  Rule: the capture saved only backend API JSON, so the row says that and describes no screen.
+  Rule: the row reports the rendered pages of two floods run on 2026-11-13, and the README says they are not the capture.
+  The two floods are two runs, so the row gives their readings and no rule.
 - Quote: `The Worker that freezes can change from run to run, so this part never names one in advance.`
   Rule: every figure names identity 3193283 only after the histories do, as a reading of one capture.
 - Quote: the dashboard descriptions.
@@ -238,10 +239,16 @@ Build decisions:
 - Build decision: the process tools need a live freeze, and the histories are complete only after the thaw.
   Step 3 says so and uses the mid-freeze readings of the capture.
   It tells the reader to rerun the flood and confirm the match with the by-identity summary.
-- Build decision: the JSON history has no masked copy, so the README names the `identity` field and states the bad run's identity without quoting JSON.
-  A CLAUDE_HELP tag marks the point.
+- Build decision, on Mason's answer of 2026-11-13: the README quotes two events of the saved JSON history, with each identity masked to `PID@host`.
   The `temporal workflow show --output json` command in Step 2 is a reader command that is not in the repository.
-- Build decision: the Web UI Task Queue and Workers pages were not opened, so a CLAUDE_HELP tag marks the row.
+- Build decision, on Mason's answer of 2026-11-13: two more bad floods ran to read the rendered Web UI pages.
+  The row describes those pages in text, with no image.
+  The row covers the Task Queue page and the Pending Activities tab, because Web UI 2.45.3 has no Workers page for the Namespace.
+- Build decision: the sentence on which Worker starts the bad run's Workflow Tasks now covers both outcomes.
+  In the capture the healthy Worker started all three, and in one of the later floods the Worker that froze started the first two.
+- Build decision, on Mason's answer of 2026-11-13: Part A now holds a rate check.
+  It tells the reader to lower `--rate` when the slowest receipt of the healthy flood takes longer than about 1 second.
+  The example value, `--rate 5`, is valid for the parser, and no capture ran at that rate.
 - Build decision: the README gives the inferred cause in one sentence marked as an inference.
   The cause is that a frozen Worker takes a limited number of tasks and the healthy Worker carries the rest.
   It teaches no slot, timeout, heartbeat, or retry-policy lesson.
@@ -257,8 +264,8 @@ Build decisions:
 
 Open points for Mason:
 
-- Build decision: keep the prose statement of the bad run's identity; Mason may add a masked excerpt of the JSON history.
-- Build decision: keep the API reading in the Web UI row; Mason may take rendered screenshots of the Task Queue and Workers pages during a freeze.
+- Closed on 2026-11-13: Mason asked for the masked excerpt, and the README now quotes events 3 and 12.
+- Closed on 2026-11-13: Mason asked for a rerun described in text, and the Web UI row now reports the rendered pages.
 - Build decision: keep the measured figures for the metrics response times and the `receipt-gaps` duration; Mason may ask for the spec.md figures to be revisited.
 
 ## docs/drafts/event-loop-primer.md
@@ -315,9 +322,9 @@ Nothing here publishes.
   Rule: never generate new code.
   The `sudo sysctl` write is not in any repository file or capture, so it carries no quoted output.
   The read-only `sysctl kernel.yama.ptrace_scope` output comes from a one-line capture, and the draft says it was read after the setting changed to 0.
-- Quote: `In the captures of this part, `<repo>`, `<home>`, `<ip>`, `<city>`, and `host` replace the paths, address, city, and hostname that appear in your own output.`
-  Rule: privacy masking.
-  Parts 1 to 6 mask the home paths, the address, the place name, and the Worker identity the way the exercise READMEs do, and each part carries one disclosure sentence.
+- Quote: `In the captures of this part, `ziggy`, `256.256.256.256`, `Milky Way Galaxy`, and `host` are stand-ins for the user name, address, location, and hostname of the capture machine.`
+  Rule: privacy stand-ins.
+  Parts 1 to 6 use the stand-ins Mason named on 2026-11-13, the way the exercise READMEs do, and each part carries one disclosure sentence.
 - Quote: `You start the Worker in Step 3, so this first capture comes from an idle Worker started ahead of time.`
   Rule: provenance disclosure.
   The ptrace capture is of an idle root-package Worker, taken before the Step 3 Worker of this draft.
@@ -505,11 +512,12 @@ Where the draft follows the exercise 06 README and its captures over spec.md or 
 - Quote: `This note is general practice, and it has no capture behind it.`
   Rule: the production note, carried from the README with the same disclosure.
   The Kubernetes sentences stay marked as a documentation claim and an unchecked inference.
-- Quote: `The Web UI row reports saved API JSON.`
-  Rule: the capture saved the JSON that the Task Queue page reads and no rendered page, so the draft says that and describes no screen.
-- Quote: `The tutorial states that identity and quotes no JSON, because the capture kept no masked copy of that history.`
+- Quote: `The Web UI row comes from those two later floods, which had their own PIDs.`
+  Rule: provenance disclosure.
+  The row's readings come from two floods run on 2026-11-13 and not from the capture of 2026-11-11.
+- Quote: `The next block keeps two events of that JSON from the capture.`
   Rule: provenance disclosure for the bad run identity.
-  The draft gives it in prose and quotes no JSON.
+  The block is a masked excerpt, and each identity reads `PID@host`.
 - Quote: `The per-Worker panel is the one that separates the Workers.`
   Rule: the panel appears in Step 8, after the histories have named the Worker, and the draft says it does not find the Worker for you.
 - Quote: `It plots a 30-second rate average, so read the true lengths from the histories.`
@@ -526,13 +534,12 @@ Build decisions:
   None comes from a `.masked` capture file.
   The two probe-test excerpts in Step 11 come from `solution/tests/test_probe.py`.
   The draft quotes no output of a failing probe, because no capture holds one.
-- Build decision: the draft gives the identity of the bad run in prose, as the README does, and carries no CLAUDE_HELP tag for it.
+- Build decision, on Mason's answer of 2026-11-13: the draft quotes the same masked JSON excerpt as the README.
   The `temporal workflow show --output json` command sits in a fenced command block.
-  Mason may add a masked excerpt of that JSON history.
-- Build decision: the Web UI row of the tools table reports saved API JSON, as the README does, and carries no CLAUDE_HELP tag.
-  Mason may take rendered screenshots of the Task Queue and Workers pages during a freeze.
-- Build decision: the draft runs 954 lines against the 550 to 800 planned.
-  The 38 quoted blocks, the tools table, and nine images account for the difference.
+- Build decision, on Mason's answer of 2026-11-13: the Web UI row reports the rendered pages of two later floods.
+  It matches the README row and has no image.
+- Build decision: the draft runs 1012 lines against the 550 to 800 planned.
+  The 39 quoted blocks, the tools table, and nine images account for the difference.
   The prose steps stay short, and the blocks are the README blocks unchanged.
 - Build decision: the link to the root README section on blocked event loops is a `TODO` cross-link, in the form parts 1 to 6 use.
   The primer link in the Introduction is a relative link, in the form part 1 uses, where plan.md asked for a `TODO` cross-link.
@@ -587,7 +594,20 @@ Build decision: the root README states the latency-panel reading of the 2026-11-
 The exercise 01 README and draft part 2 still give a cause: the panel averages over 30 seconds.
 No capture establishes that cause.
 
-Build decision: the root README masks the capture machine's public IP address, place name, and paths with `<ip>`, `<city>`, `<repo>`, and `<home>`, and keeps the `top` USER column as captured.
+Build decision, on Mason's answer of 2026-11-13: prose uses stand-ins for the capture machine.
+The root README, the exercise READMEs, and the drafts all use them.
+`ziggy` is the user name, `256.256.256.256` is the public IP address, and `Milky Way Galaxy` is the location.
+Paths read `/home/ziggy` and `/home/ziggy/temporal-async-debug`, and `host` stays the stand-in for the hostname.
+The exercise 03 digests are new hashes of the `Milky Way Galaxy` text, because the old ones were hashes of the real location text.
+The code obfuscates nothing when a reader runs it.
+
+Build decision: the Vale run after the stand-in change reports ten `MasonBase.SentenceCapitalization` warnings that the run before it did not.
+The ten sit in parts 2, 4, and 5 and in the exercise 01 and 03 READMEs, on text that did not change.
+Vale splits each of those sentences after a possessive or a code span.
+The ten belong to the false-positive class the exercise READMEs carry, so the text stays.
+
+Build decision: the Web UI row in the exercise 06 README and in part 7 keeps one `MasonBase.BoldOveruse` suggestion.
+The row names Web UI labels, and a label is bold in every file.
 
 - Quote: `asyncio ps cannot show the blocking line, and that is not a bug in the tool.`
   Rule: negation-first objection countering.

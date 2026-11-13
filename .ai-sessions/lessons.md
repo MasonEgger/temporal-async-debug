@@ -2,16 +2,16 @@
 
 ## Recent
 
+- On the Web UI Task Queue page (2.45.3) a frozen Worker's Last Accessed time stayed within 0.14 s of the healthy Worker's at about 5, 10, and 16 s into a freeze and was 6.1 and 11.8 s behind at about 23 and 28 s, so one early reading shows nothing; the bad run's Pending Activities tab named the frozen Worker under Last Worker Identity at all four mid-freeze readings. One flood; no capture establishes why the time stops. (2026-11-13)
+- When a mask or stand-in in quoted output changes, recompute every value derived from the masked text: the exercise 03 digests were hashes of the real location text, so they had to become hashes of the stand-in text. (2026-11-13)
+- Search the tree before writing a privacy rule as an absolute: a CLAUDE.md line said no committed file names the owner's user name while `.vale.ini`, the justfile, `spec.md`, and `plan.md` hold it in tooling paths; scope the rule to what the search supports. (2026-11-13)
+- To see which Vale findings a change introduced, lint the same files in a detached worktree at HEAD and diff the two runs by file, check, and match; a one-line stand-in change surfaced ten `MasonBase.SentenceCapitalization` warnings on unchanged text, which a bare count (279 to 286) would have blamed on the new prose. (2026-11-13)
 - When a step ends in an outward-facing post such as a pull request comment, keep the post in the finalize pass, after the validator's verdict, so a blocked text is never public. (2026-11-11)
 - A line count or figure copied from an older record must be re-measured at HEAD before it goes into a new record; a later step can have changed the file, and the Step 15 record carried a stale part 7 line count into a block finding. (2026-11-11)
 - Wrap a fenced Python fragment in a Markdown draft under docs/ in `<!-- fmt:off -->` and `<!-- fmt:on -->` comments, because ruff formats Python fences outside exercises/ and a fragment fails `ruff format --check`. (2026-11-11)
 - Run the full gate (`just check` and `just check-practice`) after every step, prose steps included; pytest alone let a format failure ship unseen for two steps. (2026-11-11)
 - Count the words of a reviewer's suggested replacement sentence and run Vale on it before use; a suggested split can itself break the 25-word cap. (2026-11-11)
 - When a fix restores or rewords a sentence that a smell-report bullet quotes verbatim, update the quote in the same pass, and check every `Quote:` line against the drafts with a script before re-validation: one stale quote cost Step 13 a whole fix iteration. (2026-11-11)
-- Check a cross-reference to another part's figure against that part after every retake, or state it without the figure: part 2 said part 4 showed 99 percent CPU after part 4's retake read 90.9. (2026-11-11)
-- When a tutorial draft is written from an exercise README, state the exercise-to-part mapping in the executor prompt (part 1 is the healthy Worker with no exercise; part N+1 is exercise N): without it the Step 12 draft cross-referenced the wrong parts in six places and drew four block findings (Step 12) (2026-11-11)
-- Tell a prose executor up front that no two fenced blocks may sit back to back without a prose line between them, and scan for it with a script before the validator runs: two pairs in the Step 12 draft cost a validator iteration (Step 12) (2026-11-11)
-- Pre-check replacement sentences with Vale by applying them to a full scratch copy of the real file under the same directory layout; a small scratch file with fenced blocks gives spurious warnings (Step 12) (2026-11-11)
 
 ## Testing
 
@@ -32,6 +32,7 @@
 
 ## Temporal
 
+- On the Web UI Task Queue page (2.45.3) a frozen Worker's Last Accessed time stayed within 0.14 s of the healthy Worker's at about 5, 10, and 16 s into a freeze and was 6.1 and 11.8 s behind at about 23 and 28 s, so one early reading shows nothing; the bad run's Pending Activities tab named the frozen Worker under Last Worker Identity at all four mid-freeze readings. One flood; no capture establishes why the time stops. (2026-11-13)
 - A Workflow Task that times out records no execution latency, so the Workflow Task Execution Latency panel cannot show a stall that a timeout carries: in one root `just block` run the receipts' 29-second first-task stall left their line empty, and the panel's only high reading (5.14 s) sat on the rollup line (one run, 2026-11-11)
 - A flood B run read a backlog of 39 tasks aged 3.5 s and a frozen Worker's pollers 6 and 8 seconds stale only at the last of four mid-freeze passes (about 19 s in); the passes at about 0 and 2 s read backlog 0 and current pollers, so one early read does not show the signal is absent; take passes across the whole freeze and name the pass in the sentence (one run, 2026-11-11)
 - An `ActivityTaskStarted` history event is written only when the Activity finishes, so a mid-freeze reading triggered on it falls after the thaw (two of four exercise 06 flood B runs); trigger on the starter's own output or on the pending Activity state from `describe` (2026-11-11)
@@ -77,6 +78,8 @@
 
 ## Documentation
 
+- When a mask or stand-in in quoted output changes, recompute every value derived from the masked text: the exercise 03 digests were hashes of the real location text, so they had to become hashes of the stand-in text. (2026-11-13)
+- Search the tree before writing a privacy rule as an absolute: a CLAUDE.md line said no committed file names the owner's user name while `.vale.ini`, the justfile, `spec.md`, and `plan.md` hold it in tooling paths; scope the rule to what the search supports. (2026-11-13)
 - A line count or figure copied from an older record must be re-measured at HEAD before it goes into a new record; a later step can have changed the file, and the Step 15 record carried a stale part 7 line count into a block finding. (2026-11-11)
 - Count the words of a reviewer's suggested replacement sentence and run Vale on it before use; a suggested split can itself break the 25-word cap. (2026-11-11)
 - When a fix restores or rewords a sentence that a smell-report bullet quotes verbatim, update the quote in the same pass, and check every `Quote:` line against the drafts with a script before re-validation: one stale quote cost Step 13 a whole fix iteration. (2026-11-11)
@@ -103,6 +106,7 @@
 
 ## Tooling
 
+- To see which Vale findings a change introduced, lint the same files in a detached worktree at HEAD and diff the two runs by file, check, and match; a one-line stand-in change surfaced ten `MasonBase.SentenceCapitalization` warnings on unchanged text, which a bare count (279 to 286) would have blamed on the new prose. (2026-11-13)
 - Wrap a fenced Python fragment in a Markdown draft under docs/ in `<!-- fmt:off -->` and `<!-- fmt:on -->` comments, because ruff formats Python fences outside exercises/ and a fragment fails `ruff format --check`. (2026-11-11)
 - Pre-check replacement sentences with Vale by applying them to a full scratch copy of the real file under the same directory layout; a small scratch file with fenced blocks gives spurious warnings (Step 12) (2026-11-11)
 - `just --list` prints the last comment line above a recipe as its description, so when a recipe comment is wrapped over several lines, make the last line a complete one-sentence description and put the detail lines above it; Step 6's first rewrap left `check-solutions` described by a sentence fragment until the validator ran `just --list` (2026-11-11)

@@ -82,16 +82,17 @@ Part B asks you to find out what is wrong from the outside.
    The command takes about half a minute to finish.
 
 Here is what the starter printed in the capture for this exercise.
-In the capture, `<ip>`, `<city>`, `<repo>`, and `<home>` replace the address, city, and paths that appear in your own output.
+In the capture, `ziggy`, `256.256.256.256`, and `Milky Way Galaxy` are stand-ins for the user name, address, and location of the capture machine.
+Your own output shows your own values.
 
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
 rollup rollup-a5de1f87-2d83-461f-919e-83652ffadc45 FAILED: Activity task timed out
-geo geo-6215226e-70d8-4d93-8ace-6410d45a2685: GeoEnrichmentOutput(ip='<ip>', location='<city>')
+geo geo-6215226e-70d8-4d93-8ace-6410d45a2685: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy')
 receipt receipt-54a77ca5-a787-4de7-8d49-43609be3960d: OrderReceiptOutput(receipt='order order-0: 59.97 USD')
 receipt receipt-0ad58652-e4de-4a20-b741-d894fbbaa521: OrderReceiptOutput(receipt='order order-1: 59.97 USD')
-geo geo-fe66e250-5ff3-44e8-80a0-ce7db5cfc1f8: GeoEnrichmentOutput(ip='<ip>', location='<city>')
+geo geo-fe66e250-5ff3-44e8-80a0-ce7db5cfc1f8: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy')
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
@@ -226,13 +227,13 @@ uv run python -m asyncio pstree <PID>
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
 └── (T) Task-127
-    └──  _ActivityWorker._handle_start_activity_task <repo>/.venv/lib/python3.14/site-packages/temporalio/worker/_activity.py:351
-        └──  _ActivityWorker._execute_activity <repo>/.venv/lib/python3.14/site-packages/temporalio/worker/_activity.py:681
-            └──  _ActivityInboundImpl.execute_activity <repo>/.venv/lib/python3.14/site-packages/temporalio/worker/_activity.py:889
-                └──  roll_up_sales <repo>/exercises/01-sync-http-client/practice/rollup.py:48
-                    └──  sleep <home>/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/lib/python3.14/asyncio/tasks.py:702
+    └──  _ActivityWorker._handle_start_activity_task /home/ziggy/temporal-async-debug/.venv/lib/python3.14/site-packages/temporalio/worker/_activity.py:351
+        └──  _ActivityWorker._execute_activity /home/ziggy/temporal-async-debug/.venv/lib/python3.14/site-packages/temporalio/worker/_activity.py:681
+            └──  _ActivityInboundImpl.execute_activity /home/ziggy/temporal-async-debug/.venv/lib/python3.14/site-packages/temporalio/worker/_activity.py:889
+                └──  roll_up_sales /home/ziggy/temporal-async-debug/exercises/01-sync-http-client/practice/rollup.py:48
+                    └──  sleep /home/ziggy/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/lib/python3.14/asyncio/tasks.py:702
 └── (T) Task-152
-    └──  _ActivityWorker._handle_start_activity_task <repo>/.venv/lib/python3.14/site-packages/temporalio/worker/_activity.py:351
+    └──  _ActivityWorker._handle_start_activity_task /home/ziggy/temporal-async-debug/.venv/lib/python3.14/site-packages/temporalio/worker/_activity.py:351
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
@@ -258,8 +259,8 @@ This block keeps only the `MainThread` stack from the capture.
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-Process 2580799: <repo>/.venv/bin/python worker.py
-Python v3.14.3 (<home>/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/bin/python3.14)
+Process 2580799: /home/ziggy/temporal-async-debug/.venv/bin/python worker.py
+Python v3.14.3 (/home/ziggy/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/bin/python3.14)
 
 Thread 2580799 (idle): "MainThread"
     SyncStream.read (httpcore/_backends/sync.py:128)
@@ -434,10 +435,10 @@ The rollup completes this time.
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
 rollup rollup-67b0e059-a3c5-4e51-a358-3f72a8ee8132: SalesRollupOutput(summary='Sales rollup for 2026-01: total 6030')
-geo geo-2fd7600d-44c1-494a-87ef-65b34edd933a: GeoEnrichmentOutput(ip='<ip>', location='<city>')
+geo geo-2fd7600d-44c1-494a-87ef-65b34edd933a: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy')
 receipt receipt-f7ea0059-9fdc-4784-80bc-de836516cdc4: OrderReceiptOutput(receipt='order order-0: 59.97 USD')
 receipt receipt-c07f982e-957d-472a-9112-1496bddf74a1: OrderReceiptOutput(receipt='order order-1: 59.97 USD')
-geo geo-499c1040-c7e3-4538-b124-047db6f5aa2c: GeoEnrichmentOutput(ip='<ip>', location='<city>')
+geo geo-499c1040-c7e3-4538-b124-047db6f5aa2c: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy')
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
@@ -469,8 +470,8 @@ This block keeps only the `MainThread` stack from the capture.
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-Process 2597040: <repo>/.venv/bin/python worker.py
-Python v3.14.3 (<home>/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/bin/python3.14)
+Process 2597040: /home/ziggy/temporal-async-debug/.venv/bin/python worker.py
+Python v3.14.3 (/home/ziggy/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/bin/python3.14)
 
 Thread 2597040 (idle): "MainThread"
     EpollSelector.select (selectors.py:452)

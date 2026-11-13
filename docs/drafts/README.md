@@ -27,7 +27,7 @@ Each part links to the next with a TODO placeholder until the series has a venue
 `smell-reports.md` is the review file for Mason.
 It holds one section per artifact: the six exercise READMEs, the primer, the seven parts, and the root README.
 Each section lists the suspect items with the verbatim quote and the rule it may break.
-Each older open question now ends in a `Build decision:` line, and the two open `CLAUDE_HELP` questions sit in the exercise 06 README.
+Each older open question now ends in a `Build decision:` line, and no file holds an open `CLAUDE_HELP` question.
 Mason reads it before merging the scaffold branch, because nothing here publishes without that review.
 
 ## tutorial-original-draft.md

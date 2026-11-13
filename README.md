@@ -181,9 +181,11 @@ These are the only edits made to the captures:
 - `py-spy dump` excerpts omit the three idle pool threads.
 - The receipt Event History excerpt keeps the first seven events of 26.
 - The Worker log excerpt drops the terminal color codes (ANSI escapes) from the lines it keeps.
-- `<ip>`, `<city>`, `<repo>`, and `<home>` replace the capture machine's public IP address, city, and paths.
+- `ziggy`, `256.256.256.256`, and `Milky Way Galaxy` are stand-ins for the user name, public IP address, and location of the capture machine.
+  The user name appears in the `top` USER column and in paths under `/home/ziggy`.
+  Your own output shows your own values.
 
-Apart from those placeholders, no number, name, or message inside a quoted line was changed.
+Apart from those stand-ins, no number, name, or message inside a quoted line was changed.
 
 ## Lesson 1: a healthy Worker
 
@@ -193,8 +195,8 @@ Every run completes, and this is the full output:
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-geo geo-74813b62-3f00-4d30-9377-d54f8236a39d: GeoEnrichmentOutput(ip='<ip>', location='<city>')
-geo geo-4f15bc80-6e64-4f1b-a373-ab3c4f6ba7b8: GeoEnrichmentOutput(ip='<ip>', location='<city>')
+geo geo-74813b62-3f00-4d30-9377-d54f8236a39d: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy')
+geo geo-4f15bc80-6e64-4f1b-a373-ab3c4f6ba7b8: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy')
 receipt receipt-cca1bdc1-70f9-4314-b898-6cd5d0daf537: OrderReceiptOutput(receipt='order order-0: 59.97 USD')
 receipt receipt-a44f7d50-276b-4a16-a83a-6a80661b9a68: OrderReceiptOutput(receipt='order order-1: 59.97 USD')
 receipt receipt-7a2ad40d-52b4-4cda-81bc-13482b78af8a: OrderReceiptOutput(receipt='order order-2: 59.97 USD')
@@ -358,8 +360,8 @@ This is the dump from the same freeze:
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-Process 2541958: <repo>/.venv/bin/python -m temporal_async_debug.worker
-Python v3.14.3 (<home>/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/bin/python3.14)
+Process 2541958: /home/ziggy/temporal-async-debug/.venv/bin/python -m temporal_async_debug.worker
+Python v3.14.3 (/home/ziggy/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/bin/python3.14)
 
 Thread 2541958 (idle): "MainThread"
     _apply_mode (temporal_async_debug/activities.py:121)
@@ -405,7 +407,7 @@ It read 1.2 for the same moment, which agrees:
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
     PID %CPU STAT     ELAPSED CMD
-2541958  1.2 SNl        01:21 <repo>/.venv/bin/python -m temporal_async_debug.worker
+2541958  1.2 SNl        01:21 /home/ziggy/temporal-async-debug/.venv/bin/python -m temporal_async_debug.worker
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
@@ -446,10 +448,10 @@ This is the starter's output:
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
 rollup rollup-6a6b9770-857c-40ea-a40c-f5bc2cebc670 FAILED: Activity task timed out
-geo geo-9fc45420-7790-4618-88db-3950cfed0ae6: GeoEnrichmentOutput(ip='<ip>', location='<city>')
+geo geo-9fc45420-7790-4618-88db-3950cfed0ae6: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy')
 receipt receipt-6ff3f1aa-b9ea-4f1e-902f-4c25464d65f7: OrderReceiptOutput(receipt='order order-0: 59.97 USD')
 receipt receipt-930ebdbc-1230-49df-a5ec-76b98a18de66: OrderReceiptOutput(receipt='order order-1: 59.97 USD')
-geo geo-ec790305-9af6-490a-88ac-c1f473d13c72: GeoEnrichmentOutput(ip='<ip>', location='<city>')
+geo geo-ec790305-9af6-490a-88ac-c1f473d13c72: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy')
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
@@ -579,7 +581,7 @@ The `ps` snapshot from the same moment agrees: the state is `R`, where Lesson 2 
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
     PID %CPU STAT     ELAPSED CMD
-2541958  6.9 RNl        03:21 <repo>/.venv/bin/python -m temporal_async_debug.worker
+2541958  6.9 RNl        03:21 /home/ziggy/temporal-async-debug/.venv/bin/python -m temporal_async_debug.worker
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
@@ -623,10 +625,10 @@ The failure is the same as Lesson 2:
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
 rollup rollup-0b727f37-d63c-40a9-bfb3-79fee4c1f23b FAILED: Activity task timed out
-geo geo-a11c48e7-e25f-4d08-8cd1-5d58cd21c209: GeoEnrichmentOutput(ip='<ip>', location='<city>')
+geo geo-a11c48e7-e25f-4d08-8cd1-5d58cd21c209: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy')
 receipt receipt-a9560af2-06be-45ac-940f-565f321bcc55: OrderReceiptOutput(receipt='order order-0: 59.97 USD')
 receipt receipt-b43035b5-4630-4478-9c5f-1557d02ee123: OrderReceiptOutput(receipt='order order-1: 59.97 USD')
-geo geo-241d5529-8c0f-4b3a-a02b-a12a0cdcf848: GeoEnrichmentOutput(ip='<ip>', location='<city>')
+geo geo-241d5529-8c0f-4b3a-a02b-a12a0cdcf848: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy')
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->

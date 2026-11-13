@@ -66,7 +66,8 @@ uv run python starter.py --geo 3 --receipts 3 --rollups 0
 ```
 
 This is what the starter printed for the practice fleet in the capture of this exercise.
-In the capture, `<ip>`, `<city>`, `<repo>`, and `<home>` replace the address, city, and paths that appear in your own output.
+In the capture, `ziggy`, `256.256.256.256`, and `Milky Way Galaxy` are stand-ins for the user name, address, and location of the capture machine.
+Your own output shows your own values.
 
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
@@ -74,9 +75,9 @@ In the capture, `<ip>`, `<city>`, `<repo>`, and `<home>` replace the address, ci
 receipt receipt-afa2f200-1d9e-437b-bf7f-1f8cc2b395ec: OrderReceiptOutput(receipt='order order-0: 59.97 USD')
 receipt receipt-8a1ce51f-f349-4839-9faa-2600ade6eaaf: OrderReceiptOutput(receipt='order order-1: 59.97 USD')
 receipt receipt-ad4ab770-ea4b-4692-b6b9-041bcb022591: OrderReceiptOutput(receipt='order order-2: 59.97 USD')
-geo geo-36dd0c85-ee65-4922-a98e-6f6274f85a41: GeoEnrichmentOutput(ip='<ip>', location='<city> (40000 audit records)')
-geo geo-d785f5d4-1c83-4aed-9180-2b4c34e7e152: GeoEnrichmentOutput(ip='<ip>', location='<city> (40000 audit records)')
-geo geo-39537558-30f3-4e1e-a7d5-250dee96bfe9: GeoEnrichmentOutput(ip='<ip>', location='<city> (40000 audit records)')
+geo geo-36dd0c85-ee65-4922-a98e-6f6274f85a41: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy (40000 audit records)')
+geo geo-d785f5d4-1c83-4aed-9180-2b4c34e7e152: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy (40000 audit records)')
+geo geo-39537558-30f3-4e1e-a7d5-250dee96bfe9: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy (40000 audit records)')
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
@@ -163,7 +164,7 @@ This capture keeps only the first one.
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-Executing <Task pending name='Task-37' coro=<_ActivityWorker._handle_start_activity_task() running at <repo>/.venv/lib/python3.14/site-packages/temporalio/worker/_activity.py:351> created at <home>/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/lib/python3.14/asyncio/tasks.py:395> took 0.397 seconds
+Executing <Task pending name='Task-37' coro=<_ActivityWorker._handle_start_activity_task() running at /home/ziggy/temporal-async-debug/.venv/lib/python3.14/site-packages/temporalio/worker/_activity.py:351> created at /home/ziggy/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/lib/python3.14/asyncio/tasks.py:395> took 0.397 seconds
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
@@ -198,8 +199,8 @@ This capture keeps only the `MainThread` stack.
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-Process 2798400: <repo>/.venv/bin/python worker.py
-Python v3.14.3 (<home>/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/bin/python3.14)
+Process 2798400: /home/ziggy/temporal-async-debug/.venv/bin/python worker.py
+Python v3.14.3 (/home/ziggy/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/bin/python3.14)
 
 Thread 2798400 (active): "MainThread"
     _archive_audit_trail (activities.py:182)
@@ -405,9 +406,9 @@ Every Workflow completes, as before.
 receipt receipt-ece12cfb-729c-4bda-9d78-dc7d274351a1: OrderReceiptOutput(receipt='order order-0: 59.97 USD')
 receipt receipt-db318a45-c83d-4ac6-8fe9-2485dd7e97e7: OrderReceiptOutput(receipt='order order-1: 59.97 USD')
 receipt receipt-462e1ffe-6347-4718-9950-b3e7cb61f2b2: OrderReceiptOutput(receipt='order order-2: 59.97 USD')
-geo geo-729d8515-b460-4b92-95e2-1ca18f88f14a: GeoEnrichmentOutput(ip='<ip>', location='<city> (40000 audit records)')
-geo geo-dbb7dcee-cf17-496e-a348-91e19d178aa1: GeoEnrichmentOutput(ip='<ip>', location='<city> (40000 audit records)')
-geo geo-126ac90f-d162-47ed-a2a4-322d4fccf6c0: GeoEnrichmentOutput(ip='<ip>', location='<city> (40000 audit records)')
+geo geo-729d8515-b460-4b92-95e2-1ca18f88f14a: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy (40000 audit records)')
+geo geo-dbb7dcee-cf17-496e-a348-91e19d178aa1: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy (40000 audit records)')
+geo geo-126ac90f-d162-47ed-a2a4-322d4fccf6c0: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy (40000 audit records)')
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
@@ -438,7 +439,7 @@ This capture keeps only the lines that start with `Executing` from the first sol
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-Executing <Task pending name='Task-1' coro=<main() running at <repo>/exercises/05-catching-blockers-early/solution/worker.py:118> wait_for=<Future pending cb=[<builtins.PyDoneCallback object at 0x73e399f43d30>(), Task.task_wakeup()] created at <home>/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/lib/python3.14/asyncio/base_events.py:459> cb=[_run_until_complete_cb() at <home>/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/lib/python3.14/asyncio/base_events.py:181] created at <home>/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/lib/python3.14/asyncio/runners.py:109> took 0.141 seconds
+Executing <Task pending name='Task-1' coro=<main() running at /home/ziggy/temporal-async-debug/exercises/05-catching-blockers-early/solution/worker.py:118> wait_for=<Future pending cb=[<builtins.PyDoneCallback object at 0x73e399f43d30>(), Task.task_wakeup()] created at /home/ziggy/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/lib/python3.14/asyncio/base_events.py:459> cb=[_run_until_complete_cb() at /home/ziggy/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/lib/python3.14/asyncio/base_events.py:181] created at /home/ziggy/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/lib/python3.14/asyncio/runners.py:109> took 0.141 seconds
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->

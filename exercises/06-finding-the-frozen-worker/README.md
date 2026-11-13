@@ -127,6 +127,11 @@ The slowest receipt in any bucket took 0.70 seconds.
 Neither Worker printed anything beyond its startup banner.
 This is the baseline: a fleet with nothing wrong in it.
 
+The healthy flood is also the rate check for your machine.
+If the slowest receipt in your own run took longer than about 1 second, lower the rate, for example with `--rate 5`.
+Run the healthy flood again at that rate, and pass the same `--rate` to the bad flood.
+A lower rate submits fewer receipts, so your counts are smaller than the ones quoted here.
+
 Before the bad flood, restart everything, as the rule at the top of this part says.
 Stop both Workers and the dev server, start `just server` again, and start both Workers as you did in steps 2 and 3.
 The restart gives each Worker a new PID, so note the two new PIDs.
@@ -346,15 +351,52 @@ This block keeps the three events of the bad run's `get_location` Activity from 
 <!-- vale on -->
 
 The Activity started at 16:55:15 and completed at 16:55:44, when the lock let go.
-In the capture's JSON, the `ActivityTaskStarted` event for `get_location` (event 12) carries identity `3193283`, the same identity that holds the timeouts.
-The healthy identity, `3193282`, started the bad run's Workflow Tasks (events 3, 9, and 15).
-So the bad run's first Workflow Task does not name the frozen Worker, and its `get_location` Activity does.
+The next block keeps two events of the capture's JSON output.
+Event 3 is the bad run's first `WorkflowTaskStarted`, and event 12 is the `ActivityTaskStarted` for `get_location`.
 
-<CLAUDE_HELP>
-The identity on the bad run's events comes from the capture's JSON history.
-That history has no masked copy, so this README states the identity and quotes no block.
-Decide whether to add a masked excerpt.
-</CLAUDE_HELP>
+<!-- vale off -->
+<!-- vale MasonBase.CodeLineLength = NO -->
+```json
+{
+  "eventId": "3",
+  "eventTime": "2026-11-11T16:55:14.574570668Z",
+  "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+  "taskId": "1055924",
+  "workflowTaskStartedEventAttributes": {
+    "scheduledEventId": "2",
+    "identity": "3193282@host",
+    "requestId": "b7fb9410-a483-478e-ab2d-29ae9b5943d6",
+    "historySizeBytes": "394",
+    "workerVersion": {
+      "buildId": "77f35c7e7c731eba4aa05e0be77bc3f4"
+    }
+  }
+},
+{
+  "eventId": "12",
+  "eventTime": "2026-11-11T16:55:15.300277909Z",
+  "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED",
+  "taskId": "1071809",
+  "activityTaskStartedEventAttributes": {
+    "scheduledEventId": "11",
+    "identity": "3193283@host",
+    "requestId": "870540ef-11d2-4224-bd25-3f24c50018a7",
+    "attempt": 1,
+    "workerVersion": {
+      "buildId": "77f35c7e7c731eba4aa05e0be77bc3f4"
+    }
+  }
+}
+```
+<!-- vale MasonBase.CodeLineLength = YES -->
+<!-- vale on -->
+
+Event 12 carries identity `3193283@host`, the same identity that holds the timeouts.
+Event 3 carries the healthy identity, `3193282@host`.
+In this capture, the healthy identity also started the bad run's other two Workflow Tasks (events 9 and 15).
+A later flood, on 2026-11-13, went the other way: the Worker that froze had started events 3 and 9 first.
+So a Workflow Task of the bad run can carry either identity.
+Only the `ActivityTaskStarted` event for `get_location` names the Worker that froze.
 
 ### Step 3: Read the process
 
@@ -524,18 +566,23 @@ This is one run, so treat each row as what happened here and not as a rule.
 | Metrics endpoints | The frozen Worker answered in 1.8, 1.5, 1.5, and 2.8 milliseconds. The healthy Worker answered in 1.1, 1.6, 6.0, and 35.1 milliseconds. | No. Both answered in milliseconds. |
 | Slot gauges, per Worker | The frozen Worker's `WorkflowWorker` gauge read 13, 21, 74, and 95 slots in use. The healthy Worker's read 0, 1, 1, and 5. The `ActivityWorker` gauge read 2, 2, 2, 2 and 0, 0, 1, 3. | The `WorkflowWorker` gauge did. The `ActivityWorker` gauge did not. |
 | `receipt_gaps.py` without `--by-identity` | One line for each of 523 receipts, with no identity. 79 receipts had a first Workflow Task of 9 seconds or more. No line marks a failure. 14 of the 21 failed receipts print no Activity. | No. `--by-identity` did. |
-| Web UI | The capture saved the JSON that the Task Queue page reads. It did not open the rendered Task Queue or Workers pages. In that JSON, the two identities' last access times were 0.1 seconds apart at the first reading. They were 6.5 seconds apart at the last. | Only at the last reading, and only in the saved JSON. |
+| Web UI | Two later floods, on 2026-11-13, opened the rendered pages of Web UI 2.45.3. The Task Queue page listed both identities at every reading, each with a check under **Workflow Task Handler** and **Activity Handler**. Only **Last Accessed** changed. In the later of the two, the times were at most 0.14 seconds apart at about 5, 10, and 16 seconds into the freeze. At about 23 and 28 seconds, the frozen identity's time was 6.1 and 11.8 seconds behind. The bad run's **Pending Activities** tab read `Started` for `get_location`, with **Last Worker Identity** `3785696@host`, the frozen Worker. | In part. **Last Accessed** fell behind only late in the freeze. The **Pending Activities** tab named the frozen Worker at each of its four readings, but only on the bad run's page. |
 | Dashboard | Only the per-Worker panel separated the two Workers. The next paragraphs describe the other four panels. | One panel did. |
 | Worker log | The frozen Worker printed 95 `Task not found when completing` lines and 82 `TMPRL1104` lines at the thaw. The healthy Worker printed none. | Yes, but only after the thaw. |
 
-<CLAUDE_HELP>
-The Web UI row reports saved API JSON, because the capture has no rendered Task Queue or Workers page.
-Take a screenshot of both pages during a freeze, or keep the row as it stands.
-</CLAUDE_HELP>
+The Web UI row comes from those two later floods, which had their own PIDs.
+Every other row comes from the capture.
+Web UI 2.45.3 has no Workers page for the Namespace.
+Its Worker list is on the Task Queue page, at http://localhost:8233/namespaces/default/task-queues/async-debug-task-queue.
+The same list is on the **Workers** tab of a Workflow Execution.
+In the later of the two, the frozen identity's **Last Accessed** time stopped 16 seconds into the freeze.
+It moved again after the thaw, when the two times were 0.04 seconds apart.
+In the earlier one, the frozen identity's time was 5.6 seconds behind at 21 seconds into the freeze.
+The Task Queue page has no label for a frozen Worker, so a late **Last Accessed** time is the only sign that page gives.
 
 Four tools separated the Workers in this capture: `py-spy dump`, the helper's `--by-identity` view, the per-Worker panel, and, after the thaw, the Worker log.
 `top`, the metrics endpoints, the `ActivityWorker` gauge, the other four dashboard panels, and the helper without `--by-identity` did not.
-`asyncio ps`, `temporal task-queue describe`, and the Web UI JSON did so only part of the time.
+`asyncio ps`, `temporal task-queue describe`, and the Web UI did so only part of the time.
 CPU is the plainest case.
 Both Workers read 0.0 percent in `top` at the first reading.
 The busy Worker was the healthy one.

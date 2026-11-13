@@ -115,7 +115,8 @@ kernel.yama.ptrace_scope = 0
 <!-- vale on -->
 
 With the value at 0, the same `py-spy` command attaches to the same Worker.
-In the captures of this part, `<repo>`, `<home>`, `<ip>`, `<city>`, and `host` replace the paths, address, city, and hostname that appear in your own output.
+In the captures of this part, `ziggy`, `256.256.256.256`, `Milky Way Galaxy`, and `host` are stand-ins for the user name, address, location, and hostname of the capture machine.
+Your own output shows your own values.
 The block is the whole capture file.
 
 <!-- vale off -->
@@ -124,8 +125,8 @@ The block is the whole capture file.
 $ cat /proc/sys/kernel/yama/ptrace_scope
 0
 $ uvx py-spy dump --pid 2542562
-Process 2542562: <repo>/.venv/bin/python -m temporal_async_debug.worker
-Python v3.14.3 (<home>/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/bin/python3.14)
+Process 2542562: /home/ziggy/temporal-async-debug/.venv/bin/python -m temporal_async_debug.worker
+Python v3.14.3 (/home/ziggy/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/bin/python3.14)
 
 Thread 2542562 (idle): "MainThread"
     EpollSelector.select (selectors.py:452)
@@ -276,8 +277,8 @@ This capture drops the first line, which is the command echo, and keeps the six 
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-geo geo-74813b62-3f00-4d30-9377-d54f8236a39d: GeoEnrichmentOutput(ip='<ip>', location='<city>')
-geo geo-4f15bc80-6e64-4f1b-a373-ab3c4f6ba7b8: GeoEnrichmentOutput(ip='<ip>', location='<city>')
+geo geo-74813b62-3f00-4d30-9377-d54f8236a39d: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy')
+geo geo-4f15bc80-6e64-4f1b-a373-ab3c4f6ba7b8: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy')
 receipt receipt-cca1bdc1-70f9-4314-b898-6cd5d0daf537: OrderReceiptOutput(receipt='order order-0: 59.97 USD')
 receipt receipt-a44f7d50-276b-4a16-a83a-6a80661b9a68: OrderReceiptOutput(receipt='order order-1: 59.97 USD')
 receipt receipt-7a2ad40d-52b4-4cda-81bc-13482b78af8a: OrderReceiptOutput(receipt='order order-2: 59.97 USD')

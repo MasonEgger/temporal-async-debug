@@ -19,8 +19,11 @@ The repository is public.
 No committed file (code, prose, `.ai-sessions/` records, commit messages) may name a customer, a real or invented company, a namespace, a ticket number, or a specific field use case.
 None may name an internal system, an internal document, or internal training or course material, course codes and runbooks included.
 Field evidence is summarized in aggregate only, as in `.ai-sessions/research-20261109-field-evidence.md`, without saying where it was gathered; raw research notes stay outside the repository.
-Quoted captures mask the capture machine: an identity reads `PID@host`, and `<ip>`, `<city>`, `<repo>`, and `<home>` replace its public IP address, place name, and paths.
-No committed file names the capture machine's hostname.
+Quoted captures use stand-ins for the capture machine: the user is `ziggy`, the location is `Milky Way Galaxy`, the public IP address is `256.256.256.256`, paths read `/home/ziggy` and `/home/ziggy/temporal-async-debug`, and an identity reads `PID@host`.
+A stand-in for any other place or address is fictional too.
+The stand-ins belong to prose only: the code obfuscates nothing when a reader runs it.
+No quoted capture, and no prose around one, names the capture machine's hostname, user name, public IP address, or location.
+Tooling paths are the one exception: `.vale.ini`, the `justfile`, `spec.md`, `plan.md`, and older `.ai-sessions/` records hold the owner's user name in a path.
 
 ## Layout
 
@@ -41,7 +44,7 @@ The repository has four layers:
   `prometheus.yml` scrapes three targets: the Worker on 9464, the dev server on 9465, and a second Worker on 9466, which reads as down when none runs.
   The dashboard has seven panels; panel 7, Workflow Task Slots Used Per Worker, draws one line per Worker.
 
-Other directories: `docs/drafts/` holds the seven-part series drafts, the optional unnumbered `event-loop-primer.md` (a Diataxis explanation page read before part 1), `smell-reports.md` (the voice:teaching smell reports, with each older open question closed as a `Build decision:` line), and the provenance draft `tutorial-original-draft.md`; `docs/images/` holds the Grafana captures.
+Other directories: `docs/drafts/` holds the seven-part series drafts, the optional unnumbered `event-loop-primer.md` (a Diataxis explanation page read before part 1), `smell-reports.md` (the voice:teaching smell reports, with each older open question closed as a `Build decision:` line), and the provenance draft `tutorial-original-draft.md`; `docs/images/` holds the Grafana captures that a Markdown file references, and no others.
 After Step 1 of the plan, the root package stays frozen: new code lands under `exercises/`, `scripts/`, or `observability/`.
 
 ## Antipattern marker convention
@@ -196,7 +199,12 @@ Exercise facts from the rework captures (the exercise READMEs quote them):
   In the flood of record the starter printed `receipts submitted=523 failed=21`, and `just receipt-gaps --limit 600 --by-identity --summary` gave one identity 82 Workflow Task timeouts and a largest WT1 of 29199 ms, and the other 0 timeouts and 977 ms.
   A `WorkflowTaskTimedOut` event carries no identity, so the helper gives it to the identity on the `WorkflowTaskStarted` that shares its scheduled event id.
   `py-spy dump`, the `--by-identity` view, the per-Worker panel, and (after the thaw) the Worker log separated the two Workers; `top`, the metrics endpoints, the `ActivityWorker` slot gauge, and the fleet-wide dashboard panels did not.
-  The README keeps two open `CLAUDE_HELP` questions for Mason.
+  A Workflow Task of the bad run can carry either identity; only the `ActivityTaskStarted` event for `get_location` named the frozen Worker in all three bad floods (the flood of record and two on 2026-11-13).
+  The Web UI row comes from the two 2026-11-13 floods, read on the rendered pages of Web UI 2.45.3, which has no Workers page for the Namespace.
+  On the Task Queue page the frozen identity's **Last Accessed** time fell behind only late in the freeze (6.1 and 11.8 seconds behind at about 23 and 28 seconds in the later flood).
+  The bad run's **Pending Activities** tab named the frozen Worker under **Last Worker Identity** at each of its four readings.
+  No capture establishes why **Last Accessed** stops, so prose states the readings and no cause.
+  The README holds no open `CLAUDE_HELP` question.
 
 `spec.md`'s Behavior Requirements section spells out what each mode must produce; where the captured output quoted in README.md and the exercise READMEs disagrees with spec.md or plan.md, the captures win.
 `README.md` is the tutorial companion with captured output for the three lessons, an Exercises table, a blocked-event-loop recognition section, and an Observability section.

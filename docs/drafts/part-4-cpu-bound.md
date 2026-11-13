@@ -60,16 +60,18 @@ The `--bad 1` option gives one geo run the large hashing job.
 The job takes about 25 to 30 seconds on the machine that made the capture.
 The time scales with the speed of your CPU, so yours can differ.
 This is the output from the capture of this exercise.
-In the capture, `<repo>`, `<home>`, `host`, `<ip>`, and `<city>` replace the paths, hostname, address, and city that appear in your own output.
+In the capture, `ziggy`, `256.256.256.256`, `Milky Way Galaxy`, and `host` are stand-ins for the user name, address, location, and hostname of the capture machine.
+Your own output shows your own values.
+The digests in parentheses are the ones `get_location` computes for the text `Milky Way Galaxy`.
 
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
 rollup rollup-a318bbd3-dd9e-424b-9d12-4ed37772c0d2 FAILED: Activity task timed out
-geo geo-1073bc5c-7691-420c-a02d-bb2935006248: GeoEnrichmentOutput(ip='<ip>', location='<city> (80bb60a0)')
+geo geo-1073bc5c-7691-420c-a02d-bb2935006248: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy (80bb60a0)')
 receipt receipt-badf2910-5ee2-4b0f-a118-ac2433029c1d: OrderReceiptOutput(receipt='order order-0: 59.97 USD')
 receipt receipt-aad5961f-e57e-4096-93c7-aab6789bc56f: OrderReceiptOutput(receipt='order order-1: 59.97 USD')
-geo geo-66bccc79-42f1-4c89-8040-50b1d269399f: GeoEnrichmentOutput(ip='<ip>', location='<city> (0a547457)')
+geo geo-66bccc79-42f1-4c89-8040-50b1d269399f: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy (0a547457)')
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
@@ -172,8 +174,8 @@ It keeps only the `MainThread` stack.
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-Process 3333484: <repo>/.venv/bin/python worker.py
-Python v3.14.3 (<home>/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/bin/python3.14)
+Process 3333484: /home/ziggy/temporal-async-debug/.venv/bin/python worker.py
+Python v3.14.3 (/home/ziggy/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/bin/python3.14)
 
 Thread 3333484 (active+gil): "MainThread"
     _stretch_digest (activities.py:119)
@@ -395,10 +397,10 @@ Every Workflow completes, including the rollup.
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
 rollup rollup-19d1e4e0-0586-4e89-bf67-6250a044f00d: SalesRollupOutput(summary='Sales rollup for 2026-01: total 6030')
-geo geo-2c45a01b-eb0c-48fa-aa32-50c3737f09d0: GeoEnrichmentOutput(ip='<ip>', location='<city> (80bb60a0)')
+geo geo-2c45a01b-eb0c-48fa-aa32-50c3737f09d0: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy (80bb60a0)')
 receipt receipt-a95a7bcd-eb87-4a25-a704-8670153f629f: OrderReceiptOutput(receipt='order order-0: 59.97 USD')
 receipt receipt-d79f1c1a-58a6-40e9-9851-6d6b280b06f3: OrderReceiptOutput(receipt='order order-1: 59.97 USD')
-geo geo-6f151c04-4113-47fb-83be-842fed0df268: GeoEnrichmentOutput(ip='<ip>', location='<city> (0a547457)')
+geo geo-6f151c04-4113-47fb-83be-842fed0df268: GeoEnrichmentOutput(ip='256.256.256.256', location='Milky Way Galaxy (0a547457)')
 ```
 <!-- vale MasonBase.CodeLineLength = YES -->
 <!-- vale on -->
@@ -414,8 +416,8 @@ This block comes from a later capture of the solution copy, and it keeps only th
 <!-- vale off -->
 <!-- vale MasonBase.CodeLineLength = NO -->
 ```text
-Process 3336556: <repo>/.venv/bin/python worker.py
-Python v3.14.3 (<home>/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/bin/python3.14)
+Process 3336556: /home/ziggy/temporal-async-debug/.venv/bin/python worker.py
+Python v3.14.3 (/home/ziggy/.local/share/uv/python/cpython-3.14.3-linux-x86_64-gnu/bin/python3.14)
 
 Thread 3336556 (idle): "MainThread"
     EpollSelector.select (selectors.py:452)
